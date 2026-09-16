@@ -5,6 +5,9 @@ import { THEORIES_C } from "./theories-c";
 import { SCENARIOS_C } from "./scenarios-c";
 import { CASES_C } from "./cases-c";
 import { CASES as CASES_BASE } from "./cases";
+import { LOVE_SCENARIOS } from "./love-scenarios";
+import { LOVE_THEORIES } from "./love-theories";
+import { LOVE_CASES } from "./love-cases";
 import type { Case, Character, Scenario, Theory } from "./types";
 import { L } from "../taxonomy";
 
@@ -56,6 +59,17 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "public-transport-seat": L("乘客", "Passenger"),
   "gratitude-to-mentor": L("学员", "Mentee"),
   "roommate-guest-boundary": L("室友", "Roommate"),
+  // love module (romantic)
+  "love-approach-cafe": L("想搭话的人", "The one who wants to approach"),
+  "love-define-relationship": L("想把关系说清楚的人", "The one asking where this is going"),
+  "love-confession-declined": L("表白被拒的人", "The one who confessed and heard no"),
+  "love-receive-confession": L("收到表白的人", "The one receiving a confession"),
+  "love-breakup-talk": L("决定结束关系的人", "The one ending the relationship"),
+  "love-boundary-with-ex": L("和前任划清边界的人", "The one drawing boundaries with an ex"),
+  "love-long-distance": L("异地的伴侣", "The long-distance partner"),
+  "love-meet-parents": L("第一次见家长的人", "The one meeting the family"),
+  "love-uneven-investment": L("付出更多的一方", "The one investing more"),
+  "love-trust-repair": L("隐瞒被揭穿的人", "The one whose secret came out"),
 };
 
 /** Every corpus scenario gets an explicit, playable "you" character so scheduling, role-play and reports share one id. */
@@ -74,9 +88,9 @@ export function withLearner(s: Scenario): Scenario {
   return { ...s, characters: [you, ...s.characters] };
 }
 
-export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C].map(withLearner);
-export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C];
-export const CASES: Case[] = [...CASES_BASE, ...CASES_C];
+export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...LOVE_SCENARIOS].map(withLearner);
+export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C, ...LOVE_THEORIES];
+export const CASES: Case[] = [...CASES_BASE, ...CASES_C, ...LOVE_CASES];
 export type { Case, Scenario, Theory };
 
 export const scenarioById = (id: string) => SCENARIOS.find((s) => s.id === id);

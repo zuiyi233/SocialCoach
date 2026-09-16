@@ -1,4 +1,5 @@
 import type { CompetencyId, ContextId, L, RelationshipType, SkillId } from "../taxonomy";
+import type { LoveTopicId } from "./love-topics";
 
 /** Character participating in a practical scenario. */
 export interface Character {
@@ -46,6 +47,8 @@ export interface Scenario {
   /** Traceable source that inspired the scenario. */
   source: string;
   keywords: string[];
+  /** Romance-track topic; only set for scenarios in the romantic context (love module). */
+  loveTopic?: LoveTopicId;
   /** Set for scenarios the user generated with /rehearse. */
   custom?: boolean;
 }
@@ -60,6 +63,8 @@ export interface Theory {
   competencies: CompetencyId[];
   skills: SkillId[];
   keywords: string[];
+  /** Romance-track topic; set for theories in the love module so debrief knowledge retrieval can match by topic. */
+  loveTopic?: LoveTopicId;
 }
 
 /** Illustrative Case (K_c): the "how" layer. */
@@ -74,4 +79,6 @@ export interface Case {
   skills: SkillId[];
   context: ContextId;
   keywords: string[];
+  /** Romance-track topic; set for cases in the love module. */
+  loveTopic?: LoveTopicId;
 }

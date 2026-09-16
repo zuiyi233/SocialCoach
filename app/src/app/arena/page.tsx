@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, ArrowRight, ArrowUpRight, ChevronDown, Clock3, PenLine, SlidersHorizontal, X } from "lucide-react";
+import { Search, ArrowRight, ArrowUpRight, ChevronDown, Clock3, PenLine, SlidersHorizontal, X, Heart } from "lucide-react";
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
 import { Button, Chip, Empty, IconButton, Page } from "@/components/ui";
@@ -91,14 +91,23 @@ export default function Arena() {
             <h1 className="display text-[29px] md:text-[34px] lg:text-[38px] leading-tight">{t(lang, "arena_heading")}</h1>
             <p className="text-[14px] text-ink-3 mt-3 max-w-[var(--measure)]">{t(lang, "arena_sub", { n: all.length })}</p>
           </div>
-          <Link
-            href="/rehearse"
-            className="press inline-flex items-center gap-2 min-h-11 rounded-full border border-line-strong px-4 text-[13px] font-medium hover:bg-inset"
-          >
-            <PenLine size={16} />
-            {t(lang, "rh_title")}
-            <ArrowUpRight size={15} />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/love"
+              className="press inline-flex items-center gap-2 min-h-11 rounded-full border border-line-strong px-4 text-[13px] font-medium hover:bg-inset"
+            >
+              <Heart size={16} />
+              {t(lang, "nav_love")}
+            </Link>
+            <Link
+              href="/rehearse"
+              className="press inline-flex items-center gap-2 min-h-11 rounded-full border border-line-strong px-4 text-[13px] font-medium hover:bg-inset"
+            >
+              <PenLine size={16} />
+              {t(lang, "rh_title")}
+              <ArrowUpRight size={15} />
+            </Link>
+          </div>
         </header>
 
         <section aria-label={t(lang, "arena_search_ph")} className="flex flex-col gap-4">

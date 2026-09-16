@@ -637,6 +637,7 @@ export const SCENARIOS_C: Scenario[] = [
     },
     source: practiceSource("pause"),
     keywords: ["伴侣", "独处", "精力", "边界", "partner", "alone time", "reconnect"],
+    loveTopic: "boundary",
   },
   {
     id: "async-message-misread",

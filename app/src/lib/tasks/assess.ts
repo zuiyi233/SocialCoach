@@ -61,6 +61,7 @@ export async function runAssess(input: AssessInput, llm: LLM, smartModel: string
   const kb = retrieveKnowledge({
     skills: [...scenario.skills, ...(scenario.relatedSkills ?? []), ...goals],
     context: scenario.context,
+    loveTopic: scenario.loveTopic,
     query: `${scenario.keywords.join(" ")} ${learnerText.slice(0, 400)}`,
     acquisition: true,
     performance: true,

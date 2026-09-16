@@ -1,5 +1,6 @@
 import { SCENARIOS, THEORIES, CASES } from "@/data/corpus";
 import type { Case, Scenario, Theory } from "@/data/corpus/types";
+import type { LoveTopicId } from "@/data/corpus/love-topics";
 import type { ContextId, SkillId } from "@/data/taxonomy";
 import { skillById } from "@/data/taxonomy";
 import type { Prescription, RetrievalTrace } from "./types";
@@ -94,23 +95,23 @@ export function retrieveKnowledge(opts: {
   query: string;
   acquisition: boolean;
   performance: boolean;
+  /** Romance-track topic: boosts theories/cases about the same love topic so love practice gets love-flavored knowledge. */
+  loveTopic?: LoveTopicId;
 }): { theories: Theory[]; cases: Case[] } {
-  const rank = <T extends { skills: SkillId[]; keywords: string[]; competencies: string[] }>(items: T[], text: (t: T) => string[]) =>
+  const rank = <T extends { skills: SkillId[]; keywords: string[]; competencies: string[]; loveTopic?: LoveTopicId }>(items: T[], text: (t: T) => string[]) =>
     items
       .map((t) => {
         const skill = opts.skills.filter((k) => t.skills.includes(k)).length * 2;
+        const love = opts.loveTopic && t.loveTopic === opts.loveTopic ? 3 : 0;
         const lex = lexicalScore(opts.query, [...text(t), ...t.keywords]) * 3;
-        return { t, score: skill + lex };
+        return { t, score: skill + love + lex };
       })
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .map((x) => x.t);
 
   const theories = rank(THEORIES, (t) => [t.title.en, t.principle.en]).slice(0, opts.acquisition ? 3 : 2);
-  const cases = rank(
-    CASES.filter((c) => c.context === opts.context || true),
-    (c) => [c.title.en, c.situation.en, c.takeaway.en],
-  )
+  const cases = rank(CASES, (c) => [c.title.en, c.situation.en, c.takeaway.en])
     .sort((a, b) => (a.context === opts.context ? -1 : 0) - (b.context === opts.context ? -1 : 0))
     .slice(0, opts.performance ? 3 : 2);
   return { theories, cases };

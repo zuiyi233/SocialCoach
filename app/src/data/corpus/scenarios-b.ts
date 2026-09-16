@@ -245,6 +245,7 @@ export const SCENARIOS_B: Scenario[] = [
     opening: { characterId: "elena", text: L("……菜单挺长的，哈。你平时也常来这种地方吗？", "...Long menu, ha. Do you come to places like this a lot?") },
     source: "How to Win Friends and Influence People (Carnegie); Aron's 36 questions",
     keywords: ["date", "small talk", "silence", "curiosity", "rapport", "vulnerability"],
+    loveTopic: "approach",
   },
   {
     id: "partner-forgot-anniversary",
@@ -275,6 +276,7 @@ export const SCENARIOS_B: Scenario[] = [
     opening: { characterId: "riley", text: L("……天，今天是。我是个混蛋，对不起，对不起。我们现在出去？还来得及吗？", "...Oh no. It's today. I'm an idiot, I'm so sorry. Let's go out right now — is it too late?") },
     source: "The Seven Principles for Making Marriage Work (Gottman); Hold Me Tight (Johnson)",
     keywords: ["anniversary", "hurt", "partner", "repair", "feelings", "forgiveness"],
+    loveTopic: "trust",
   },
   {
     id: "saying-i-love-you",
@@ -305,6 +307,7 @@ export const SCENARIOS_B: Scenario[] = [
     opening: { characterId: "jamie", text: L("这里风好舒服。你今天有点安静，在想什么？", "The breeze up here is lovely. You've been quiet tonight. What's on your mind?") },
     source: "Hold Me Tight (Johnson); Daring Greatly (Brown)",
     keywords: ["love", "vulnerability", "confession", "romantic", "courage"],
+    loveTopic: "define-relationship",
   },
   {
     id: "neighbor-noise",

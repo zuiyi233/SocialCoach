@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import { Sun, Drama, Sprout, BookOpen, CircleUser, PenLine, ArrowUpRight, HardDrive } from "lucide-react";
+import { Sun, Drama, Sprout, BookOpen, CircleUser, PenLine, ArrowUpRight, HardDrive, Heart } from "lucide-react";
 import { BrandMark } from "./BrandMark";
 import { useLang } from "@/store/useApp";
 import { t } from "@/lib/i18n";
@@ -10,6 +10,7 @@ import { t } from "@/lib/i18n";
 const tabs = [
   { href: "/", key: "nav_home", Icon: Sun },
   { href: "/arena", key: "nav_arena", Icon: Drama },
+  { href: "/love", key: "nav_love", Icon: Heart },
   { href: "/progress", key: "nav_progress", Icon: Sprout },
   { href: "/learn", key: "nav_learn", Icon: BookOpen },
   { href: "/settings", key: "nav_me", Icon: CircleUser },
@@ -26,13 +27,13 @@ export function TabBar() {
   const lang = useLang();
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[var(--col)] md:max-w-[40rem] z-30 bg-paper border-t border-line pb-safe lg:hidden" aria-label={t(lang, "nav_label")}>
-      <ul className="grid grid-cols-5 h-[60px]">
+      <ul className="grid grid-cols-6 h-[60px]">
         {tabs.map(({ href, key, Icon }) => {
           const active = isActive(href);
           return (
             <li key={href} className="flex">
               <Link href={href} aria-current={active ? "page" : undefined} className={clsx("press flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium", active ? "text-accent-deep" : "text-ink-3")}>
-                <span className={clsx("rounded-full px-4 py-1", active && "bg-accent-soft")}><Icon size={20} strokeWidth={active ? 2.2 : 1.7} /></span>
+                <span className={clsx("rounded-full px-3 py-1", active && "bg-accent-soft")}><Icon size={20} strokeWidth={active ? 2.2 : 1.7} /></span>
                 <span>{t(lang, key)}</span>
               </Link>
             </li>
@@ -43,7 +44,7 @@ export function TabBar() {
   );
 }
 
-/** Desktop nav: the same five destinations, stood up along the left edge of the sheet. */
+/** Desktop nav: the same six destinations, stood up along the left edge of the sheet. */
 export function NavRail() {
   const isActive = useIsActive();
   const lang = useLang();

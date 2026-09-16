@@ -1,8 +1,8 @@
 # 恋爱独立模块设计（spec）
 
-> 状态：**规划完成，待实施**（语料与页面代码均未动）
+> 状态：**首批已实施**（2026-09-17，实施记录见[第九节](#九实施记录2026-09-17)）
 > 日期：2026-09-17　|　素材来源：[goutoujunshi-skill.md](../refs/goutoujunshi-skill.md)
-> 关联：本项目 wiki 编号方案 0x=战略/架构、1x=阶段；本模块属 Stage B 之后的独立功能线，实现后同步 `01-project-roadmap.md`。
+> 关联：本项目 wiki 编号方案 0x=战略/架构、1x=阶段；本模块属 Stage B 之后的独立功能线。
 
 ## 一、背景与目标
 
@@ -130,3 +130,24 @@ skills 字段 1–3 个、按重要度排序，competencies 由 `skillById` 反�
 - 不收录无学术出处的 14 篇 mindmap 话术手册为理论条目；不收录时效性法律/统计内容（见 refs 集成原则）
 - 操控识别类只作"识别/防御"立场，安全红线（家暴/自伤/诈骗）标注转介，不越"不做临床评估与危机干预"边界
 - 不引入账号体系 / 服务端存储；不复制恋爱军师 skill 文件进仓库（只提取语料）
+
+## 九、实施记录（2026-09-17）
+
+**状态**：首批全部落地并通过验证（`pnpm lint` / `npx tsx scripts/check-corpus.ts` / `pnpm build` 全通过；独立审查 0 个 P0/P1）。
+
+**与本文档的差异（实现时的合理修正）**：
+1. `LoveTopicId` / `LOVE_TOPICS` 定义在 `app/src/data/corpus/love-topics.ts`（而非 5.5 写的 love-scenarios.ts）——避免 types.ts ↔ love-scenarios.ts 循环 import
+2. **Theory / Case 也加了可选 `loveTopic` 字段**（5.5 只写了场景）——补偿①的检索加权需要理论/案例可标注主题
+3. `CONTEXTS.romantic.types` 扩到 **8 个**（比 3→7 多一个"见家长"）——love-meet-parents 场景需要独立细类
+4. 旧 4 个 romantic 场景（first-date-silence 等）补了 loveTopic，与新场景一起进入恋爱模块
+5. loveProficiency 单场 gain 设上限 **0.4**（求和后 clamp 到 [1,5]），避免一场复盘把主题条拉满
+
+**实际落地**：
+- 语料：10 场景 + 10 理论 + 4 案例（id 与第五节清单一致）；hidden 覆盖 10/10；source 以真实出处为主（Eastwick et al. 2023 / Luo & Zhang 2009 / Gottman / Candel & Turliuc 2013 / Joel et al. 2020 / Ribeiro et al. 2020 / Seraj et al. 2021 / Miller 等，核对自恋爱军师各篇"核心来源"），5 条无学术出处者显式标 `Goutoujunshi skill (community practice)`
+- `/love` 路由：主题引导（8 主题 chips）+ 熟练度条（role="meter"）+ 练习统计（含自定义场景，从 session 快照统计）+ 「下次练这个」推荐（熟练度最低的未练主题）+ 场景/理论/案例列表
+- Shell 第 6 Tab（移动端 grid-cols-6，图标内边距 px-4→px-3 适配窄屏）、arena 顶部恋爱快捷入口
+- loveProficiency：zustand persist `partialize` 显式列入（allow-list）、reset 清空、与 proficiency 共用 allowed 白名单口径
+- 校验：check-corpus 新增 love 断言（loveTopic 必填、love 检索回归、无 url 的 source 必须 book+author）；next 16.3.4→16.3.5（安全补丁）
+- 依赖：新增 `app/src/data/corpus/love-*.ts` 三文件 + index.ts 合并
+
+**遗留（下一批语料）**：`long-distance`、`family` 两个主题只有场景、无同主题理论/案例 → `retrieveKnowledge` 的 +3 加权对这两个主题不触发（退化为 skills/lex 检索）。已挂 [85-backlog.md](../85-backlog.md)。

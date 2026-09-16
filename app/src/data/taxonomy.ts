@@ -191,7 +191,7 @@ export const CONTEXTS: ContextCategory[] = [
   { id: "workplace", name: L("职场", "Workplace"), glyph: "🏢", types: [L("办公室", "Office"), L("会议", "Meetings"), L("面试", "Job interviews"), L("专业协作", "Professional collaboration")] },
   { id: "family", name: L("家庭", "Family"), glyph: "🏠", types: [L("亲子", "Parent-child"), L("兄弟姐妹", "Siblings"), L("家庭日常", "Home interactions"), L("伴侣", "Spouse")] },
   { id: "friendship", name: L("友情", "Friendship"), glyph: "☕", types: [L("非正式", "Informal"), L("情感联结", "Emotional bonding"), L("闲聊", "Casual talk")] },
-  { id: "romantic", name: L("恋爱", "Romantic"), glyph: "🌙", types: [L("约会", "Dating"), L("伴侣冲突", "Partner conflicts"), L("表达爱意", "Affection sharing")] },
+  { id: "romantic", name: L("恋爱", "Romantic"), glyph: "🌙", types: [L("初次认识", "First approach"), L("暧昧期", "Ambiguity"), L("约会", "Dating"), L("伴侣冲突", "Partner conflicts"), L("表达爱意", "Affection sharing"), L("见家长", "Meeting the family"), L("分手与前任", "Breakup & exes"), L("信任与边界", "Trust & boundaries")] },
   { id: "education", name: L("校园", "Education"), glyph: "🎓", types: [L("课堂", "Classroom"), L("同学讨论", "Peer discussion"), L("师生", "Teacher-student")] },
   { id: "public", name: L("公共/陌生人", "Public / Strangers"), glyph: "🚏", types: [L("商店", "Store"), L("交通", "Transport"), L("陌生人", "Unknown people"), L("公园", "Park"), L("法庭", "Courtroom")] },
   { id: "party", name: L("社交场合", "Party / Social"), glyph: "🥂", types: [L("活动", "Events"), L("生日", "Birthdays"), L("酒会", "Wine parties"), L("社交寒暄", "Social mingling")] },

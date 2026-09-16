@@ -6,6 +6,9 @@ import { SCENARIOS, THEORIES, CASES } from "../src/data/corpus";
 import { SCENARIOS_C } from "../src/data/corpus/scenarios-c";
 import { THEORIES_C } from "../src/data/corpus/theories-c";
 import { CASES_C } from "../src/data/corpus/cases-c";
+import { LOVE_SCENARIOS } from "../src/data/corpus/love-scenarios";
+import { LOVE_THEORIES } from "../src/data/corpus/love-theories";
+import { LOVE_CASES } from "../src/data/corpus/love-cases";
 import { SKILLS, COMPETENCIES, CONTEXTS, RELATIONSHIPS } from "../src/data/taxonomy";
 import { SCENARIO_ICONS } from "../src/data/scenario-icons";
 
@@ -45,14 +48,17 @@ for (const s of SCENARIOS) {
   for (const relationship of s.relationship) assert(relationship in RELATIONSHIPS, `${s.id}: relationship`);
   for (const skill of s.relatedSkills ?? []) assert(skills.has(skill), `${s.id}: related skill`);
 }
-for (const item of [...SCENARIOS_C, ...THEORIES_C, ...CASES_C]) {
+for (const item of [...SCENARIOS_C, ...THEORIES_C, ...CASES_C, ...LOVE_SCENARIOS, ...LOVE_THEORIES, ...LOVE_CASES]) {
   bilingual(item, item.id);
   for (const skill of item.skills) assert(item.competencies.includes(skills.get(skill)!), `${item.id}: missing competency for ${skill}`);
   assert(
     item.keywords.some((k) => /[\u4e00-\u9fff]/u.test(k)),
     `${item.id}: missing Chinese keywords`,
   );
-  if (typeof item.source !== "string") assert.equal(new URL(item.source.url!).protocol, "https:");
+  if (typeof item.source !== "string") {
+    if (item.source.url) assert.equal(new URL(item.source.url).protocol, "https:");
+    else assert(item.source.book && item.source.author, `${item.id}: source without url needs book + author`);
+  }
 }
 for (const s of SCENARIOS_C) {
   assert(s.icon && s.icon in SCENARIO_ICONS, `${s.id}: unknown icon`);
@@ -61,6 +67,9 @@ for (const s of SCENARIOS_C) {
     `${s.id}: missing resistance`,
   );
   assert(s.source.includes("Original fictional practice"), `${s.id}: missing provenance label`);
+}
+for (const s of LOVE_SCENARIOS) {
+  assert(s.loveTopic, `${s.id}: missing loveTopic`);
 }
 for (const c of CASES_C) {
   assert(c.title.zh.startsWith("示例") && c.title.en.startsWith("Illustration"), `${c.id}: fictional case not labelled`);
@@ -91,4 +100,6 @@ for (const lang of ["zh", "en"] as const) {
 const knowledge = retrieveKnowledge({ skills: ["empathy", "building-relationships"], context: "friendship", query: "good news celebration capitalization", acquisition: true, performance: true });
 assert(knowledge.theories.some((t) => t.id === "active-constructive-response"), "new theory not retrievable");
 assert(knowledge.cases.some((c) => c.id === "case-news-follow-up"), "new teaching illustration not retrievable");
+const loveKb = retrieveKnowledge({ skills: ["communication"], context: "romantic", loveTopic: "breakup", query: "分手 breakup end", acquisition: true, performance: true });
+assert(loveKb.theories.some((t) => t.loveTopic === "breakup"), "love theory not preferred for its topic");
 console.log("Scheduling, bilingual session creation, and debrief knowledge retrieval passed.");

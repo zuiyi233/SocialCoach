@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ContextId, Lang, SkillId } from "@/data/taxonomy";
+import type { LoveTopicId } from "@/data/corpus/love-topics";
 import type { Scenario } from "@/data/corpus/types";
 import type { ChatMessage, Profile, Proficiency, Reflection, Report, Session } from "@/lib/types";
 import type { PatternResult } from "@/lib/tasks/types";
@@ -55,6 +56,12 @@ interface AppState {
    */
   patternInsight: { result: PatternResult; from: string[]; at: number } | null;
   proficiency: Proficiency;
+  /**
+   * Love-track proficiency, keyed by LoveTopicId. Practicing a romantic
+   * scenario also moves the generic `proficiency` skills; this is an
+   * additional view so the love module can show progress on its own topics.
+   */
+  loveProficiency: Partial<Record<LoveTopicId, number>>;
   sessions: Session[];
   customScenarios: Scenario[];
   bookmarks: string[];
@@ -98,6 +105,7 @@ const initial = {
   onboardingLang: undefined as Lang | undefined,
   profile: null,
   proficiency: {},
+  loveProficiency: {},
   sessions: [],
   customScenarios: [],
   bookmarks: [],
@@ -153,6 +161,7 @@ export const useApp = create<AppState>()(
       applyReport: (id, report) =>
         set((s) => {
           const prof = { ...s.proficiency };
+          const love = { ...s.loveProficiency };
           const sess = s.sessions.find((x) => x.id === id);
           const allowed = new Set<SkillId>([...(s.profile?.goals ?? []), ...(sess?.scenario.skills ?? [])]);
           for (const [k, v] of Object.entries(report.deltas)) {
@@ -161,9 +170,25 @@ export const useApp = create<AppState>()(
             const cur = prof[key] ?? 2.5;
             prof[key] = Math.min(5, Math.max(1, +(cur + (v ?? 0)).toFixed(2)));
           }
+          const topic = sess?.scenario.loveTopic;
+          if (topic) {
+            // Same gate as the generic proficiency: only count deltas for skills
+            // this session actually targeted, so the love view and the skill view
+            // never drift apart. Cap the per-session gain so one great report
+            // nudges the topic instead of filling it.
+            const gain = Math.min(
+              0.4,
+              Object.entries(report.deltas)
+                .filter(([k]) => allowed.has(k as SkillId))
+                .reduce((a, [, v]) => a + (v ?? 0), 0),
+            );
+            const cur = love[topic] ?? 2.5;
+            love[topic] = Math.min(5, Math.max(1, +(cur + gain).toFixed(2)));
+          }
           const day = todayKey();
           return {
             proficiency: prof,
+            loveProficiency: love,
             practiceDays: s.practiceDays.includes(day) ? s.practiceDays : [...s.practiceDays, day],
             sessions: s.sessions.map((x) => (x.id === id ? { ...x, report, status: "assessed", outcome: report.outcome } : x)),
           };
@@ -191,6 +216,7 @@ export const useApp = create<AppState>()(
       partialize: (s) => ({
         profile: s.profile,
         proficiency: s.proficiency,
+        loveProficiency: s.loveProficiency,
         sessions: s.sessions.slice(0, 200),
         customScenarios: s.customScenarios,
         bookmarks: s.bookmarks,
@@ -231,3 +257,4 @@ export function computeStreak(days: string[]): number {
 export const useLang = (): Lang => useApp((s) => s.profile?.lang ?? s.onboardingLang ?? (typeof navigator !== "undefined" && !navigator.language.startsWith("zh") ? "en" : "zh"));
 export const useGoals = (): SkillId[] => useApp((s) => s.profile?.goals ?? []);
 export const useContexts = (): ContextId[] => useApp((s) => s.profile?.contexts ?? []);
+export const useLoveProficiency = (): Partial<Record<LoveTopicId, number>> => useApp((s) => s.loveProficiency);
