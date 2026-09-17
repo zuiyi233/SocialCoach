@@ -40,7 +40,7 @@
 - [ ] 统计后续：真实飞书凭证下验证自动建月表（`bitable:app`）与 `search` 过滤语法；飞书仪表盘按「事件 = session_start」建每日局数与场景分布两张图；Postgres 迁移路径：Supabase / Neon 免费档（0.5 GB，免费档一周不用会暂停，Pro 每月约 25 美元）或阿里云 RDS PostgreSQL Serverless（每月几十元），迁移是导出各月表 CSV 灌库并替换 `deliverEvents`，客户端不改
 - [ ] 限时应答后续：耐心秒数按场景难度给默认值（difficulty 3 → 10 秒）；沉默事件是否进入跨场次模式识别（`/api/pattern`）作为「一被顶就冻住」的证据；reduced motion 下的墨线与「开着朗读时等台词读完再计时」未单独验证
 - [x] 恋爱独立模块：`/love` 独立入口 + romantic 语料扩充（场景 4→14、理论 0→10、案例 2→6，双语+source，复用现有 34 技能），规划见 [spec-love-module.md](./specs/spec-love-module.md)，素材来源 [goutoujunshi-skill.md](./refs/goutoujunshi-skill.md)（2026-09-17 首批实施完成：/love 路由、loveProficiency 双轨制、loveTopic 检索加权；lint / check-corpus / build 通过）
-- [ ] 恋爱模块第二批：补 `long-distance` / `family` 两个主题的理论+案例（`retrieveKnowledge` 的 loveTopic +3 加权目前对这两个主题不触发）；love 检索回归断言改用与主题关键词不重叠的 query 以真正锁定加权行为
+- [x] 恋爱模块第二批：补 `long-distance` / `family` 两个主题的理论+案例（`retrieveKnowledge` 的 loveTopic +3 加权目前对这两个主题不触发）；love 检索回归断言改用与主题关键词不重叠的 query 以真正锁定加权行为（2026-09-17 完成：理论 +2、案例 +5、场景 +1，8 个恋爱主题实现场景/理论/案例全覆盖；断言已改主题无关 query 并经反事实实验验证有效）
 
 ## 进行中（另一 session，未提交）
 

@@ -150,4 +150,4 @@ skills 字段 1–3 个、按重要度排序，competencies 由 `skillById` 反�
 - 校验：check-corpus 新增 love 断言（loveTopic 必填、love 检索回归、无 url 的 source 必须 book+author）；next 16.3.4→16.3.5（安全补丁）
 - 依赖：新增 `app/src/data/corpus/love-*.ts` 三文件 + index.ts 合并
 
-**遗留（下一批语料）**：`long-distance`、`family` 两个主题只有场景、无同主题理论/案例 → `retrieveKnowledge` 的 +3 加权对这两个主题不触发（退化为 skills/lex 检索）。已挂 [85-backlog.md](../85-backlog.md)。
+**遗留（已随第二批完成，2026-09-17）**：`long-distance`、`family` 主题缺理论/案例的问题已解决——第二批补了 2 条理论（love-theory-long-distance / love-theory-family）、5 条案例（approach / define-relationship / breakup / long-distance / family 各 1）、1 个 boundary 场景（love-boundary-online-reply）。**8 个恋爱主题现已全部具备 场景+理论+案例 全覆盖**（romantic 场景 15、恋爱理论 12、恋爱案例 9）。检索断言同步强化（主题无关 query，反事实实验验证有效）。
