@@ -29,6 +29,7 @@ const dict = {
   arena_empty_body: { zh: "减少一个筛选条件，或把你的真实处境写下来。", en: "Remove a filter, or turn your own situation into a scene." },
   arena_custom_note: { zh: "这里没有你要谈的那件事？", en: "Your conversation isn’t here?" },
   arena_preview: { zh: "查看场景", en: "Explore scene" },
+  arena_love_topics: { zh: "恋爱主题", en: "Love topics" },
   // love module
   love_eyebrow: { zh: "恋爱专区", en: "Love track" },
   love_heading: { zh: "对 ta 说不出口的话，\n先在这里说。", en: "Say it here,\nbefore you say it to them." },
@@ -47,6 +48,9 @@ const dict = {
   love_theories: { zh: "恋爱原理", en: "Love principles" },
   love_cases: { zh: "真实故事", en: "Real stories" },
   love_empty: { zh: "这个主题还没有场景", en: "No scenes for this topic yet" },
+  pg_love_go: { zh: "去恋爱专区", en: "Open Love" },
+  pg_love_empty: { zh: "恋爱练习还没开始", en: "No love practice yet" },
+  pg_love_empty_body: { zh: "初次认识、暧昧、分手——恋爱里难开口的对话，也能在这里练。", en: "First approaches, ambiguity, breakups — the love conversations you keep avoiding are here too." },
   rh_eyebrow: { zh: "把真实处境，带进练习", en: "From real life to rehearsal" },
   rh_heading: { zh: "先在这里，\n把那句话说出来。", en: "Say it here,\nbefore you say it there." },
   rh_label: { zh: "你想排练哪场对话？", en: "What conversation do you want to rehearse?" },

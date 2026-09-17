@@ -9,6 +9,7 @@ import { Footprint } from "@/components/Footprint";
 import { PatternCard } from "@/components/PatternCard";
 import { Level } from "@/components/SkillBits";
 import { ScenarioCover } from "@/components/ScenarioCover";
+import { LoveProficiency } from "@/components/LoveProficiency";
 import { computeStreak, useApp, useLang } from "@/store/useApp";
 import { t } from "@/lib/i18n";
 import { competencyValues, sessionMinutes } from "@/lib/session-utils";
@@ -17,13 +18,16 @@ import { compColor, relDate } from "@/lib/format";
 
 export default function Progress() {
   const lang = useLang();
-  const { profile, proficiency, sessions, practiceDays, updateProfile, setProficiency } = useApp();
+  const { profile, proficiency, loveProficiency, sessions, practiceDays, updateProfile, setProficiency } = useApp();
   const streak = computeStreak(practiceDays);
   const [addOpen, setAddOpen] = useState(false);
   const done = useMemo(() => sessions.filter((s) => s.status === "assessed"), [sessions]);
   const minutes = done.reduce((a, s) => a + sessionMinutes(s), 0);
   const stars = done.reduce((a, s) => a + (s.report?.stars ?? 0), 0);
   const vals = competencyValues(proficiency);
+  const loveDone = useMemo(() => done.filter((s) => s.scenario.context === "romantic"), [done]);
+  const loveMinutes = loveDone.reduce((a, s) => a + sessionMinutes(s), 0);
+  const loveStars = loveDone.reduce((a, s) => a + (s.report?.stars ?? 0), 0);
   const journal = useMemo(
     () => done.flatMap((s) => s.reflections.filter((r) => r.answer.trim()).map((r) => ({ ...r, session: s }))),
     [done],
@@ -236,6 +240,47 @@ export default function Progress() {
                 );
               })}
             </ul>
+          </section>
+
+          {/* Love is a separate track: its own stats and topic proficiency,
+              surfaced here so Growth shows the romance dimension too. */}
+          <section className="order-7 flex flex-col gap-3">
+            <SectionTitle
+              right={
+                <Link href="/love" className="press inline-flex items-center gap-1 min-h-11 text-[12px] font-medium text-action">
+                  {t(lang, "pg_love_go")}
+                  <ArrowUpRight size={14} aria-hidden="true" />
+                </Link>
+              }
+            >
+              {t(lang, "nav_love")}
+            </SectionTitle>
+            {loveDone.length === 0 ? (
+              <div className="card p-5 flex flex-col gap-2">
+                <p className="text-[14px] font-medium">{t(lang, "pg_love_empty")}</p>
+                <p className="text-[13px] text-ink-3 leading-relaxed max-w-[var(--measure)]">{t(lang, "pg_love_empty_body")}</p>
+              </div>
+            ) : (
+              <div className="card p-5 flex flex-col gap-4">
+                <div className="grid grid-cols-3 divide-x divide-line">
+                  <div className="flex flex-col gap-1 px-4 first:pl-0">
+                    <span className="num text-[24px] leading-none text-accent">{loveDone.length}</span>
+                    <span className="text-[11px] text-ink-3">{t(lang, "love_practices", { n: loveDone.length })}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 px-4">
+                    <span className="num text-[24px] leading-none">{loveMinutes}</span>
+                    <span className="text-[11px] text-ink-3">{t(lang, "love_minutes", { n: loveMinutes })}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 px-4">
+                    <span className="num text-[24px] leading-none">{loveStars}</span>
+                    <span className="text-[11px] text-ink-3">{t(lang, "love_stars", { n: loveStars })}</span>
+                  </div>
+                </div>
+                <div className="border-t border-line pt-4">
+                  <LoveProficiency love={loveProficiency} lang={lang} />
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </Page>

@@ -9,6 +9,7 @@ import { SkillTag } from "@/components/SkillBits";
 import { ScenarioCover } from "@/components/ScenarioCover";
 import { SCENARIOS } from "@/data/corpus";
 import type { Scenario } from "@/data/corpus/types";
+import { LOVE_TOPICS, type LoveTopicId } from "@/data/corpus/love-topics";
 import { CONTEXTS, SKILLS, contextById, skillById, type ContextId, type SkillId } from "@/data/taxonomy";
 import { useApp, useLang } from "@/store/useApp";
 import { t } from "@/lib/i18n";
@@ -22,6 +23,7 @@ export default function Arena() {
   const { profile, sessions, customScenarios, addSession } = useApp();
   const [q, setQ] = useState("");
   const [ctx, setCtx] = useState<ContextId | "all" | "mine">("all");
+  const [loveTopic, setLoveTopic] = useState<LoveTopicId | null>(null);
   const [skill, setSkill] = useState<SkillId | null>(() => SKILLS.find((s) => s.id === params.get("skill"))?.id ?? null);
   const [difficulty, setDifficulty] = useState("all");
   const [moreSkills, setMoreSkills] = useState(false);
@@ -38,6 +40,7 @@ export default function Arena() {
     return all.filter((s) => {
       if (ctx === "mine" && !s.custom) return false;
       if (ctx !== "all" && ctx !== "mine" && s.context !== ctx) return false;
+      if (loveTopic && ctx === "romantic" && s.loveTopic !== loveTopic) return false;
       if (skill && !s.skills.includes(skill) && !s.relatedSkills?.includes(skill)) return false;
       if (difficulty !== "all" && s.difficulty !== Number(difficulty)) return false;
       if (query) {
@@ -55,7 +58,7 @@ export default function Arena() {
       }
       return true;
     });
-  }, [all, ctx, skill, difficulty, q]);
+  }, [all, ctx, skill, difficulty, q, loveTopic]);
   const forYou = useMemo(() => {
     if (!profile) return [];
     return SCENARIOS.filter(
@@ -72,10 +75,16 @@ export default function Arena() {
     addSession(session);
     router.push(`/practice/${session.id}`);
   };
-  const filtering = ctx !== "all" || !!skill || !!q.trim() || difficulty !== "all";
+  const filtering = ctx !== "all" || !!skill || !!q.trim() || difficulty !== "all" || !!loveTopic;
+  /** Leaving the love context releases the love-topic filter, so the UI never shows an active filter that isn't visible. */
+  const changeCtx = (next: ContextId | "all" | "mine") => {
+    setCtx(next);
+    if (next !== "romantic") setLoveTopic(null);
+  };
   const reset = () => {
     setQ("");
     setCtx("all");
+    setLoveTopic(null);
     setSkill(null);
     setDifficulty("all");
     searchRef.current?.focus();
@@ -179,23 +188,36 @@ export default function Arena() {
             className="flex gap-2 -mx-5 px-5 overflow-x-auto no-scrollbar md:mx-0 md:px-0 md:flex-wrap"
             aria-label={t(lang, "arena_by_context")}
           >
-            <Chip active={ctx === "all"} onClick={() => setCtx("all")}>
+            <Chip active={ctx === "all"} onClick={() => changeCtx("all")}>
               {t(lang, "arena_all")}
               <span className="num opacity-70">{all.length}</span>
             </Chip>
             {customScenarios.length > 0 && (
-              <Chip active={ctx === "mine"} onClick={() => setCtx("mine")}>
+              <Chip active={ctx === "mine"} onClick={() => changeCtx("mine")}>
                 {t(lang, "custom_badge")}
                 <span className="num opacity-70">{customScenarios.length}</span>
               </Chip>
             )}
             {CONTEXTS.map((c) => (
-              <Chip key={c.id} active={ctx === c.id} onClick={() => setCtx(ctx === c.id ? "all" : c.id)}>
+              <Chip key={c.id} active={ctx === c.id} onClick={() => changeCtx(ctx === c.id ? "all" : c.id)}>
                 {c.name[lang]}
                 <span className="num opacity-70">{all.filter((s) => s.context === c.id).length}</span>
               </Chip>
             ))}
           </div>
+          {ctx === "romantic" && (
+            <div className="flex flex-col gap-2" aria-label={t(lang, "arena_love_topics")}>
+              <span className="text-[12px] text-ink-3">{t(lang, "arena_love_topics")}</span>
+              <div className="flex gap-2 -mx-5 px-5 overflow-x-auto no-scrollbar md:mx-0 md:px-0 md:flex-wrap">
+                {LOVE_TOPICS.map((top) => (
+                  <Chip key={top.id} active={loveTopic === top.id} onClick={() => setLoveTopic(loveTopic === top.id ? null : top.id)}>
+                    {top.name[lang]}
+                    <span className="num opacity-70">{all.filter((s) => s.loveTopic === top.id).length}</span>
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         {!filtering && forYou.length > 0 && (

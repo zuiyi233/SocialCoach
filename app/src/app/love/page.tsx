@@ -6,12 +6,13 @@ import { Shell } from "@/components/Shell";
 import { Chip, Empty, Page } from "@/components/ui";
 import { SkillTag } from "@/components/SkillBits";
 import { ScenarioCover } from "@/components/ScenarioCover";
+import { LoveProficiency } from "@/components/LoveProficiency";
 import { SCENARIOS, THEORIES, CASES } from "@/data/corpus";
 import type { Scenario } from "@/data/corpus/types";
 import { LOVE_TOPICS, loveTopicById, type LoveTopicId } from "@/data/corpus/love-topics";
 import { useApp, useLang, useLoveProficiency } from "@/store/useApp";
 import { t } from "@/lib/i18n";
-import { buildSession } from "@/lib/session-utils";
+import { buildSession, sessionMinutes } from "@/lib/session-utils";
 
 export default function Love() {
   const lang = useLang();
@@ -38,11 +39,12 @@ export default function Love() {
   );
   const stats = useMemo(() => {
     // Count from the session snapshot, not scenarioById: custom /rehearse scenes
-    // live outside SCENARIOS, and snapshots survive corpus edits.
+    // live outside SCENARIOS, and snapshots survive corpus edits. Minutes use the
+    // same actual-time basis as /progress (sessionMinutes), not planned minutes.
     const done = sessions.filter((s) => s.status === "assessed" && s.scenario.context === "romantic");
     return {
       count: done.length,
-      minutes: done.reduce((a, s) => a + (s.scenario.minutes ?? 0), 0),
+      minutes: done.reduce((a, s) => a + sessionMinutes(s), 0),
       stars: done.reduce((a, s) => a + (s.report?.stars ?? 0), 0),
     };
   }, [sessions]);
@@ -118,26 +120,7 @@ export default function Love() {
             {stats.count === 0 && <p className="text-[12px] text-ink-3 mt-1">{t(lang, "love_no_progress")}</p>}
           </div>
           <div className="card p-5 flex flex-col gap-3">
-            {LOVE_TOPICS.map((top) => {
-              const v = love[top.id] ?? 2.5;
-              const pct = ((v - 1) / 4) * 100;
-              return (
-                <div key={top.id} className="flex items-center gap-3 text-[13px]">
-                  <span className="w-32 shrink-0 text-ink-2">{top.name[lang]}</span>
-                  <span
-                    className="flex-1 h-1.5 rounded-full bg-inset overflow-hidden"
-                    role="meter"
-                    aria-valuemin={1}
-                    aria-valuemax={5}
-                    aria-valuenow={Number(v.toFixed(1))}
-                    aria-label={`${top.name[lang]} ${v.toFixed(1)} / 5`}
-                  >
-                    <span aria-hidden className="block h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-                  </span>
-                  <span className="w-8 text-right num text-ink-3">{v.toFixed(1)}</span>
-                </div>
-              );
-            })}
+            <LoveProficiency love={love} lang={lang} />
           </div>
         </section>
 
