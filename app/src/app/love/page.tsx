@@ -33,10 +33,17 @@ export default function Love() {
     for (const s of sessions) if (s.status === "assessed") map.set(s.scenario.id, (map.get(s.scenario.id) ?? 0) + 1);
     return map;
   }, [sessions]);
-  const list = useMemo(
-    () => (topic ? loveScenarios.filter((s) => s.loveTopic === topic) : loveScenarios),
-    [topic, loveScenarios],
-  );
+  /** Unfiltered list grouped by love topic so sibling scenes sit together; scenes without a topic go last. */
+  const ordered = useMemo(() => {
+    const order = new Map(LOVE_TOPICS.map((t, i) => [t.id, i]));
+    return [...loveScenarios].sort((a, b) => {
+      if (a.loveTopic === b.loveTopic) return 0;
+      if (!a.loveTopic) return 1;
+      if (!b.loveTopic) return -1;
+      return (order.get(a.loveTopic) ?? 0) - (order.get(b.loveTopic) ?? 0);
+    });
+  }, [loveScenarios]);
+  const list = useMemo(() => (topic ? ordered.filter((s) => s.loveTopic === topic) : ordered), [topic, ordered]);
   const stats = useMemo(() => {
     // Count from the session snapshot, not scenarioById: custom /rehearse scenes
     // live outside SCENARIOS, and snapshots survive corpus edits. Minutes use the

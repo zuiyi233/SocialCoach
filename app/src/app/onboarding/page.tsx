@@ -215,7 +215,14 @@ export default function Onboarding() {
                       >
                         <ContextIllustration context={c.id} size={34} />
                       </span>
-                      <span className="font-semibold text-[15px]">{c.name[lang]}</span>
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-semibold text-[15px]">{c.name[lang]}</span>
+                        {c.id === "romantic" && (
+                          <span className="rounded-full bg-accent-soft text-accent-deep px-1.5 py-0.5 text-[10px] font-medium">
+                            {t(lang, "love_eyebrow")}
+                          </span>
+                        )}
+                      </span>
                       <span className="text-[12px] text-ink-3 leading-snug">{c.types.slice(0, 3).map((x) => x[lang]).join(" · ")}</span>
                     </button>
                   );
