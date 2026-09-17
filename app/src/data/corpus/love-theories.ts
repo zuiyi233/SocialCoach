@@ -217,4 +217,46 @@ export const LOVE_THEORIES: Theory[] = [
     keywords: ["boundary", "no", "enforceable", "control", "exit", "边界"],
     loveTopic: "boundary",
   },
+  {
+    id: "love-theory-long-distance",
+    title: L("异地恋：把不安全感说成请求，而不是指控", "Long Distance: Insecurity as a Request, Not an Accusation"),
+    source: {
+      book: "The Role of Communication in Romantic Attachment and Relationship Satisfaction",
+      author: "Lefebvre et al. (2026)",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC12983993/",
+    },
+    principle: L(
+      "异地恋的信号稀疏：没有见面、没有肢体语言，唯一线索是回复的间隔。依恋焦虑维度在信号稀缺时尤其容易被激活——「三个小时没回」很容易被解释成「我不重要」。这时的惯用反应是把不安变成指控：「你根本不在乎我。」指控要求对方自证，几乎没有哪句话能通过这个检验。更可执行的方向是：把不安全感说成请求——我是什么感受、我需要什么样的回应、我们能否把它立成一个彼此可达的约定。配合可预测的小仪式（报平安、固定通话、约定「最长几小时会回」，急事走电话），让焦虑有地方落地，而不是在沉默里发酵。",
+      "Long-distance runs on thin signals: no presence, no body language — the only cue is reply latency. Anxious attachment lights up easily when signals are scarce: ’three hours of silence’ gets read as ’I’m not important’. The default move is to turn insecurity into an accusation: ’you obviously don’t care’. An accusation demands self-justification, and almost no reply passes that test. The workable move is to speak insecurity as a request — this is how I feel, this is the response I need, and can we set an agreement both of us can actually keep. Paired with small predictable rituals — an arrival check-in, a standing call, ’expect a reply within a few hours, urgent goes by phone’ — anxiety gets somewhere to land instead of fermenting in silence.",
+    ),
+    howTo: [
+      L("把「三个小时没回算什么」标成解释而不是事实：先核实，再选择怎样回应。", "Flag ’what does three hours of silence mean’ as interpretation, not fact: check it, then choose how to respond."),
+      L("用请求替代指控：「消息隔太久我会不安。今晚能不能告诉我你还要忙多久？」", "Replace the accusation with a request: ’When messages lag I get anxious. Can you tell me tonight how much longer you’ll be busy?’"),
+      L("一起立一个可执行的小约定：到点报平安、固定通话时间、急事直接打电话。", "Agree on one enforceable ritual: an arrival check-in, a standing call slot, urgent matters by phone."),
+      L("分清「等待让我不安」和「对方真的不再可靠」——用长期可靠性校准，而不是单次回复速度。", "Separate ’waiting makes me anxious’ from ’they’ve actually become unreliable’ — calibrate on long-term reliability, not per-reply speed."),
+    ],
+    competencies: ["relationship-skills", "self-management"],
+    skills: ["communication", "emotion-regulation"],
+    keywords: ["long distance", "anxiety", "request", "ritual", "reply", "异地"],
+    loveTopic: "long-distance",
+  },
+  {
+    id: "love-theory-family",
+    title: L("见家长不是考试：把它当成三方关系的建立", "Meeting the Family: Building a Three-Way Relationship, Not Sitting an Exam"),
+    source: { book: "Goutoujunshi skill", author: "Community practice" },
+    principle: L(
+      "把自己放上「被评估席」，见家长就会变成一场处处防御的考试：每句话都怕踩雷，每个问题都想交出标准答案。更稳的框架是把它看成三方关系的开始——你与他们、伴侣与你、他们与伴侣都是需要建立的关系，而不是一场只有你在答题的庭审。这意味着：准备彼此可见的事实（工作、兴趣、你们如何相处），而不是临场表演；不让伴侣在父母和自己之间站队，也不替伴侣答应任何越权的事；该退出的地方保持「尊重但清楚」的礼貌边界——婚期、收入、生育这类决定权始终在你们两人手里，不在饭桌上交出去。观察是双向的：你也在分辨这是不是一个你能舒服进入的家庭。",
+      "If you put yourself in the ’being evaluated’ chair, meeting the family becomes an exam wired for self-defense: every sentence vetted for landmines, every question met with the ’right answer’. A steadier frame: this is the start of three new relationships — theirs with you, your partner’s with you, and theirs with your partner — not a courtroom with only you on the stand. Concretely that means preparing facts they can see (work, interests, how you two actually are) instead of performing; never forcing your partner to take sides between them and you, and never committing them to anything that oversteps; and holding a polite but clear boundary where you can leave cleanly — decisions about weddings, income, or children stay with the two of you, not gifted away at the dinner table. And the observation runs both ways: you are also finding out whether this is a family you can enter comfortably.",
+    ),
+    howTo: [
+      L("准备彼此可见的事实：你的工作、兴趣、你们怎么认识的、平时怎么相处，讲具体事而不是表决心。", "Prepare visible facts: your work, your interests, how you met, how you two get along — concrete things instead of declarations of intent."),
+      L("不替伴侣答应越权的事，也不逼伴侣站队；把决定权留给你们两人之间。", "Don’t commit your partner to anything over the line, don’t make them choose sides; keep decisions between the two of you."),
+      L("婚期、收入、生育这类问题，礼貌而清楚地说「这是我和 TA 一起商量的事」。", "On weddings, income, children: answer politely and clearly — ’that’s something X and I decide together’."),
+      L("观察是双向的：你也在检验这个家庭是否尊重彼此，并保留体面退出的权利。", "Evaluation runs both ways: you too are checking whether this family respects people — and you keep the right to a graceful exit."),
+    ],
+    competencies: ["social-awareness", "relationship-skills"],
+    skills: ["social-norms", "communication"],
+    keywords: ["meeting the family", "boundaries", "three-way", "norms", "autonomy", "见家长"],
+    loveTopic: "family",
+  },
 ];

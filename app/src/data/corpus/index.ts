@@ -70,6 +70,7 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "love-meet-parents": L("第一次见家长的人", "The one meeting the family"),
   "love-uneven-investment": L("付出更多的一方", "The one investing more"),
   "love-trust-repair": L("隐瞒被揭穿的人", "The one whose secret came out"),
+  "love-boundary-online-reply": L("想守住下线时间的伴侣", "The partner who logs off at night"),
 };
 
 /** Every corpus scenario gets an explicit, playable "you" character so scheduling, role-play and reports share one id. */

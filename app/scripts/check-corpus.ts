@@ -100,6 +100,11 @@ for (const lang of ["zh", "en"] as const) {
 const knowledge = retrieveKnowledge({ skills: ["empathy", "building-relationships"], context: "friendship", query: "good news celebration capitalization", acquisition: true, performance: true });
 assert(knowledge.theories.some((t) => t.id === "active-constructive-response"), "new theory not retrievable");
 assert(knowledge.cases.some((c) => c.id === "case-news-follow-up"), "new teaching illustration not retrievable");
-const loveKb = retrieveKnowledge({ skills: ["communication"], context: "romantic", loveTopic: "breakup", query: "分手 breakup end", acquisition: true, performance: true });
-assert(loveKb.theories.some((t) => t.loveTopic === "breakup"), "love theory not preferred for its topic");
+// Love-topic weighting: the queries are deliberately topic-neutral (no overlap
+// with theory keywords or titles) so only the +3 love-topic boost can surface a
+// theory that shares no skill with the query.
+const loveKb = retrieveKnowledge({ skills: ["communication"], context: "romantic", loveTopic: "breakup", query: "把这句很难讲出来的话好好说完", acquisition: true, performance: true });
+assert(loveKb.theories.some((t) => t.loveTopic === "breakup"), "love topic weighting lost for breakup");
+const ldKb = retrieveKnowledge({ skills: ["emotion-regulation"], context: "romantic", loveTopic: "long-distance", query: "在很远的夜里一个人想了很久", acquisition: true, performance: true });
+assert(ldKb.theories.some((t) => t.loveTopic === "long-distance"), "love topic weighting lost for long-distance");
 console.log("Scheduling, bilingual session creation, and debrief knowledge retrieval passed.");
