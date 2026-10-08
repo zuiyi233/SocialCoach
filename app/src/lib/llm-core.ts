@@ -8,9 +8,21 @@
  * from these functions, so the two paths cannot drift.
  */
 import { fixUnescapedQuotes, parsePartialJSON } from "./partial-json";
+import type { ModelIssue } from "./model-status";
 
 export type Provider = "anthropic" | "openai";
 export type TokenParam = "max_tokens" | "max_completion_tokens";
+/** SDKs append their own API route. Keep the gateway prefix when pasting an endpoint. */
+export function modelBaseUrl(value:string,provider:Provider):string{
+  const trimmed=value.trim();
+  if(!trimmed)return '';
+  try{
+    const url=new URL(trimmed);
+    if(provider==='openai')url.pathname=url.pathname.replace(/\/chat\/completions\/?$/u,'');
+    else url.pathname=url.pathname.replace(/\/v1(?:\/messages)?\/?$/u,'');
+    return url.toString().replace(/\/$/u,'');
+  }catch{return trimmed;}
+}
 
 /** A system prompt part. `cache` asks the provider to cache this prefix if it can. */
 export interface SystemPart {
@@ -19,6 +31,9 @@ export interface SystemPart {
 }
 
 export interface ChatOpts {
+  lang?:"zh"|"en";
+  /** Cancels one-shot calls, including 3D page navigation and its time limit. */
+  signal?: AbortSignal;
   model?: string;
   system: string | SystemPart[];
   messages: { role: "user" | "assistant"; content: string }[];
@@ -92,7 +107,8 @@ export function openaiArgs(o: ChatOpts, fallbackModel: string, tokenParam: Token
 }
 
 export class LLMError extends Error {
-  constructor(message: string, public status = 502, public retryable = false) {
+  retryAt?:number;
+  constructor(message: string, public status = 502, public retryable = false, public modelIssue?: ModelIssue) {
     super(message);
   }
 }
@@ -133,7 +149,7 @@ export function extractJSON<T = unknown>(text: string): T {
   }
   try {
     return JSON.parse(s) as T;
-  } catch (first) {
+  } catch {
     // common LLM slips, in order: trailing commas; raw newlines/tabs inside strings; a truncated tail.
     const noTrailing = s.replace(/,\s*([}\]])/g, "$1");
     try {
@@ -147,10 +163,8 @@ export function extractJSON<T = unknown>(text: string): T {
     } catch {}
     const repaired = parsePartialJSON<T>(escapeControlCharsInStrings(noTrailing));
     if (repaired && Object.keys(repaired).length) return repaired as T;
-    const msg = first instanceof Error ? first.message : String(first);
-    const m = msg.match(/position (\d+)/);
-    const pos = m ? Number(m[1]) : -1;
-    console.error("[extractJSON] unparseable model output:", msg, pos >= 0 ? JSON.stringify(s.slice(Math.max(0, pos - 160), pos + 80)) : JSON.stringify(s.slice(-240)));
+    // Model output may quote private practice text; diagnostics must not retain it.
+    console.error("[extractJSON] unparseable model JSON", { characters: s.length });
     throw new LLMError("The coach's notes came back garbled. Please try again.", 502, true);
   }
 }

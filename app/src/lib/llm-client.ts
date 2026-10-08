@@ -1,6 +1,7 @@
 "use client";
 import {
   anthropicArgs,
+  modelBaseUrl,
   LLMError,
   openaiArgs,
   type ChatOpts,
@@ -8,6 +9,7 @@ import {
   type TextRun,
 } from "./llm-core";
 import type { ByokConfig } from "./byok";
+import { checkModelConnection, modelIssue, type ModelMetadata } from "./model-status";
 
 /**
  * The browser-side LLM: calls the provider directly from the page, so the
@@ -30,7 +32,7 @@ async function anthropicClient(c: ByokConfig): Promise<Anthropic> {
     const { default: Ctor } = await import("@anthropic-ai/sdk");
     cached.anthropic = new Ctor({
       apiKey: c.apiKey.trim(),
-      baseURL: c.baseUrl.trim() || undefined,
+      baseURL: modelBaseUrl(c.baseUrl,c.provider) || undefined,
       // The learner's own key, in the learner's own browser. The SDK adds
       // `anthropic-dangerous-direct-browser-access` for us.
       dangerouslyAllowBrowser: true,
@@ -47,9 +49,18 @@ async function openaiClient(c: ByokConfig): Promise<OpenAI> {
     const { default: Ctor } = await import("openai");
     cached.openai = new Ctor({
       apiKey: c.apiKey.trim(),
-      baseURL: c.baseUrl.trim() || undefined,
+      baseURL: modelBaseUrl(c.baseUrl,c.provider) || undefined,
       dangerouslyAllowBrowser: true,
       maxRetries: 1,
+      // Compatible gateways may allow Authorization/Content-Type in CORS but
+      // reject the SDK's optional diagnostics before any request is sent.
+      fetch: (input, init) => {
+        const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+        for (const name of [...headers.keys()]) {
+          if (name.startsWith("x-stainless-")) headers.delete(name);
+        }
+        return fetch(input, { ...init, headers });
+      },
     });
     clients.set(c, cached);
   }
@@ -60,22 +71,26 @@ async function openaiClient(c: ByokConfig): Promise<OpenAI> {
  * Turn a failure into something the learner can act on. Never echoes the
  * request, and never the key.
  */
-export function byokError(e: unknown, c: ByokConfig): LLMError {
+export function byokError(e: unknown): LLMError {
+  if (["AbortError", "APIUserAbortError"].includes((e as Error)?.name)) throw e;
   if (e instanceof LLMError) return e;
   const status = (e as { status?: number } | null)?.status;
-  const where = c.baseUrl.trim() || (c.provider === "openai" ? "OpenAI" : "Anthropic");
-  // The endpoint's own words beat ours: a 429 may be rate limiting or an empty
-  // balance, and only it knows which.
-  const body = (e as { error?: { message?: unknown } } | null)?.error;
-  const said = body && typeof body === "object" ? (body as { message?: unknown }).message : undefined;
-  const provider = typeof said === "string" && said.trim() ? said.trim() : null;
-  if (status === 401 || status === 403) return new LLMError(provider ?? `凭据无效 · ${where}`, 401);
-  if (status === 404) return new LLMError(provider ?? `找不到模型或地址 · ${where}`, 404);
-  if (status === 429) return new LLMError(provider ?? "额度或频率超限，稍后再试", 429);
-  if (typeof status === "number") return new LLMError(provider ?? `${where} 返回 ${status}`, status);
-  // No status at all: DNS, TLS, offline — or, most often, the endpoint did not
-  // send CORS headers for a browser request.
-  return new LLMError(`连不上 ${where} · 自建服务需允许跨域（Ollama 设 OLLAMA_ORIGINS）`, 503);
+  const issue = modelIssue(e) ?? (typeof status !== "number" ? "network" : status < 500 ? "model" : "service");
+  // Never surface a provider payload, which can echo credentials or request text.
+  return new LLMError(`Model connection: ${issue}.`, status ?? 503, false, issue);
+}
+
+export async function checkByokConnection(c: ByokConfig, signal?: AbortSignal) {
+  const timeout = AbortSignal.timeout(5_000);
+  const options = { timeout: 5_000, maxRetries: 0, signal: signal ? AbortSignal.any([signal, timeout]) : timeout };
+  const metadata: ModelMetadata = c.provider === "openai" ? {
+    list: async () => ({ ids: (await (await openaiClient(c)).models.list(options)).data.map(m => m.id) }),
+    retrieve: async id => (await openaiClient(c)).models.retrieve(id, options),
+  } : {
+    list: async () => { const r = await (await anthropicClient(c)).models.list({ limit: 100 }, options); return { ids: r.data.map(m => m.id), more: r.has_more }; },
+    retrieve: async id => (await anthropicClient(c)).models.retrieve(id, {}, options),
+  };
+  return checkModelConnection(metadata, [c.fastModel.trim(), c.smartModel.trim()]);
 }
 
 /**
@@ -99,7 +114,7 @@ export async function listModels(c: ByokConfig): Promise<string[]> {
     // would pick it and only find out when a call fails.
     return ids.filter((id) => !NOT_CHAT.test(id)).sort();
   } catch (e) {
-    throw byokError(e, c);
+    throw byokError(e);
   }
 }
 
@@ -112,21 +127,22 @@ export function makeByokLLM(c: ByokConfig): LLM {
       if (c.provider === "openai") {
         const oa = await openaiClient(c);
         const res = await oa.chat.completions.create(
-          openaiArgs(o, c.smartModel, c.tokenParam) as Parameters<typeof oa.chat.completions.create>[0] & { stream?: false },
+          openaiArgs(o, c.smartModel, c.tokenParam, c.disableThinking) as Parameters<typeof oa.chat.completions.create>[0] & { stream?: false },
+          { signal: o.signal },
         );
         const choice = "choices" in res ? res.choices[0] : undefined;
         if (choice?.message?.refusal) throw new LLMError("模型拒绝了这个请求", 422);
         return choice?.message?.content ?? "";
       }
       const an = await anthropicClient(c);
-      const res = await an.messages.create(anthropicArgs(o, c.smartModel));
+      const res = await an.messages.create(anthropicArgs(o, c.smartModel), { signal: o.signal });
       if (res.stop_reason === "refusal") throw new LLMError("模型拒绝了这个请求", 422);
       return res.content
         .filter((b) => b.type === "text")
         .map((b) => (b as { text: string }).text)
         .join("\n");
     } catch (e) {
-      throw byokError(e, c);
+      throw byokError(e);
     }
   };
 
@@ -138,9 +154,9 @@ export function makeByokLLM(c: ByokConfig): LLM {
         if (c.provider === "openai") {
           const oa = await openaiClient(c);
           const stream = await oa.chat.completions.create({
-            ...openaiArgs(o, c.smartModel, c.tokenParam),
+            ...openaiArgs(o, c.smartModel, c.tokenParam, c.disableThinking),
             stream: true,
-          } as Parameters<typeof oa.chat.completions.create>[0] & { stream: true });
+          } as Parameters<typeof oa.chat.completions.create>[0] & { stream: true }, {signal:o.signal});
           for await (const chunk of stream) {
             const choice = chunk.choices[0];
             if (choice?.delta?.refusal) refusal = true;
@@ -154,7 +170,7 @@ export function makeByokLLM(c: ByokConfig): LLM {
           return;
         }
         const an = await anthropicClient(c);
-        const stream = an.messages.stream(anthropicArgs(o, c.smartModel));
+        const stream = an.messages.stream(anthropicArgs(o, c.smartModel), {signal:o.signal});
         for await (const ev of stream) {
           if (ev.type === "content_block_delta" && ev.delta.type === "text_delta" && ev.delta.text) {
             acc += ev.delta.text;
@@ -164,7 +180,7 @@ export function makeByokLLM(c: ByokConfig): LLM {
         const final = await stream.finalMessage();
         if (final.stop_reason === "refusal") refusal = true;
       } catch (e) {
-        throw byokError(e, c);
+        throw byokError(e);
       }
     }
     return { deltas: run(), text: () => acc, refused: () => refusal };

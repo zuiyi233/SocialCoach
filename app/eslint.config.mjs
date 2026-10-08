@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Unmodified upstream Draco decoder; keep its Apache / MIT notices.
+    "public/3d/draco/**",
+    // Reproducible upstream PDF/OCR workers; sources remain in the package lock.
+    "public/local-reading/**",
   ]),
 ]);
 

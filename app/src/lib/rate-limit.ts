@@ -1,21 +1,8 @@
 import { LLMError } from "./llm-core";
 
-/**
- * Protection for the deployment's own model quota.
- *
- * A public URL with a server-side key is an open LLM proxy, and one practice
- * session is 12–14 model calls — a single script can drain a quota in minutes.
- *
- * Two layers, because they fail differently:
- *   per-IP    stops one visitor monopolising the shared quota. Defeatable by
- *             anyone who can vary their source address, so it is not security.
- *   global    the actual backstop: a hard ceiling on what this deployment can
- *             spend in a day, no matter how many addresses show up.
- *
- * State is in memory. On one long-lived server that is exactly right. On
- * serverless it resets per instance, so the effective limit is looser than
- * configured — there the global cap is the number that matters.
- */
+/** Per-process request throttling for fairness, never a cross-instance or
+ * monetary guarantee. shared-budget reserves each actual model call atomically;
+ * deployments should also set a hard monetary ceiling at their provider. */
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
@@ -27,7 +14,7 @@ const num = (v: string | undefined, fallback: number) => {
 
 /** ~3 practice sessions per hour from one address. */
 const PER_IP = num(process.env.RATE_LIMIT_PER_IP, 45);
-/** Whole-deployment ceiling for a day. */
+/** Best-effort per-instance request ceiling. */
 const GLOBAL_DAILY = num(process.env.RATE_LIMIT_GLOBAL_DAILY, 2000);
 const DISABLED = process.env.RATE_LIMIT_DISABLED === "true";
 
@@ -58,14 +45,14 @@ export function checkRateLimit(req: Request) {
 
   globalHits = prune(globalHits, DAY, now);
   if (GLOBAL_DAILY && globalHits.length >= GLOBAL_DAILY) {
-    throw new LLMError("今天的共享额度用完了。在设置 → 模型里填自己的 key 可以继续，密钥只存在你的设备上。", 429);
+    throw new LLMError("今天的共享额度用完了。在设置 → 模型里填自己的 key 可以继续，密钥只存在你的设备上。", 429, false, "quota");
   }
 
   const key = clientKey(req);
   const mine = prune(hits.get(key) ?? [], HOUR, now);
   if (PER_IP && mine.length >= PER_IP) {
     hits.set(key, mine);
-    throw new LLMError("你这一小时用得有点多。稍后再试，或在设置 → 模型里填自己的 key。", 429);
+    throw new LLMError("你这一小时用得有点多。稍后再试，或在设置 → 模型里填自己的 key。", 429, false, "rate_limit");
   }
 
   mine.push(now);

@@ -2,13 +2,15 @@
 //   node site/build.mjs            → site/dist/  (zh at /, en at /en/)
 //   SITE_URL=https://example.com node site/build.mjs
 //
-// Colour tokens below are copied from app/src/app/globals.css (OKLCH, light and
-// dark). Change colours there first, then mirror them here.
+// Colour tokens are read from app/src/app/globals.css at build time.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, rmSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { pick, site, meta, nav, hero, marquee, gap, how, trust, privacy, faq, research, footer } from "./content.mjs";
+import { pick, site, meta, nav, hero, learning, trust, privacy, faq, research, footer, experience } from "./content.mjs";
+import { guides, guideCopy } from "./guides.mjs";
+import { siteTokens, hexToken, darkTokens } from "./design-tokens.mjs";
+import { heroSection, scenarioSection, practiceSection, scenesSection, videosSection, closingSection, homeStyles } from "./home.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -17,28 +19,41 @@ const SITE_URL = (process.env.SITE_URL || site.defaultUrl).replace(/\/$/, "");
 
 const esc = (s) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-// *phrase* in content → an ochre hand-drawn underline, the debrief's own gesture.
-const rich = (s) => esc(s).replace(/\*([^*]+)\*/g, '<mark class="ul">$1</mark>');
 
 const pages = [
   { lang: "zh", htmlLang: "zh-CN", dir: "", rel: "", url: `${SITE_URL}/`, other: "en/" },
   { lang: "en", htmlLang: "en", dir: "en", rel: "../", url: `${SITE_URL}/en/`, other: "../" },
 ];
 const urlOf = (lang) => pages.find((p) => p.lang === lang).url;
-
-// Optional real-product screenshots. Named per marketing/03-asset-plan.md; the
-// block only renders when the file exists, so nothing ships as a placeholder.
-const SHOT_NAMES = { 1: "screenshot-01-home", 2: "screenshot-02-pushback", 3: "screenshot-03-evidence-debrief" };
-const shot = (n, lang) => {
-  const file = `${SHOT_NAMES[n]}-${lang}.png`;
-  return existsSync(join(here, "assets", file)) ? `assets/${file}` : null;
-};
+const guideUrl = (id, lang) => `${SITE_URL}/${lang === "en" ? "en/" : ""}guides/${id}/`;
+const guidePages = guides.flatMap((guide) => ["zh", "en"].map((lang) => ({
+  lang, htmlLang: lang === "zh" ? "zh-CN" : "en", guide,
+  dir: `${lang === "en" ? "en/" : ""}guides/${guide.id}`,
+  rel: lang === "en" ? "../../../" : "../../",
+  url: guideUrl(guide.id, lang),
+  other: guideUrl(guide.id, lang === "zh" ? "en" : "zh"),
+  homeUrl: urlOf(lang),
+})));
+const allPages = [...pages, ...guidePages];
+const pairUrls = (p) => p.guide
+  ? { zh: guideUrl(p.guide.id, "zh"), en: guideUrl(p.guide.id, "en") }
+  : { zh: urlOf("zh"), en: urlOf("en") };
 
 /* -------------------------------- corpus --------------------------------- */
 // The scenario strip reads the product's corpus straight from app/src/data so it
 // never drifts. It is a regex over our own TS, not a TS parser: each scenario
 // object starts at a two-space-indented brace and has title/context fields.
 const corpusDir = join(root, "app", "src", "data", "corpus");
+const bilingualField = (block, key) => {
+  const match = block.match(new RegExp(`\\n\\s*${key}: L\\(\\s*"((?:[^"\\\\]|\\\\.)*)"\\s*,\\s*"((?:[^"\\\\]|\\\\.)*)"\\s*,?\\s*\\)`));
+  return match ? { zh: JSON.parse(`"${match[1]}"`), en: JSON.parse(`"${match[2]}"`) } : null;
+};
+const practiceSources = Object.fromEntries(
+  [...readFileSync(join(corpusDir, "sources.ts"), "utf8").matchAll(/^  (\w+): \{([\s\S]*?)^  \},/gm)].map(([, key, block]) => {
+    const field = (name) => block.match(new RegExp(`${name}: "([^"]+)"`))?.[1];
+    return [key, `Original fictional practice inspired by ${field("book")} — ${field("author")}. ${field("url")}`];
+  }),
+);
 const CONTEXT_NAMES = (() => {
   const tax = readFileSync(join(root, "app", "src", "data", "taxonomy.ts"), "utf8");
   const start = tax.indexOf("export const CONTEXTS");
@@ -48,23 +63,37 @@ const CONTEXT_NAMES = (() => {
   for (const m of block.matchAll(/\{ id: "([a-z-]+)", name: L\("([^"]+)", "([^"]+)"\)/g)) names[m[1]] = { zh: m[2], en: m[3] };
   return names;
 })();
-const CONTEXT_HUE = { workplace: "--c-clay", family: "--c-amber", friendship: "--c-moss", romantic: "--c-rose", education: "--c-teal", party: "--c-ochre", public: "--c-indigo" };
 const SCENARIOS = readdirSync(corpusDir)
   .filter((f) => /^scenarios-[a-z]\.ts$/.test(f))
   .sort()
-  .flatMap((f) =>
-    readFileSync(join(corpusDir, f), "utf8")
+  .flatMap((f) => {
+    const text = readFileSync(join(corpusDir, f), "utf8");
+    const authoredSource = text.match(/const original = \(id: string\) => `([^`]+)`;/)?.[1];
+    return text
       .split(/\n  \{\n/)
       .slice(1)
       .map((b) => {
         const id = b.match(/^\s*id: "([^"]+)"/)?.[1];
-        const t = b.match(/\n\s*title: L\("((?:[^"\\]|\\.)*)", "((?:[^"\\]|\\.)*)"\)/);
+        const title = bilingualField(b, "title");
         const context = b.match(/\n\s*context: "([a-z-]+)"/)?.[1];
-        return id && t && context ? { id, title: { zh: t[1], en: t[2] }, context } : null;
+        const hook = bilingualField(b, "hook");
+        const authoredId = b.match(/\n\s*source: original\("([^"]+)"\)/)?.[1];
+        const practiceKey = b.match(/\n\s*source: practiceSource\("([^"]+)"\)/)?.[1];
+        const source = b.match(/\n\s*source: "([^"]+)"/)?.[1] ??
+          (authoredId && authoredSource ? authoredSource.replace("${id}", authoredId) : null) ?? practiceSources[practiceKey];
+        if (id && (!title || !hook || !context || !source)) throw new Error(`Cannot read source-backed scenario ${id} from ${f}`);
+        return id ? { id, file: f, title, hook, context, source } : null;
       })
-      .filter(Boolean),
-  );
+      .filter(Boolean);
+  });
 if (SCENARIOS.length < 20) console.warn(`warn: only ${SCENARIOS.length} scenarios parsed from the corpus`);
+if (Number(trust.stats.find((stat) => stat.icon === "scene")?.n) !== SCENARIOS.length) throw new Error("Site scenario count differs from the source-backed corpus");
+const guideScenarios = new Map(guides.map((g) => {
+  const scenario = SCENARIOS.find((s) => s.id === g.id);
+  if (!scenario) throw new Error(`Guide ${g.id} has no matching source-backed scenario`);
+  if (scenario.file !== g.corpusFile) throw new Error(`Guide ${g.id} points to ${g.corpusFile}, but lives in ${scenario.file}`);
+  return [g.id, scenario];
+}));
 
 /* ---------------------------------- SVG ---------------------------------- */
 
@@ -78,33 +107,6 @@ const mark = (size, id) => `<svg width="${size}" height="${size}" viewBox="0 0 5
 <path d="${heartPath}" fill="var(--accent)"/>
 <path d="${heartPath}" fill="var(--ink)" clip-path="url(#${id})"/>
 <path d="${sparkPath}" fill="var(--ink)"/></svg>`;
-
-// The pentagon radar from docs/banner.svg, re-coloured with tokens so it works in both themes.
-const radar = (aria) => {
-  const cx = 200, cy = 210, r = 150;
-  const pt = (i, k) => {
-    const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
-    return [cx + k * r * Math.cos(a), cy + k * r * Math.sin(a)];
-  };
-  const ring = (k) => Array.from({ length: 5 }, (_, i) => pt(i, k).map((v) => v.toFixed(1)).join(",")).join(" ");
-  const spokes = Array.from({ length: 5 }, (_, i) => {
-    const [x, y] = pt(i, 1);
-    return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
-  }).join("");
-  const values = [0.8, 0.6, 0.72, 0.5, 0.58];
-  const data = values.map((v, i) => pt(i, v));
-  const poly = data.map((p) => p.map((v) => v.toFixed(1)).join(",")).join(" ");
-  const hues = ["--c-amber", "--c-moss", "--c-teal", "--c-clay", "--c-indigo"];
-  const dots = data.map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="var(${hues[i]})"/>`).join("");
-  return `<svg class="radar" viewBox="0 0 400 400" role="img" aria-label="${esc(aria)}">
-<g fill="none" stroke="var(--line)" stroke-width="1.2">
-<polygon points="${ring(1)}"/><polygon points="${ring(0.66)}"/><polygon points="${ring(0.33)}"/>${spokes}</g>
-<polygon points="${poly}" fill="var(--accent)" fill-opacity="0.14" stroke="var(--accent)" stroke-opacity="0.7" stroke-width="2"/>
-${dots}</svg>`;
-};
-
-const squiggle = `<svg class="squiggle" viewBox="0 0 540 12" aria-hidden="true" preserveAspectRatio="none">
-<path d="M4 8.5 C 70 5, 150 11, 220 6.5 S 380 11.5, 460 6.5 S 510 10, 536 7" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" opacity="0.85"/></svg>`;
 
 const arrow = `<svg class="arrow" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4l3.5 4-3.5 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
@@ -137,21 +139,6 @@ const icon = (name, size = 28) => `<svg class="icon" width="${size}" height="${s
 
 // The debrief's gesture as a schematic: lines of a transcript, one underlined,
 // a leader to the margin. Abstract bars on purpose: no invented dialogue.
-const annotated = (kind) => {
-  const bars = [
-    [0, 0, 150], [0, 22, 118], [0, 62, 168], [0, 84, 96],
-  ];
-  const hi = kind === "acquisition" ? 1 : 3;
-  return `<svg class="annot" viewBox="0 0 320 112" aria-hidden="true">
-${bars.map(([x, y, w], i) => `<rect x="${x + 16}" y="${y + 8}" width="${w}" height="10" rx="5" fill="var(--line)"/>` + (i === hi ? `<path d="M${x + 16} ${y + 24} C ${x + 40} ${y + 21}, ${x + 70} ${y + 27}, ${x + 100} ${y + 23} S ${x + w - 10} ${y + 26}, ${x + w + 16} ${y + 23}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/>` : "")).join("")}
-<rect x="96" y="${8 + 44}" width="0" height="0"/>
-<path d="M${16 + bars[hi][2] + 20} ${bars[hi][1] + 13} H 250" stroke="var(--line-strong)" stroke-dasharray="3 4"/>
-<circle cx="250" cy="${bars[hi][1] + 13}" r="4" fill="var(--accent)"/>
-<path d="M258 ${bars[hi][1] + 13} h 46" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
-</svg>`;
-};
-
-// A row of objective cells filling with ink, the app's own progress motif.
 const inkRow = (filled = 5, total = 8) => `<span class="inkrow" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="${i < filled ? "on" : ""}"></i>`).join("")}</span>`;
 
 // Paper grain, inlined so nothing external is fetched.
@@ -160,56 +147,7 @@ const grain = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
 /* ---------------------------------- CSS ---------------------------------- */
 
 const css = `
-:root{
-  --paper:#faf6f1;--paper:oklch(0.975 0.008 80);
-  --paper-deep:#f4efe8;--paper-deep:oklch(0.955 0.011 78);
-  --card:#fefcf9;--card:oklch(0.992 0.004 85);
-  --inset:oklch(0.95 0.012 78);
-  --ink:#261d16;--ink:oklch(0.24 0.02 60);
-  --ink-2:#50453d;--ink-2:oklch(0.4 0.02 60);
-  --ink-3:#71675f;--ink-3:oklch(0.52 0.018 62);
-  --ink-4:#a59d96;--ink-4:oklch(0.7 0.014 65);
-  --line:#ded8d1;--line:oklch(0.885 0.012 75);
-  --line-strong:#c4bcb3;--line-strong:oklch(0.8 0.016 72);
-  --accent:#ca592e;--accent:oklch(0.6 0.155 40);
-  --accent-deep:#ad411c;--accent-deep:oklch(0.52 0.15 38);
-  --accent-soft:#ffe4d5;--accent-soft:oklch(0.94 0.04 48);
-  --accent-ink:#fdf8ef;--accent-ink:oklch(0.985 0.01 70);
-  --action:var(--accent-deep);
-  --action-hover:oklch(0.46 0.14 38);
-  --slab:var(--ink);--slab-ink:var(--paper);
-  --c-amber:oklch(0.62 0.10 75);--c-moss:oklch(0.55 0.09 140);--c-teal:oklch(0.50 0.08 200);--c-clay:oklch(0.58 0.11 30);--c-indigo:oklch(0.50 0.09 270);--c-rose:oklch(0.60 0.10 15);--c-ochre:oklch(0.62 0.11 60);
-  --grain-opacity:.14;
-  --shadow:0 30px 60px -32px oklch(0.2 0.02 60 / .45), 0 2px 6px -2px oklch(0.2 0.02 60 / .12);
-  --radius-sm:10px;--radius:16px;--radius-lg:22px;
-  --font-sans:"Hanken Grotesk","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
-  --font-serif:Georgia,"Iowan Old Style","Palatino Linotype","Times New Roman",serif;
-  --content:1120px;--measure:62ch;
-  --ease-out:cubic-bezier(0.22,1,0.36,1);--ease-expo:cubic-bezier(0.16,1,0.3,1);
-  color-scheme:light dark;
-}
-:root[data-theme="light"]{color-scheme:light}
-:root[data-theme="dark"]{color-scheme:dark}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:oklch(0.205 0.012 62);--paper-deep:oklch(0.165 0.011 60);--card:oklch(0.238 0.013 63);--inset:oklch(0.272 0.014 63);
-  --ink:oklch(0.935 0.012 78);--ink-2:oklch(0.80 0.013 75);--ink-3:oklch(0.655 0.013 70);--ink-4:oklch(0.515 0.012 68);
-  --line:oklch(0.315 0.014 65);--line-strong:oklch(0.425 0.016 65);
-  --accent:oklch(0.70 0.145 42);--accent-deep:oklch(0.795 0.125 46);--accent-soft:oklch(0.315 0.055 44);--accent-ink:oklch(0.17 0.02 50);
-  --action-hover:oklch(0.84 0.10 46);
-  --c-amber:oklch(0.78 0.10 75);--c-moss:oklch(0.74 0.09 140);--c-teal:oklch(0.72 0.08 200);--c-clay:oklch(0.76 0.10 30);--c-indigo:oklch(0.72 0.09 270);--c-rose:oklch(0.76 0.09 15);--c-ochre:oklch(0.78 0.10 60);
-  --grain-opacity:.09;
-  --shadow:0 30px 60px -30px oklch(0 0 0 / .7), 0 2px 6px -2px oklch(0 0 0 / .4);}
-:root:not([data-theme="light"]) body::before{mix-blend-mode:screen}
-:root:not([data-theme="light"]) mark.ul{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 40 7 60 4.5S100 6.5 118 4' fill='none' stroke='%23e08a5c' stroke-width='2' stroke-linecap='round' opacity='.9'/%3E%3C/svg%3E")}}
-:root[data-theme="dark"]{--paper:oklch(0.205 0.012 62);--paper-deep:oklch(0.165 0.011 60);--card:oklch(0.238 0.013 63);--inset:oklch(0.272 0.014 63);
-  --ink:oklch(0.935 0.012 78);--ink-2:oklch(0.80 0.013 75);--ink-3:oklch(0.655 0.013 70);--ink-4:oklch(0.515 0.012 68);
-  --line:oklch(0.315 0.014 65);--line-strong:oklch(0.425 0.016 65);
-  --accent:oklch(0.70 0.145 42);--accent-deep:oklch(0.795 0.125 46);--accent-soft:oklch(0.315 0.055 44);--accent-ink:oklch(0.17 0.02 50);
-  --action-hover:oklch(0.84 0.10 46);
-  --c-amber:oklch(0.78 0.10 75);--c-moss:oklch(0.74 0.09 140);--c-teal:oklch(0.72 0.08 200);--c-clay:oklch(0.76 0.10 30);--c-indigo:oklch(0.72 0.09 270);
-  --grain-opacity:.09;
-  --shadow:0 30px 60px -30px oklch(0 0 0 / .7), 0 2px 6px -2px oklch(0 0 0 / .4);}
-:root[data-theme="dark"] body::before{mix-blend-mode:screen}
-:root[data-theme="dark"] mark.ul{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 40 7 60 4.5S100 6.5 118 4' fill='none' stroke='%23e08a5c' stroke-width='2' stroke-linecap='round' opacity='.9'/%3E%3C/svg%3E")}
+${siteTokens}
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:5rem}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
@@ -233,15 +171,14 @@ h1,h2,h3{margin:0;font-weight:700;letter-spacing:-0.01em;line-height:1.15;text-w
 .icon{flex:0 0 auto}
 .measure{max-width:var(--measure)}
 .muted{color:var(--ink-3)}
-mark.ul{background:none;color:inherit;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 40 7 60 4.5S100 6.5 118 4' fill='none' stroke='%23ca592e' stroke-width='2' stroke-linecap='round' opacity='.85'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:100% .5em;background-position:0 100%;padding-bottom:.12em}
 
 main{position:relative}
 
 /* reveal on scroll (transform/opacity only) */
-html.js .reveal{opacity:0;transform:translateY(14px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
-html.js .reveal.in{opacity:1;transform:none}
-html.js .reveal[data-d="1"]{transition-delay:.08s}html.js .reveal[data-d="2"]{transition-delay:.16s}html.js .reveal[data-d="3"]{transition-delay:.24s}
-@media (prefers-reduced-motion:reduce){html.js .reveal{opacity:1;transform:none;transition:none}}
+html.reveal-ready .reveal{opacity:0;transform:translateY(14px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+html.reveal-ready .reveal.in{opacity:1;transform:none}
+html.reveal-ready .reveal[data-d="1"]{transition-delay:.08s}html.reveal-ready .reveal[data-d="2"]{transition-delay:.16s}html.reveal-ready .reveal[data-d="3"]{transition-delay:.24s}
+@media (prefers-reduced-motion:reduce){html.reveal-ready .reveal{opacity:1;transform:none;transition:none}}
 
 /* nav */
 .nav{position:sticky;top:0;z-index:20;background:color-mix(in oklab,var(--paper) 86%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
@@ -264,6 +201,8 @@ html.js .reveal[data-d="1"]{transition-delay:.08s}html.js .reveal[data-d="2"]{tr
 .theme .icon{width:18px;height:18px;display:none}
 html:not([data-theme]) .theme .i-auto,html[data-theme="light"] .theme .i-sun,html[data-theme="dark"] .theme .i-moon{display:block}
 @media (max-width:40rem){.nav .wrap{gap:.5rem;min-height:56px}.brand .word,.brand .zh{display:none}.nav .btn-sm{padding:.5rem .8rem;font-size:.88rem;white-space:nowrap}.seg .icon{display:none}.seg a{padding:.4rem .5rem}}
+.nav .btn-sm .short{display:none}
+@media (max-width:40rem){.nav .btn-sm .long{display:none}.nav .btn-sm .short{display:inline}}
 @media (min-width:64rem){.nav-links{display:flex}}
 
 /* buttons */
@@ -297,70 +236,16 @@ html:not([data-theme]) .theme .i-auto,html[data-theme="light"] .theme .i-sun,htm
 .micro{display:flex;flex-wrap:wrap;gap:.4rem 1.25rem;margin:1.25rem 0 0;padding:0;font-size:.9rem;color:var(--ink-3)}
 .micro li{list-style:none;display:flex;align-items:center;gap:.45rem}
 .micro .icon{width:16px;height:16px;color:var(--accent)}
-.hero-art{display:flex;justify-content:center;position:relative;min-height:320px}
-.hero-art .radar{width:min(380px,80vw)}
-.hero-art.with-phone .radar{position:absolute;width:min(560px,110%);left:50%;top:50%;transform:translate(-50%,-50%);opacity:.55}
-.phone{width:min(300px,78vw);aspect-ratio:9/19.5;border-radius:38px;border:1px solid var(--line-strong);background:var(--paper-deep);padding:9px;box-shadow:var(--shadow);margin:0;position:relative}
-.phone img{width:100%;height:100%;object-fit:cover;object-position:top;border-radius:30px}
-.phone::after{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);width:34%;height:22px;background:var(--paper-deep);border-radius:0 0 14px 14px}
-.hero-art .phone{width:min(280px,72vw);transform:rotate(-2deg)}
-
-/* scenario strip: two rows, opposite directions, paused on hover */
-.marquee{padding:0 0 clamp(40px,5vw,72px)}
-.marquee-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1.1rem}
-.marquee-head a{display:inline-flex;align-items:center;gap:.4rem;font-size:.92rem;color:var(--ink-2);text-decoration:none;font-weight:600}
-.marquee-head a:hover{color:var(--ink)}
-.viewport{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);display:grid;gap:.7rem}
-.track{display:flex;width:max-content;animation:slide var(--dur,80s) linear infinite}
-.track.rev{animation-direction:reverse}
-.viewport:hover .track{animation-play-state:paused}
-.row{display:flex;gap:.7rem;padding-right:.7rem;margin:0;list-style:none}
-@keyframes slide{to{transform:translateX(-50%)}}
-@media (prefers-reduced-motion:reduce){.track{animation:none}.viewport{overflow-x:auto}}
-.chip{display:inline-flex;align-items:center;gap:.6rem;white-space:nowrap;padding:.55rem .95rem .55rem .75rem;border:1px solid var(--line);border-radius:999px;background:var(--card);font-size:.95rem;color:var(--ink)}
-.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--dot)}
-.chip .ctx{font-size:.78rem;color:var(--ink-3);letter-spacing:.04em}
-
 /* sections */
 .section{padding:clamp(56px,8vw,112px) 0;border-top:1px solid var(--line)}
 .section-head{display:grid;gap:.85rem;margin-bottom:clamp(28px,4vw,48px)}
 .section h2{font-size:clamp(1.8rem,3vw + .4rem,2.6rem);max-width:26ch}
 .lead{font-size:1.15rem;color:var(--ink-2);max-width:var(--measure)}
 
-/* gap */
-.notes{display:grid;gap:1rem;margin-top:2.25rem}
-@media (min-width:48rem){.notes{grid-template-columns:repeat(3,1fr)}}
-.note{margin:0;padding:1.6rem 1.5rem 1.5rem;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);font-size:1.05rem;line-height:1.65;position:relative;box-shadow:0 1px 0 var(--line);transition:transform .25s var(--ease-out),box-shadow .25s}
-@media (hover:hover){.note:hover{transform:translateY(-3px);box-shadow:var(--shadow)}}
-.note::before{content:"“";font-family:var(--font-serif);font-size:3rem;line-height:0;position:absolute;top:1.75rem;left:1.1rem;color:var(--accent);opacity:.7}
-.note p{padding-left:1.5rem}
-.note:nth-child(2){transform:rotate(.4deg)}.note:nth-child(3){transform:rotate(-.3deg)}
-.deficits{display:grid;gap:1rem;margin-top:2.5rem}
-@media (min-width:48rem){.deficits{grid-template-columns:1fr 1fr}}
-.deficit{padding:1.5rem;border-radius:var(--radius);background:var(--paper-deep);border:1px solid var(--line);display:grid;gap:.5rem}
-.deficit .tag{font-family:var(--font-serif);font-style:italic;font-size:.9rem;color:var(--ink-3)}
-.deficit h3{font-size:1.45rem}
-.deficit p{color:var(--ink-2)}
-.annot{width:100%;max-width:320px;height:auto;margin:.5rem 0 .25rem}
-.deficit .fix{display:inline-flex;align-items:center;gap:.5rem;font-size:.92rem;color:var(--accent-deep);font-weight:600}
-.deficit .fix::before{content:"→";font-family:var(--font-serif)}
-.deficit-note{margin-top:1.25rem;color:var(--ink-2);display:flex;gap:.6rem;align-items:baseline}
-.deficit-note::before{content:"";flex:0 0 22px;height:2px;background:var(--accent);transform:translateY(-.3em);border-radius:2px}
-
-/* steps */
-.steps{list-style:none;margin:0;padding:0}
-.step{display:grid;grid-template-columns:3.5rem 1fr;gap:1rem 1.25rem;padding:2rem 0;border-top:1px solid var(--line);align-items:start}
-.step:last-child{border-bottom:1px solid var(--line)}
-.step .num{font-family:var(--font-serif);font-size:1.6rem;color:var(--accent);line-height:1.1;padding-top:.15rem}
-.step h3{font-size:1.35rem;margin-bottom:.5rem}
-.step p{color:var(--ink-2);max-width:var(--measure)}
-.step .art{grid-column:2;display:flex;justify-content:flex-start}
-.step .glyph{width:96px;height:96px;border-radius:var(--radius);background:var(--paper-deep);border:1px solid var(--line);display:grid;place-items:center;color:var(--ink-2)}
-.step .glyph .icon{width:44px;height:44px}
-.step .phone{width:200px;height:300px;aspect-ratio:auto;padding:6px 6px 0;border-radius:26px 26px 0 0;border-bottom:0;overflow:hidden;-webkit-mask-image:linear-gradient(#000 62%,transparent);mask-image:linear-gradient(#000 62%,transparent);box-shadow:none}.step .phone img{border-radius:20px 20px 0 0;height:auto}.step .phone::after{width:38%;height:14px;top:6px;border-radius:0 0 9px 9px}
-@media (min-width:64rem){.step{grid-template-columns:3.5rem 1fr 240px;column-gap:2rem;align-items:start}.step .art{grid-column:3;grid-row:1;justify-content:flex-end}.step .phone{width:220px;height:320px}}
-
 /* trust */
+.learning-note{margin-top:1.5rem;color:var(--ink-2);max-width:var(--measure)}
+.learning-source{margin-top:.5rem;font-size:.95rem;color:var(--accent-deep)}
+.learning-source a{display:inline-flex;align-items:center;gap:.35rem;text-underline-offset:.2em}
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem 1rem;margin-top:.5rem}
 @media (min-width:48rem){.stats{grid-template-columns:repeat(5,1fr)}}
 .stat .icon{width:22px;height:22px;color:var(--accent-deep);margin-bottom:.6rem}
@@ -380,6 +265,30 @@ html:not([data-theme]) .theme .i-auto,html[data-theme="light"] .theme .i-sun,htm
 .card .icon{color:var(--accent-deep);margin-bottom:1rem;width:30px;height:30px;padding:6px;box-sizing:content-box;border-radius:12px;background:var(--accent-soft)}
 .card h3{font-size:1.15rem;margin-bottom:.6rem}
 .card p{color:var(--ink-2);font-size:1rem}
+
+/* public practice previews */
+.guide-card{display:block;text-decoration:none}
+.guide-card .guide-context{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-deep);font-weight:700;margin-bottom:.7rem}
+.guide-card .guide-link{display:inline-flex;gap:.4rem;align-items:center;color:var(--accent-deep);font-weight:600;font-size:.92rem;margin-top:1rem}
+.guide-hero{padding:clamp(52px,7vw,90px) 0 clamp(35px,5vw,64px)}
+.guide-hero h1{font-size:clamp(2.1rem,4.8vw,3.9rem);max-width:21ch;margin:.65rem 0 1.2rem}
+.guide-hero .lead{max-width:67ch}
+.guide-meta{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;color:var(--ink-3);font-size:.9rem;margin-bottom:1.5rem}
+.guide-layout{display:grid;gap:2rem;padding-bottom:clamp(56px,8vw,100px)}
+@media (min-width:64rem){.guide-layout{grid-template-columns:minmax(0,1.65fr) minmax(240px,.75fr);gap:5rem}}
+.guide-article{max-width:68ch}
+.guide-article section{padding:1.7rem 0;border-top:1px solid var(--line)}
+.guide-article section:last-child{border-bottom:1px solid var(--line)}
+.guide-article h2{font-size:1.4rem;margin-bottom:.7rem}
+.guide-article p{color:var(--ink-2)}
+.guide-article ol{padding-left:1.5rem;margin:.8rem 0 0;color:var(--ink-2)}
+.guide-article li{padding-left:.25rem;margin:.4rem 0}
+.guide-side{align-self:start;padding:1.5rem;background:var(--card);border:1px solid var(--line);border-radius:var(--radius)}
+.guide-side p{color:var(--ink-2);font-size:.94rem;margin:1rem 0}
+.guide-side .btn{margin-top:.6rem}
+.guide-source{margin-top:1.2rem;padding:1.2rem;background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--radius-sm);font-size:.92rem;color:var(--ink-2)}
+.guide-source p+p{margin-top:.5rem}
+.guide-source a{text-underline-offset:.2em}
 
 /* faq */
 .faq{display:grid;gap:0 3rem}
@@ -432,12 +341,24 @@ pre{margin:0;padding:1rem 1.1rem;background:var(--card);border:1px solid var(--l
 .footer nav a:hover{color:var(--ink)}
 .footer .disc{margin-top:2rem;max-width:var(--measure);line-height:1.6}
 .footer .copy{margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between}
+${homeStyles}
 `.replace("GRAIN", grain);
 
 /* -------------------------------- template ------------------------------- */
 
 const jsonLd = (p) => {
   const l = p.lang;
+  if (p.guide) return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": `${p.url}#webpage`,
+    url: p.url,
+    name: pick(p.guide.title, l),
+    description: pick(p.guide.description, l),
+    inLanguage: p.htmlLang,
+    isPartOf: { "@id": `${SITE_URL}/#site` },
+    about: { "@id": `${SITE_URL}/#app` },
+  });
   const article = {
     "@type": "ScholarlyArticle",
     "@id": `${site.arxivUrl}#article`,
@@ -452,6 +373,7 @@ const jsonLd = (p) => {
     url: site.arxivUrl,
     sameAs: [site.pdfUrl],
     datePublished: research.datePublished,
+    dateModified: research.dateModified,
     inLanguage: "en",
     publisher: { "@type": "Organization", name: "arXiv" },
     description: pick(research.lead, "en"),
@@ -481,6 +403,9 @@ const jsonLd = (p) => {
 
 const head = (p) => {
   const l = p.lang;
+  const title = p.guide ? `${pick(p.guide.title, l)} | SocialCoach` : pick(meta.title, l);
+  const description = p.guide ? pick(p.guide.description, l) : pick(meta.description, l);
+  const alternate = pairUrls(p);
   const og = `${SITE_URL}/assets/og-${l}.png`;
   const hasOg = existsSync(join(here, "assets", `og-${l}.png`));
   const citation = [
@@ -492,26 +417,26 @@ const head = (p) => {
   ].join("\n");
   return `<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(pick(meta.title, l))}</title>
-<meta name="description" content="${esc(pick(meta.description, l))}">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${p.url}">
-<link rel="alternate" hreflang="zh-CN" href="${urlOf("zh")}">
-<link rel="alternate" hreflang="en" href="${urlOf("en")}">
-<link rel="alternate" hreflang="x-default" href="${urlOf("zh")}">
+<link rel="alternate" hreflang="zh-CN" href="${alternate.zh}">
+<link rel="alternate" hreflang="en" href="${alternate.en}">
+<link rel="alternate" hreflang="x-default" href="${alternate.zh}">
 <link rel="icon" href="${p.rel}assets/icon.svg" type="image/svg+xml">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf6f1">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#211c18">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="${hexToken("--paper")}">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="${hexToken("--paper", darkTokens)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SocialCoach">
-<meta property="og:title" content="${esc(pick(meta.title, l))}">
-<meta property="og:description" content="${esc(pick(meta.description, l))}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${p.url}">
 <meta property="og:locale" content="${l === "zh" ? "zh_CN" : "en_US"}">
 <meta property="og:locale:alternate" content="${l === "zh" ? "en_US" : "zh_CN"}">
 ${hasOg ? `<meta property="og:image" content="${og}">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n<meta name="twitter:card" content="summary_large_image">\n<meta name="twitter:image" content="${og}">` : `<meta name="twitter:card" content="summary">`}
-<meta name="twitter:title" content="${esc(pick(meta.title, l))}">
-<meta name="twitter:description" content="${esc(pick(meta.description, l))}">
-${citation}
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(description)}">
+${p.guide ? "" : citation}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
@@ -521,130 +446,91 @@ ${citation}
 
 const navHtml = (p) => {
   const l = p.lang;
+  const home = p.homeUrl || "./";
+  const section = p.guide ? p.homeUrl : "";
+  const self = p.guide ? p.url : "./";
   return `<header class="nav">
 <div class="wrap">
-<a class="brand" href="${p.rel || "./"}" aria-label="SocialCoach">
+<a class="brand" href="${home}" aria-label="SocialCoach">
 ${mark(30, "m-nav")}
 <span><span class="word">SocialCoach</span>${l === "zh" ? '<span class="zh" style="display:block">情商练习场</span>' : ""}</span>
 </a>
 <nav class="nav-links" aria-label="${l === "zh" ? "页面导航" : "Site"}">
-<a href="#how">${esc(pick(nav.how, l))}</a>
-<a href="#trust">${esc(pick(nav.trust, l))}</a>
-<a href="#privacy">${esc(pick(nav.privacy, l))}</a>
-<a href="#faq">${esc(pick(nav.faq, l))}</a>
-<a href="#research">${esc(pick(nav.research, l))}</a>
+<a href="${section}#how">${esc(pick(nav.how, l))}</a>
+<a href="${section}#scenes">${esc(pick(experience.nav3d, l))}</a>
+<a href="${section}#videos">${esc(pick(experience.navVideos, l))}</a>
+<a href="${section}#research">${esc(pick(nav.research, l))}</a>
 </nav>
 <div class="ctrl">
 <nav class="seg" aria-label="${esc(pick(nav.langAria, l))}">
 ${icon("globe", 15)}
-<a href="${l === "zh" ? (p.rel || "./") : p.other}" lang="zh-CN" hreflang="zh-CN"${l === "zh" ? ' class="on" aria-current="page"' : ""}>中</a>
-<a href="${l === "en" ? "./" : p.other}" lang="en" hreflang="en"${l === "en" ? ' class="on" aria-current="page"' : ""}>EN</a>
+<a href="${l === "zh" ? self : p.other}" lang="zh-CN" hreflang="zh-CN"${l === "zh" ? ' class="on" aria-current="page"' : ""}>中</a>
+<a href="${l === "en" ? self : p.other}" lang="en" hreflang="en"${l === "en" ? ' class="on" aria-current="page"' : ""}>EN</a>
 </nav>
-<button class="theme" type="button" data-theme-toggle aria-label="${esc(pick(nav.themeAria, l))}" data-names="${esc(pick(nav.themeNames, l).join("|"))}">${icon("auto", 18).replace('class="icon"', 'class="icon i-auto"')}${icon("sun", 18).replace('class="icon"', 'class="icon i-sun"')}${icon("moon", 18).replace('class="icon"', 'class="icon i-moon"')}</button>
-<a class="btn btn-primary btn-sm" href="${site.appUrl}">${esc(pick(nav.cta, l))}</a>
+<button class="theme" type="button" data-theme-toggle aria-label="${esc(pick(nav.themeAria, l))}" data-label="${esc(pick(nav.themeAria, l))}" data-names="${esc(pick(nav.themeNames, l).join("|"))}">${icon("auto", 18).replace('class="icon"', 'class="icon i-auto"')}${icon("sun", 18).replace('class="icon"', 'class="icon i-sun"')}${icon("moon", 18).replace('class="icon"', 'class="icon i-moon"')}</button>
+<a class="btn btn-primary btn-sm" href="${site.appUrl}" aria-label="${esc(pick(nav.cta, l))}"><span class="long">${esc(pick(nav.cta, l))}</span><span class="short">${esc(pick(nav.ctaShort, l))}</span></a>
 </div>
 </div>
 </header>`;
 };
 
-const heroHtml = (p) => {
+const guidesHtml = (p, excludeId = null) => {
   const l = p.lang;
-  const s1 = shot(1, l);
-  const s3 = shot(3, l);
-  const secondary = s3
-    ? `<a class="btn btn-ghost" href="#debrief">${esc(pick(hero.ctaDebrief, l))}</a>`
-    : `<a class="btn btn-ghost" href="#how">${esc(pick(hero.ctaHow, l))}</a>`;
-  const art = s1
-    ? `${radar(pick(hero.radarAria, l))}<figure class="phone"><img src="${p.rel}${s1}" alt="${esc(pick(hero.screenshotAlt, l))}" width="1170" height="2532" loading="eager" fetchpriority="high"></figure>`
-    : radar(pick(hero.radarAria, l));
-  return `<section class="hero">
+  const items = guides.filter((g) => g.id !== excludeId);
+  return `<section class="section guide-more" id="guides">
 <div class="wrap">
-<div>
-<a class="pill" href="#research">
-<span class="tag">${hero.pillTag}</span>
-<span>${esc(pick(hero.pill, l))}</span>
-${arrow}
-</a>
-<p class="eyebrow">${esc(pick(hero.eyebrow, l))}</p>
-<h1>${esc(pick(hero.h1, l)).replace("，", "，<wbr>")}</h1>
-<p class="alt" lang="${l === "zh" ? "en" : "zh-CN"}">${esc(pick(hero.h1Alt, l))}</p>
-${squiggle}
-<p class="sub">${esc(pick(hero.sub, l))}</p>
-<div class="ctas">
-<a class="btn btn-primary" href="${site.appUrl}">${esc(pick(hero.ctaPrimary, l))} ${arrow}</a>
-${secondary}
+<div class="section-head">
+<p class="eyebrow">${esc(pick(guideCopy.eyebrow, l))}</p>
+<h2>${esc(pick(excludeId ? guideCopy.more : guideCopy.indexTitle, l))}</h2>
+${excludeId ? "" : `<p class="lead">${esc(pick(guideCopy.indexLead, l))}</p>`}
 </div>
-<ul class="micro">${hero.micro.map((m) => `<li>${icon(m.icon, 16)}${esc(pick(m.text, l))}</li>`).join("")}</ul>
-</div>
-<div class="hero-art${s1 ? " with-phone" : ""}">${art}</div>
+<div class="cards">${items.map((g) => {
+    const s = guideScenarios.get(g.id);
+    return `<a class="card guide-card" href="${guideUrl(g.id, l)}"><p class="guide-context">${esc(pick(CONTEXT_NAMES[s.context], l))}</p><h3>${esc(pick(g.title, l))}</h3><p>${esc(pick(s.hook, l))}</p><span class="guide-link">${esc(pick(guideCopy.read, l))} ${arrow}</span></a>`;
+  }).join("")}</div>
 </div>
 </section>`;
 };
 
-const marqueeHtml = (p) => {
+const guidePage = (p) => {
   const l = p.lang;
-  const contexts = new Set(SCENARIOS.map((s) => s.context));
-  const chip = (s) =>
-    `<li class="chip" style="--dot:var(${CONTEXT_HUE[s.context] || "--c-amber"})"><span class="dot"></span><span class="ctx">${esc(pick(CONTEXT_NAMES[s.context] || { zh: s.context, en: s.context }, l))}</span><span>${esc(pick(s.title, l))}</span></li>`;
-  // interleave contexts so no row is a block of one colour
-  const byCtx = [...contexts].map((c) => SCENARIOS.filter((s) => s.context === c));
-  const mixed = [];
-  for (let i = 0; byCtx.some((a) => a.length > i); i++) for (const a of byCtx) if (a[i]) mixed.push(a[i]);
-  const half = Math.ceil(mixed.length / 2);
-  const rows = [mixed.slice(0, half), mixed.slice(half)];
-  const row = (items, rev) => `<div class="track${rev ? " rev" : ""}" style="--dur:${Math.round(items.length * 3.4)}s"><ul class="row">${items.map(chip).join("")}</ul><ul class="row" aria-hidden="true">${items.map(chip).join("")}</ul></div>`;
-  const eyebrow = pick(marquee.eyebrow, l).replace("{n}", SCENARIOS.length).replace("{c}", contexts.size);
-  return `<section class="marquee" aria-label="${esc(pick(marquee.aria, l))}">
-<div class="wrap marquee-head"><p class="eyebrow">${esc(eyebrow)}</p><a href="${site.appUrl}/arena">${esc(pick(marquee.all, l))} ${arrow}</a></div>
-<div class="viewport">${row(rows[0], false)}${row(rows[1], true)}</div>
-</section>`;
-};
-
-const gapHtml = (p) => {
-  const l = p.lang;
-  return `<section class="section" id="gap">
-<div class="wrap">
-<div class="section-head reveal">
-<p class="eyebrow num"><span class="no">${gap.no}</span>${esc(pick(gap.eyebrow, l))}</p>
-<h2>${esc(pick(gap.title, l))}</h2>
-<p class="lead">${rich(pick(gap.lead, l))}</p>
+  const g = p.guide;
+  const s = guideScenarios.get(g.id);
+  const corpusUrl = `${site.repoUrl}/blob/main/app/src/data/corpus/${g.corpusFile}`;
+  const practiceUrl = `${site.appDeepUrl}/arena?q=${encodeURIComponent(s.title.en)}`;
+  return `<!doctype html>
+<html lang="${p.htmlLang}">
+<head>
+<script>document.documentElement.classList.add("js");try{var t=localStorage.getItem("sc-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+${head(p)}
+</head>
+<body>
+<a class="skip" href="#main">${esc(pick(nav.skip, l))}</a>
+${navHtml(p)}
+<main id="main">
+<header class="guide-hero"><div class="wrap">
+<p class="eyebrow">${esc(pick(guideCopy.eyebrow, l))}</p>
+<h1>${esc(pick(g.title, l))}</h1>
+<div class="guide-meta"><span>${esc(pick(CONTEXT_NAMES[s.context], l))}</span><span>${esc(pick(guideCopy.fictional, l))}</span></div>
+<p class="lead">${esc(pick(g.description, l))}</p>
+<div class="ctas"><a class="btn btn-primary" href="${practiceUrl}">${esc(pick(guideCopy.start, l))} ${arrow}</a><a class="btn btn-ghost" href="${p.homeUrl}#guides">${esc(pick(guideCopy.back, l))}</a></div>
+</div></header>
+<div class="wrap guide-layout">
+<article class="guide-article">
+<section><h2>${esc(pick(guideCopy.situation, l))}</h2><p>${esc(pick(s.hook, l))}</p></section>
+<section><h2>${esc(pick(guideCopy.pressure, l))}</h2><p>${esc(pick(g.pressure, l))}</p></section>
+<section><h2>${esc(pick(guideCopy.goal, l))}</h2><ol>${g.goals.map((goal) => `<li>${esc(pick(goal, l))}</li>`).join("")}</ol></section>
+<section><h2>${esc(pick(guideCopy.reflect, l))}</h2><p>${esc(pick(g.reflect, l))}</p></section>
+<section><h2>${esc(pick(guideCopy.process, l))}</h2><p>${esc(pick(guideCopy.processBody, l))}</p></section>
+<div class="guide-source"><p><strong>${esc(pick(guideCopy.source, l))}:</strong> ${esc(s.source)}</p><p>${esc(pick(guideCopy.sourceNote, l))}</p><p><a href="${corpusUrl}">${esc(pick(guideCopy.corpus, l))} ${arrow}</a></p></div>
+</article>
+<aside class="guide-side"><p class="eyebrow">${esc(pick(guideCopy.scenario, l))}</p><h2>${esc(pick(s.title, l))}</h2><p>${esc(pick(s.hook, l))}</p><a class="btn btn-primary" href="${practiceUrl}">${esc(pick(guideCopy.start, l))} ${arrow}</a></aside>
 </div>
-<div class="notes">${gap.hooks.map((h, i) => `<blockquote class="note reveal" data-d="${i}"><p>${rich(pick(h, l))}</p></blockquote>`).join("")}</div>
-<div class="deficits">${gap.deficits
-    .map(
-      (d, i) => `<div class="deficit reveal" data-d="${i}"><span class="tag">${d.tag} deficit</span><h3>${esc(pick(d.label, l))}</h3>${annotated(d.tag)}<p>${esc(pick(d.body, l))}</p><span class="fix">${esc(pick(d.fix, l))}</span></div>`,
-    )
-    .join("")}</div>
-<p class="deficit-note">${esc(pick(gap.deficitNote, l))}</p>
-</div>
-</section>`;
-};
-
-const howHtml = (p) => {
-  const l = p.lang;
-  const s2 = shot(2, l);
-  const s3 = shot(3, l);
-  return `<section class="section" id="how">
-<div class="wrap">
-<div class="section-head reveal">
-<p class="eyebrow num"><span class="no">${how.no}</span>${esc(pick(how.eyebrow, l))}</p>
-<h2>${esc(pick(how.title, l))}</h2>
-</div>
-<ol class="steps">${how.steps
-    .map((s, i) => {
-      const img = s.id === "debrief" ? s3 : s.id === "pushback" ? s2 : null;
-      const art = img
-        ? `<figure class="phone"><img src="${p.rel}${img}" alt="${esc(pick(s.screenshotAlt, l))}" width="1170" height="2532" loading="lazy"></figure>`
-        : `<div class="glyph">${icon(s.icon, 44)}</div>`;
-      return `<li class="step reveal"${s.id ? ` id="${s.id}"` : ""}>
-<span class="num" aria-hidden="true">0${i + 1}</span>
-<div><h3>${esc(pick(s.title, l))}</h3><p>${rich(pick(s.body, l))}</p></div>
-<div class="art">${art}</div>
-</li>`;
-    })
-    .join("")}</ol>
-</div>
-</section>`;
+${guidesHtml(p, g.id)}
+</main>
+${footerHtml(p)}
+</body>
+</html>`;
 };
 
 const trustHtml = (p) => {
@@ -659,6 +545,7 @@ const trustHtml = (p) => {
     .map((s, i) => `<div class="stat reveal" data-d="${Math.min(i, 3)}">${icon(s.icon, 22)}<div class="n">${s.n}</div><div class="l">${esc(pick(s.label, l))}</div>${inkRow(8 - i, 8)}</div>`)
     .join("")}</div>
 <p class="stats-note">${esc(pick(trust.statsNote, l))}</p>
+<p class="sources"><a href="${learning.sourceUrl}">${esc(pick(experience.sourceNote, l))}</a></p>
 <p class="sources">${esc(pick(trust.sourcesLabel, l))}${l === "zh" ? "：" : ": "}${trust.sources.map((s) => `<i>${esc(s)}</i>`).join(l === "zh" ? "、" : ", ")}${l === "zh" ? "。" : "."}</p>
 </div>
 </section>`;
@@ -716,6 +603,7 @@ const researchHtml = (p) => {
 <a class="btn btn-ghost btn-sm" href="${site.arxivUrl}">${icon("external", 16)}${esc(pick(research.links.arxiv, l))}</a>
 <a class="btn btn-ghost btn-sm" href="${p.rel}${site.localPdf}">${icon("file", 16)}${esc(pick(research.links.pdf, l))}</a>
 <a class="btn btn-ghost btn-sm" href="${site.repoUrl}">${icon("code", 16)}${esc(pick(research.links.code, l))}</a>
+<a class="btn btn-ghost btn-sm" href="${site.supplementaryUrl}">${icon("external", 16)}${esc(pick(research.links.supplementary, l))}</a>
 <a class="btn btn-ghost btn-sm" href="#bibtex">${icon("quote", 16)}${esc(pick(research.links.bibtex, l))}</a>
 </div>
 </div>
@@ -740,7 +628,7 @@ const footerHtml = (p) => {
 <div class="wrap">
 <div class="top">
 <div>
-<a class="brand" href="${p.rel || "./"}" aria-label="SocialCoach">${mark(30, "m-foot")}<span><span class="word">SocialCoach</span>${l === "zh" ? '<span class="zh" style="display:block">情商练习场</span>' : ""}</span></a>
+<a class="brand" href="${p.homeUrl || "./"}" aria-label="SocialCoach">${mark(30, "m-foot")}<span><span class="word">SocialCoach</span>${l === "zh" ? '<span class="zh" style="display:block">情商练习场</span>' : ""}</span></a>
 <p class="tag">${esc(pick(footer.tagline, l))}</p>
 </div>
 <nav aria-label="${l === "zh" ? "页脚链接" : "Footer"}">
@@ -755,8 +643,8 @@ const footerHtml = (p) => {
 </div>
 </footer>
 <script>
-(function(){if(!("IntersectionObserver" in window))return;var els=document.querySelectorAll(".reveal");var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{rootMargin:"0px 0px -8% 0px",threshold:.08});els.forEach(function(el){io.observe(el)})})();
-(function(){var b=document.querySelector("[data-theme-toggle]");if(!b)return;var names=(b.getAttribute("data-names")||"").split("|");var order=["","light","dark"];function cur(){return document.documentElement.getAttribute("data-theme")||""}function label(){b.title=names[order.indexOf(cur())]||""}label();b.addEventListener("click",function(){var next=order[(order.indexOf(cur())+1)%order.length];if(next)document.documentElement.setAttribute("data-theme",next);else document.documentElement.removeAttribute("data-theme");try{next?localStorage.setItem("sc-theme",next):localStorage.removeItem("sc-theme")}catch(e){}label()})})();
+(function(){if(!("IntersectionObserver" in window))return;var els=document.querySelectorAll(".reveal");var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{rootMargin:"0px 0px -8% 0px",threshold:.08});els.forEach(function(el){io.observe(el)});document.documentElement.classList.add("reveal-ready")})();
+(function(){var b=document.querySelector("[data-theme-toggle]");if(!b)return;var names=(b.getAttribute("data-names")||"").split("|");var order=["","light","dark"];function cur(){return document.documentElement.getAttribute("data-theme")||""}function label(){var name=names[order.indexOf(cur())]||"";b.title=name;b.setAttribute("aria-label",b.getAttribute("data-label")+": "+name)}label();b.addEventListener("click",function(){var next=order[(order.indexOf(cur())+1)%order.length];if(next)document.documentElement.setAttribute("data-theme",next);else document.documentElement.removeAttribute("data-theme");try{next?localStorage.setItem("sc-theme",next):localStorage.removeItem("sc-theme")}catch(e){}label()})})();
 (function(){var b=document.querySelector('[data-copy]');if(!b||!navigator.clipboard)return;b.addEventListener('click',function(){var t=document.getElementById(b.getAttribute('data-copy')).textContent;navigator.clipboard.writeText(t).then(function(){var o=b.textContent;b.textContent=b.getAttribute('data-done');setTimeout(function(){b.textContent=o},1600)})})})();
 </script>`;
 };
@@ -771,14 +659,17 @@ ${head(p)}
 <a class="skip" href="#main">${esc(pick(nav.skip, p.lang))}</a>
 ${navHtml(p)}
 <main id="main">
-${heroHtml(p)}
-${marqueeHtml(p)}
-${gapHtml(p)}
-${howHtml(p)}
+${heroSection(p)}
+${scenarioSection(p, SCENARIOS, CONTEXT_NAMES)}
+${practiceSection(p)}
+${scenesSection(p)}
+${videosSection(p)}
+${guidesHtml(p)}
 ${trustHtml(p)}
 ${privacyHtml(p)}
 ${faqHtml(p)}
 ${researchHtml(p)}
+${closingSection(p)}
 </main>
 ${footerHtml(p)}
 </body>
@@ -793,12 +684,16 @@ mkdirSync(join(out, "assets"), { recursive: true });
 mkdirSync(join(out, "paper"), { recursive: true });
 
 for (const p of pages) writeFileSync(join(out, p.dir, "index.html"), page(p));
+for (const p of guidePages) {
+  mkdirSync(join(out, p.dir), { recursive: true });
+  writeFileSync(join(out, p.dir, "index.html"), guidePage(p));
+}
 
 for (const f of readdirSync(join(here, "assets"))) copyFileSync(join(here, "assets", f), join(out, "assets", f));
 
 const pdfSrc = join(root, "docs", "social-coach-paper.pdf");
-if (existsSync(pdfSrc)) copyFileSync(pdfSrc, join(out, site.localPdf));
-else console.warn("warn: docs/social-coach-paper.pdf not found; citation_pdf_url will 404");
+if (!existsSync(pdfSrc)) throw new Error("Missing docs/social-coach-paper.pdf; cannot publish the paper sitemap entry");
+copyFileSync(pdfSrc, join(out, site.localPdf));
 
 writeFileSync(join(out, ".nojekyll"), "");
 
@@ -807,15 +702,18 @@ writeFileSync(
   `User-agent: *\nAllow: /\n\nSitemap: ${SITE_URL}/sitemap.xml\n`,
 );
 
-const alt = pages
-  .map((q) => `    <xhtml:link rel="alternate" hreflang="${q.htmlLang}" href="${q.url}"/>`)
-  .concat([`    <xhtml:link rel="alternate" hreflang="x-default" href="${urlOf("zh")}"/>`])
-  .join("\n");
 writeFileSync(
   join(out, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${pages.map((q) => `  <url>\n    <loc>${q.url}</loc>\n${alt}\n  </url>`).join("\n")}
+${allPages.map((q) => {
+    const pair = pairUrls(q);
+    const alt = [`    <xhtml:link rel="alternate" hreflang="zh-CN" href="${pair.zh}"/>`, `    <xhtml:link rel="alternate" hreflang="en" href="${pair.en}"/>`, `    <xhtml:link rel="alternate" hreflang="x-default" href="${pair.zh}"/>`].join("\n");
+    return `  <url>\n    <loc>${q.url}</loc>\n${alt}\n  </url>`;
+  }).join("\n")}
+  <url>
+    <loc>${SITE_URL}/${site.localPdf}</loc>
+  </url>
 </urlset>
 `,
 );
@@ -830,29 +728,41 @@ writeFileSync(
 
 ## What it is
 
-- An AI practice partner for difficult real-life conversations. Characters have goals of their own, a hidden motive, a turn limit and a failure state; they do not yield because the learner is polite.
+- An AI practice partner for difficult real-life conversations. Characters have goals of their own, sometimes with an unspoken concern; they do not yield because the learner is polite. Text practice uses finite, extendable segments, and the learner decides when to debrief.
+- An AI tool for practicing social skills within social and emotional learning (SEL). Its 34-skill map uses the five CASEL competencies; it is an individual practice tool, not a certified school curriculum. Framework: ${learning.sourceUrl}
 - Every debrief point quotes the learner's own words first, then separates an acquisition deficit (did not know the move) from a performance deficit (knew it, could not execute under pressure), then cites a source.
-- Corpus shipped in the product: 46 bilingual scenarios, 42 strategies, 30 cases; every strategy and case carries a source. Teaching illustrations are labelled.
-- No account, no user database. Practice history stays on the device and can be exported. Bring-your-own-key and self-hosting are supported.
+- Corpus shipped in the product: ${SCENARIOS.length} bilingual scenarios, 42 strategies, 30 cases; every strategy and case carries a source. Teaching illustrations are labelled.
+- 3D practice includes work, family and school dinners, an elevator lobby and an office, with movement, actions and multiple characters.
+- Two original fictional video lessons include Chinese audio, Chinese/English captions, key choices and matching 3D practice.
+- No account, no user database. Practice history stays on the device and can be exported. Relevant context is sent to the selected model service for generation. Optional anonymous analytics and submitted feedback are separate. Shared model quota, bring-your-own-key and self-hosting are supported.
 - For everyday practice and reflection, not clinical assessment or hiring. Proficiency numbers are model estimates shown as such in the UI.
 
 ## Links
 
 - App: ${site.appUrl}
+- 3D scenes: ${site.appDeepUrl}/3d
+- Video lessons and library: ${site.appDeepUrl}/learn
+- Custom rehearsal: ${site.appDeepUrl}/rehearse
 - Site (zh): ${urlOf("zh")}
 - Site (en): ${urlOf("en")}
 - Code: ${site.repoUrl}
 
+## Practice scenarios
+
+${guides.map((g) => `- ${pick(g.title, "en")}: ${guideUrl(g.id, "en")} (中文: ${guideUrl(g.id, "zh")})`).join("\n")}
+
 ## Research
 
 - Paper: ${research.paperTitle}. arXiv:${site.arxivId} (cs.HC, 2026). ${site.arxivUrl}
-- The paper studies the research system and an internal research platform; the product is its productised version with a smaller, source-checked corpus (46 scenarios, 42 strategies, 30 cases), distinct from the paper's 43,170-entry research corpus.
+- Paper PDF: ${SITE_URL}/${site.localPdf}
+- Supplementary materials: ${site.supplementaryUrl}
+- The paper studies the research system and an internal research platform; the product is its productised version with a smaller, source-checked corpus (${SCENARIOS.length} scenarios, 42 strategies, 30 cases), distinct from the paper's 43,170-entry research corpus.
 `,
 );
 
 writeFileSync(
   join(out, "404.html"),
-  `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>404 · SocialCoach</title><meta name="robots" content="noindex"><style>${css}</style></head><body><main class="wrap" style="padding:20vh 0"><p class="eyebrow">404</p><h1 style="font-size:2rem;margin:.5rem 0 1rem">这一页不存在。</h1><p class="lead">This page does not exist.</p><p style="margin-top:1.5rem"><a class="btn btn-ghost" href="/">SocialCoach</a></p></main></body></html>`,
+  `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>404 · SocialCoach</title><meta name="robots" content="noindex"><style>${css}</style></head><body><main class="wrap" style="padding:20vh 0"><p class="eyebrow">404</p><h1 style="font-size:2rem;margin:.5rem 0 1rem">这一页不存在。</h1><p class="lead">This page does not exist.</p><p style="margin-top:1.5rem"><a class="btn btn-ghost" href="${SITE_URL}/">SocialCoach</a></p></main></body></html>`,
 );
 
-console.log(`built → ${out}\n  ${urlOf("zh")}\n  ${urlOf("en")}`);
+console.log(`built ${allPages.length} pages → ${out}`);

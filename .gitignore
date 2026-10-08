@@ -8,6 +8,13 @@ node_modules/
 # Local launch planning and unpublished marketing drafts
 marketing/
 
+# Local academic research and submission notes
+/docs/research/
+
+# Local agent helpers installed by Marketplace tooling
+/app/.agents/
+/app/skills-lock.json
+
 # Rejected logo explorations — kept locally for reference, not part of the app
 docs/icon-candidates/
 
@@ -25,3 +32,7 @@ docs/screenshots/raw/
 
 # External skill source material — extracted into corpus with citations, not vendored
 恋爱军师-skill/
+
+# Regenerable packed Blender sources and production cache (not web assets)
+.blender-work/
+__pycache__/

@@ -6,10 +6,17 @@
 !app/package.json
 !app/pnpm-lock.yaml
 !app/pnpm-workspace.yaml
+!app/patches/
+!app/patches/**
 !app/next.config.ts
 !app/next-env.d.ts
 !app/postcss.config.mjs
 !app/tsconfig.json
+!app/eslint.config.mjs
+!app/scripts/
+!app/scripts/**
+!app/tests/
+!app/tests/**
 !app/src/
 !app/src/**
 !app/public/

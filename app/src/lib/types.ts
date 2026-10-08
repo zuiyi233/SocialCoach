@@ -1,5 +1,6 @@
 import type { ContextId, Lang, SkillId } from "@/data/taxonomy";
 import type { Scenario } from "@/data/corpus/types";
+import type {SceneContext,SceneNote} from './scene-context';
 
 export interface Profile {
   name: string;
@@ -22,6 +23,8 @@ export type Proficiency = Partial<Record<SkillId, number>>;
 export type ChatRole = "learner" | "npc" | "coach" | "event";
 
 export interface ChatMessage {
+  /** Actual model state for this complete exchange, saved on its last NPC line. */
+  meta?: RoleplayMeta;
   id: string;
   role: ChatRole;
   characterId?: string;
@@ -57,6 +60,21 @@ export interface RetrievalTrace {
   relaxed: string[];
   candidates: number;
   chosen: string;
+  roleFit?: { characterId: string; fit: "compatible" | "uncertain"; reason: string };
+}
+
+/** A scene can close without either side getting their original ask. */
+export interface Closure {
+  kind: "agreement" | "boundary" | "deferred" | "withdrawal";
+  learnerQuote?: string;
+  npcQuote: string;
+}
+
+export interface SkillRating {
+  skill: SkillId;
+  level: 0 | 1 | 2 | 3;
+  evidence: string;
+  reason: string;
 }
 
 export interface EvidenceItem {
@@ -77,14 +95,18 @@ export interface Alternative {
 }
 
 export interface Report {
+  /** Original aims, distinct from current intent and communication quality. */
+  objectiveResults?:{index:number;status:'met'|'unmet'|'unknown';evidence:string;npcEvidence?:string;reason:string}[];
+  /** Optional, quote-linked observations for an immersive practice. */
+  sceneNotes?: SceneNote[];
+  /** Absent on legacy reports, whose stars counted completed objectives. */
+  scoringVersion?: 2;
+  ratings?: SkillRating[];
   stars: 0 | 1 | 2 | 3;
   outcome: "success" | "partial" | "failure";
-  /**
-   * One line, the shape of a judgement: what the learner got, and what it cost.
-   * It opens the report, where three stars and "2/3 objectives" used to sit —
-   * a tally is not a verdict, and the report's most interesting finding was
-   * reading at the same volume as everything else around it.
-   */
+  /** Exact learner quote supporting the headline; absent on legacy reports. */
+  verdictEvidence?: string;
+  /** Evidence-backed judgment, separating the result from communication quality. */
   verdict: string;
   summary: string;
   strengths: EvidenceItem[];
@@ -100,11 +122,30 @@ export interface Reflection {
   question: string;
   answer: string;
   coachReply?: string;
+  revision?:string;
+}
+
+export interface DebriefReply {
+  /** Verified, contiguous learner words; empty only when there are no spoken learner turns. */
+  evidence: string;
+  answer: string;
+  /** A proposed line, never part of the actual practice transcript. */
+  example: string;
+  sources: { kind: "theory" | "case"; id: string }[];
+}
+
+export interface DebriefExchange {
+  id: string;
+  question: string;
+  reply: DebriefReply;
+  at: number;
 }
 
 export type SessionStatus = "briefing" | "active" | "ended" | "assessed";
 
 export interface Session {
+  /** Public per-turn evidence from a 3D practice; preserved in device exports. */
+  sceneContext?: SceneContext;
   id: string;
   scenario: Scenario;
   learnerCharacterId: string;
@@ -116,15 +157,23 @@ export interface Session {
   status: SessionStatus;
   outcome?: "success" | "partial" | "failure";
   outcomeNote?: string;
+  closure?: Closure;
   startedAt: number;
+  /** Total learner turns available in this segment; extended by explicit choice. */
+  turnLimit?: number;
+  /** Last NPC reply whose checkpoint the learner chose to continue beyond. */
+  continuedFrom?: string;
   endedAt?: number;
   report?: Report;
   reflections: Reflection[];
+  /** Separate from the simulation and scoring; included in local exports. */
+  debriefChat?: DebriefExchange[];
   origin: "scheduled" | "arena" | "rehearse";
   /** The other side's position after each learner turn. Drives the meter and, later, the turn map. */
   stanceTrail?: number[];
   /** 1-based learner turn on which the hidden motive came out. Absent means it never did. */
   revealedAtTurn?: number;
+  disclosures?:{characterId:string;messageId:string;quote:string;turn:number}[];
   /** The reveal screen is a one-time moment; don't replay it on revisit. */
   revealSeen?: boolean;
   /**
@@ -136,8 +185,10 @@ export interface Session {
 }
 
 export interface RoleplayMeta {
+  objectiveEvidence?:{index:number;learnerQuote:string;npcQuote?:string}[];
   objectives: boolean[];
   ended: boolean;
+  closure?: Closure;
   outcome?: "success" | "partial" | "failure" | null;
   note?: string;
   /**
@@ -148,4 +199,5 @@ export interface RoleplayMeta {
   stance?: number;
   /** True on the turn an NPC says their hidden motive out loud. */
   revealed?: boolean;
+  disclosures?:{characterId:string;quote:string}[];
 }

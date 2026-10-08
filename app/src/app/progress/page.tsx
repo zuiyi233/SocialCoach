@@ -18,16 +18,16 @@ import { compColor, relDate } from "@/lib/format";
 
 export default function Progress() {
   const lang = useLang();
-  const { profile, proficiency, loveProficiency, sessions, practiceDays, updateProfile, setProficiency } = useApp();
+  const { profile, proficiency, loveProficiency, sessions, practiceDays, updateProfile } = useApp();
   const streak = computeStreak(practiceDays);
   const [addOpen, setAddOpen] = useState(false);
   const done = useMemo(() => sessions.filter((s) => s.status === "assessed"), [sessions]);
   const minutes = done.reduce((a, s) => a + sessionMinutes(s), 0);
-  const stars = done.reduce((a, s) => a + (s.report?.stars ?? 0), 0);
+  const stars = done.reduce((a, s) => a + (s.report?.scoringVersion === 2 ? s.report.stars : 0), 0);
   const vals = competencyValues(proficiency);
   const loveDone = useMemo(() => done.filter((s) => s.scenario.context === "romantic"), [done]);
   const loveMinutes = loveDone.reduce((a, s) => a + sessionMinutes(s), 0);
-  const loveStars = loveDone.reduce((a, s) => a + (s.report?.stars ?? 0), 0);
+  const loveStars = loveDone.reduce((a, s) => a + (s.report?.scoringVersion === 2 ? s.report.stars : 0), 0);
   const journal = useMemo(
     () => done.flatMap((s) => s.reflections.filter((r) => r.answer.trim()).map((r) => ({ ...r, session: s }))),
     [done],
@@ -45,14 +45,13 @@ export default function Progress() {
   const addGoal = (id: SkillId) => {
     if (profile.goals.includes(id)) return;
     updateProfile({ goals: [...profile.goals, id] });
-    if (proficiency[id] == null) setProficiency({ ...proficiency, [id]: 2.5 });
   };
 
   return (
     <Shell>
       <Page className="pt-4 flex flex-col gap-8 lg:pt-9 lg:grid lg:grid-cols-2 lg:gap-x-0 lg:gap-y-12">
         <header className="lg:col-span-2 border-b border-line pb-6 lg:pb-8">
-          <p className="eyebrow text-accent mb-3">{t(lang, "pg_title")}</p>
+          <p className="eyebrow text-accent-deep mb-3">{t(lang, "pg_title")}</p>
           <h1 className="display text-[28px] sm:text-[32px] lg:text-[38px] leading-snug text-balance">{t(lang, "pg_heading")}</h1>
           <p className="mt-3 text-[14px] text-ink-3 leading-relaxed">{t(lang, "pg_intro")}</p>
         </header>
@@ -126,7 +125,10 @@ export default function Progress() {
                           {relDate(s.startedAt, lang)} · {sessionMinutes(s)} {t(lang, "min")}
                         </p>
                       </div>
-                      <Stars n={s.report?.stars ?? 0} size={14} />
+                      <div className="flex flex-col items-end gap-1">
+                        {s.report?.scoringVersion === 2 && !s.report.ratings?.length ? <span className="text-[11px] text-ink-3">{t(lang, "rp_unrated")}</span> : <Stars n={s.report?.stars ?? 0} size={14} />}
+                        {(s.report?.scoringVersion !== 2 || !!s.report.ratings?.length) && <span className="text-[11px] text-ink-3">{s.report?.scoringVersion === 2 ? t(lang, "rp_quality", { n: s.report.stars }) : t(lang, "rp_legacy")}</span>}
+                      </div>
                     </Link>
                   </li>
                 ))}
@@ -177,7 +179,7 @@ export default function Progress() {
                 <Radar values={vals} lang={lang} size={300} />
               </div>
               <p className="text-[12px] leading-relaxed text-ink-3 border-t border-line pt-3">
-                {t(lang, done.length === 0 ? "pg_baseline" : "pg_estimate")}
+                {t(lang, done.length === 0 ? Object.keys(proficiency).length ? "pg_baseline" : "pg_no_baseline" : "pg_estimate")}
               </p>
               {Object.values(vals).some((v) => v == null) && (
                 <p className="mt-1.5 text-[12px] leading-relaxed text-ink-3">{t(lang, "pg_missing")}</p>

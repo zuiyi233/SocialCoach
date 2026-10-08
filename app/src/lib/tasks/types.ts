@@ -6,14 +6,21 @@
 import type { Scenario } from "@/data/corpus/types";
 import type { Lang, SkillId } from "@/data/taxonomy";
 import type { Adaptation, ChatMessage, Prescription, Profile, Proficiency, RetrievalTrace } from "@/lib/types";
+import type {SceneContext} from '../scene-context';
 
 export interface HistoryItem {
+  sessionId?:string;
+  practiceId?:string;
+  diagnosis?:{skill:SkillId;level:number;evidence:string;deficit?:"acquisition"|"performance"}[];
+  nextStep?:string;
+  reflections?:{question:string;answer:string}[];
   scenarioId: string;
   title: string;
   skills: string[];
   context: string;
   outcome?: string;
   stars?: number;
+  scoringVersion?: 2;
   at: number;
 }
 
@@ -46,17 +53,23 @@ export interface TurnInput {
   messages: ChatMessage[];
   lang: Lang;
   learnerName?: string;
+  /** Current segment boundary. Legacy requests start with at least 12 turns. */
+  turnLimit?: number;
 }
 
 export interface ReflectInput {
+  learnerCharacterId?:string;
+  responseFormat?:"json";
   scenario: Scenario;
   question: string;
   answer: string;
   lang: Lang;
   summary?: string;
+  messages?: ChatMessage[];
 }
 
 export interface AssessInput extends TurnInput {
+  sceneContext?: SceneContext;
   goals: SkillId[];
   objectiveDone?: boolean[];
   outcome?: string;
@@ -64,6 +77,8 @@ export interface AssessInput extends TurnInput {
 
 /** One past session, flattened to the evidence a pattern could be built from. */
 export interface PatternSession {
+  sessionId: string;
+  practiceId?: string;
   title: string;
   at: number;
   outcome?: string;
@@ -71,7 +86,7 @@ export interface PatternSession {
   /** Learner turns on which the other side's position fell. A habit's fingerprint. */
   gaveGroundOn: number[];
   turns: number;
-  weaknesses: { behavior: string; evidence: string; skill: string; deficit: string }[];
+  weaknesses: { behavior: string; evidence: string; messageId: string; skill: string; deficit: string }[];
 }
 
 export interface PatternInput {
@@ -87,7 +102,7 @@ export interface PatternResult {
   pattern: string;
   why: string;
   /** At least two, from at least two different sessions, or `found` is false. */
-  evidence: { title: string; quote: string }[];
+  evidence: { sessionId: string; messageId: string; title: string; quote: string }[];
   skill?: SkillId;
   nextStep: string;
 }

@@ -1,12 +1,16 @@
 "use client";
 import { clsx } from "clsx";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup, useReducedMotion } from "framer-motion";
 import { create } from "zustand";
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { workspaceMotion } from "@/lib/motion";
 import { AvatarFigure } from "@/data/avatars";
-import { isReady, openModelSheet, useByok } from "@/lib/byok";
-import { useLang } from "@/store/useApp";
+import { SlowModelNotice, SLOW_MODEL_WAIT_MS } from "./SlowModelNotice";
+import { useInterfaceLang as useLang } from "@/lib/ui-language";
 import { t } from "@/lib/i18n";
+import { useCanUseModel } from "@/lib/model-access";
+import { M } from "@/lib/model-copy";
+import { pick } from "@/lib/i18n";
 import { X } from "lucide-react";
 
 /* ───────────── Button ───────────── */
@@ -16,10 +20,14 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: "sm" | "md" | "lg";
   loading?: boolean;
   block?: boolean;
+  requiresModel?: boolean;
 }
-export function Button({ variant = "primary", size = "md", loading, block, className, children, disabled, ...rest }: ButtonProps) {
-  const base = "press min-w-0 [&>svg]:shrink-0 inline-flex items-center justify-center gap-2 font-semibold rounded-full select-none text-center leading-snug";
-  const sizes = { sm: "h-9 px-4 text-[13px]", md: "h-12 px-5 text-[15px]", lg: "h-14 px-6 text-base" }[size];
+export function Button({ variant = "primary", size = "md", loading, block, className, children, disabled, requiresModel, ...rest }: ButtonProps) {
+  const canUseModel = useCanUseModel();
+  const lang = useLang();
+  const blocked = requiresModel && !canUseModel;
+  const base = "app-button press min-w-0 [&>svg]:shrink-0 inline-flex items-center justify-center gap-2 font-semibold rounded-[var(--radius-sm)] select-none text-center leading-snug";
+  const sizes = { sm: "min-h-11 px-4 text-[13px]", md: "h-12 px-5 text-[15px]", lg: "h-14 px-6 text-base" }[size];
   const variants: Record<Variant, string> = {
     primary: "bg-action text-accent-ink hover:bg-action-hover",
     ink: "bg-ink text-paper hover:opacity-90",
@@ -28,8 +36,9 @@ export function Button({ variant = "primary", size = "md", loading, block, class
     danger: "bg-danger-soft text-danger hover:opacity-90",
   };
   return (
-    <button className={clsx(base, sizes, variants[variant], block && "w-full", className)} disabled={disabled || loading} aria-busy={loading || undefined} {...rest}>
-      {loading ? <Spinner /> : children}
+    <button data-variant={variant} className={clsx(base, sizes, variants[variant], block && "w-full", className)} disabled={disabled || loading || blocked} title={blocked ? pick(M.disabled, lang) : rest.title} aria-busy={loading || undefined} {...rest}>
+      {loading && <Spinner />}
+      {children}
     </button>
   );
 }
@@ -37,7 +46,7 @@ export function Button({ variant = "primary", size = "md", loading, block, class
 export function Spinner({ className }: { className?: string }) {
   const lang = useLang();
   return (
-    <span className={clsx("inline-flex items-center gap-1", className)} aria-label={t(lang, "loading")}>
+    <span className={clsx("inline-flex shrink-0 items-center gap-1", className)} aria-label={t(lang, "loading")}>
       <span className="dot" /><span className="dot" /><span className="dot" />
     </span>
   );
@@ -52,21 +61,37 @@ export function IconButton({ className, children, label, ...rest }: ButtonHTMLAt
 }
 
 /* ───────────── Chip ───────────── */
-export function Chip({ active, children, onClick, className, style, small }: { active?: boolean; children: ReactNode; onClick?: () => void; className?: string; style?: React.CSSProperties; small?: boolean }) {
+const SelectionContext = createContext<string | null>(null);
+
+/** Related choices share one moving selection surface, isolated per group. */
+export function ChoiceGroup({ children, className, label }: { children: ReactNode; className?: string; label?: string }) {
+  const id = useId();
+  return <LayoutGroup id={id}><SelectionContext.Provider value={id}>
+    <div className={clsx("choice-group", className)} role="group" aria-label={label}>{children}</div>
+  </SelectionContext.Provider></LayoutGroup>;
+}
+
+export function Chip({ active, children, onClick, className, style, small, sharedSelection = true }: { active?: boolean; children: ReactNode; onClick?: () => void; className?: string; style?: React.CSSProperties; small?: boolean; sharedSelection?: boolean }) {
   const Comp = onClick ? "button" : "span";
+  const selection = useContext(SelectionContext);
+  const reduced = useReducedMotion();
   return (
     <Comp
       onClick={onClick}
       aria-pressed={onClick ? !!active : undefined}
+      data-shared-selection={selection && onClick && sharedSelection ? "true" : undefined}
       style={style}
       className={clsx(
-        "press inline-flex items-center gap-1.5 rounded-full border whitespace-nowrap",
-        small ? "min-h-9 px-2.5 text-[12px]" : "min-h-11 px-3.5 text-[13px] font-medium",
-        active ? "bg-ink text-paper border-ink" : "bg-card border-line text-ink-2 hover:border-line-strong",
+        "app-chip press inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border whitespace-nowrap",
+        small ? (onClick ? "min-h-11 px-3 text-[12px]" : "min-h-9 px-2.5 text-[12px]") : "min-h-11 px-3.5 text-[13px] font-medium",
+        active ? "bg-inset text-ink border-line-strong font-semibold" : "bg-transparent border-line text-ink-2 hover:border-line-strong",
         className,
       )}
     >
-      {children}
+      {selection && onClick && active && sharedSelection && (reduced
+        ? <span aria-hidden className="choice-indicator" />
+        : <motion.span aria-hidden className="choice-indicator" layoutId="selection" transition={workspaceMotion.gentle} />)}
+      <span className="chip-label inline-flex items-center gap-1.5">{children}</span>
     </Comp>
   );
 }
@@ -77,6 +102,7 @@ export function Chip({ active, children, onClick, className, style, small }: { a
  * Pill switch. The knob is anchored with an explicit `left` — never rely on
  * the static position of an absolutely positioned child, which is affected by
  * the button's centered text-align and lets the knob drift out of the track.
+ * Touch target: 48×44; visual track stays 48×28.
  * Geometry: 48×28 border-box track (1px border → 46×26 inside), 20px knob,
  * 3px inset → ON travel is exactly 20px, gaps symmetric on all four sides.
  */
@@ -88,23 +114,11 @@ export function Switch({ checked, onChange, label, className }: { checked: boole
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={clsx(
-        "press relative h-7 w-12 shrink-0 rounded-full border transition-colors",
-        // OFF 轨道用中间调 line-strong：近白的 knob 才有对比。用更浅的 inset 会糊成一片。
-        checked ? "bg-ink border-ink" : "bg-line-strong border-line-strong",
-        className,
-      )}
+      className={clsx("press relative h-11 w-12 shrink-0 rounded-full", className)}
     >
-      <span
-        className={clsx(
-          // 3px inset, not 4: the track's 1px border makes the padding box 46×26,
-          // so (26−20)/2 = 3 centres the knob and leaves travel exactly 20px.
-          "absolute left-[3px] top-[3px] h-5 w-5 rounded-full transition-transform duration-200",
-          "bg-card",
-          checked ? "translate-x-5" : "translate-x-0",
-        )}
-        style={{ transitionTimingFunction: "var(--ease-out)" }}
-      />
+      <span aria-hidden className={clsx("absolute inset-x-0 top-2 h-7 rounded-full border", checked ? "bg-ink border-ink" : "bg-ink-3 border-ink-3")}>
+        <span className={clsx("absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-card transition-transform duration-200", checked ? "translate-x-5" : "translate-x-0")} style={{ transitionTimingFunction: "var(--ease-out)" }} />
+      </span>
     </button>
   );
 }
@@ -122,20 +136,22 @@ export function Avatar({
   size = 40,
   seed,
   className,
+  imageData,
 }: {
   name: string;
   hue: number;
   size?: number;
   seed?: string;
   className?: string;
+  imageData?:string;
 }) {
-  return <AvatarFigure seed={seed ?? name} hue={hue} size={size} className={className} />;
+  return <AvatarFigure seed={seed ?? name} hue={hue} size={size} className={className} imageData={imageData} />;
 }
 
 /* ───────────── Stars (objectives) ───────────── */
 export function Stars({ n, of = 3, size = 18 }: { n: number; of?: number; size?: number }) {
   return (
-    <span className="inline-flex items-center gap-1" aria-label={`${n}/${of}`}>
+    <span className="inline-flex items-center gap-1" role="img" aria-label={`${n}/${of}`}>
       {Array.from({ length: of }).map((_, i) => (
         <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i < n ? "var(--gold)" : "none"} stroke={i < n ? "var(--gold)" : "var(--line-strong)"} strokeWidth={1.8} strokeLinejoin="round">
           <path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 17l-5.4 3 1.2-6L3.3 9.8l6.1-.7z" />
@@ -147,56 +163,35 @@ export function Stars({ n, of = 3, size = 18 }: { n: number; of?: number; size?:
 
 /* ───────────── Staged loader ───────────── */
 /**
- * Staged progress for an LLM wait. Past `slowAfterMs` it also offers to switch
- * to the learner's own model — set that per call site to mean "slower than
- * usual for this task", not "this task takes a while", or the offer is noise.
+ * Context for an LLM wait, without claiming unreported stage completion.
+ * A quiet configuration link appears after a short wait for the shared model.
  */
-export function Stages({ steps, title, intervalMs = 2600, slowAfterMs = 25000 }: { steps: string[]; title: string; intervalMs?: number; slowAfterMs?: number }) {
+export function Stages({ steps, title, slowAfterMs = SLOW_MODEL_WAIT_MS }: { steps: string[]; title: string; slowAfterMs?: number }) {
   const lang = useLang();
-  const ownModel = isReady(useByok());
-  const [i, setI] = useState(0);
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    const id = setInterval(() => setI((x) => Math.min(x + 1, steps.length - 1)), intervalMs);
-    return () => clearInterval(id);
-  }, [steps.length, intervalMs]);
-  // A long wait is the moment the offer actually means something. Say nothing to
-  // someone already on their own endpoint — their slowness is not ours to explain.
-  useEffect(() => {
-    if (ownModel) return;
-    const id = setTimeout(() => setSlow(true), slowAfterMs);
-    return () => clearTimeout(id);
-  }, [ownModel, slowAfterMs]);
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5" role="status" aria-live="polite">
       <div className="flex items-center gap-3">
         <Spinner />
         <p className="text-[15px] font-medium text-ink">{title}</p>
       </div>
-      <ol className="flex flex-col gap-2.5">
-        {steps.map((s, k) => (
-          <li key={s} className={clsx("flex items-center gap-3 text-[14px] transition-colors duration-300", k < i ? "text-ink-3" : k === i ? "text-ink" : "text-ink-4")}>
-            <span className={clsx("h-5 w-5 rounded-full border inline-flex items-center justify-center text-[11px] shrink-0 transition-colors", k < i ? "bg-ink border-ink text-paper" : k === i ? "border-ink text-ink" : "border-line text-ink-4")}>
-              {k < i ? "✓" : k + 1}
-            </span>
-            <span className={clsx(k === i && "relative overflow-hidden rounded px-1 -mx-1")}>{s}</span>
-          </li>
-        ))}
-      </ol>
-      {slow && !ownModel && (
-        <div className="dotted pt-3 flex items-center justify-between gap-3">
-          <span className="text-[12px] text-ink-3">{t(lang, "pr_slow_note")}</span>
-          <button onClick={openModelSheet} className="press shrink-0 h-8 px-3 rounded-full border border-dashed border-line-strong text-[12px] font-medium text-ink-2 hover:bg-inset">
-            {t(lang, "pr_slow_action")}
-          </button>
-        </div>
-      )}
+      <div className="flex flex-col gap-3">
+        <p className="text-[13px] text-ink-3 leading-relaxed">{t(lang, "waiting_context")}</p>
+        <ul className="flex flex-col gap-2">
+          {steps.map((step) => (
+            <li key={step} className="flex items-start gap-3 text-[14px] text-ink-2 leading-relaxed">
+              <span aria-hidden className="h-1 w-1 mt-2.5 rounded-full bg-ink-3 shrink-0" />
+              {step}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <SlowModelNotice delayMs={slowAfterMs} />
     </div>
   );
 }
 
 /* ───────────── Bottom sheet ───────────── */
-export function Sheet({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title?: string; children: ReactNode; footer?: ReactNode }) {
+export function Sheet({ open, onClose, title, children, footer,wide=false,bodyRef }: { open: boolean; onClose: () => void; title?: string; children: ReactNode; footer?: ReactNode;wide?:boolean;bodyRef?:React.Ref<HTMLDivElement> }) {
   const lang = useLang();
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -218,7 +213,7 @@ export function Sheet({ open, onClose, title, children, footer }: { open: boolea
     <dialog
       ref={dialog}
       aria-label={title || t(lang, "dialog_label")}
-      className="sheet-dialog"
+      className={clsx('sheet-dialog',wide&&'sheet-wide')}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
         const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
@@ -240,7 +235,7 @@ export function Sheet({ open, onClose, title, children, footer }: { open: boolea
         <h2 className="display text-[20px]">{title}</h2>
         <IconButton label={t(lang, "close")} onClick={onClose}><X size={18} /></IconButton>
       </div>
-      <div className="overflow-y-auto px-5 pt-4 pb-safe pb-6">{children}</div>
+      <div ref={bodyRef} className="overflow-y-auto px-5 pt-4 pb-safe pb-6">{children}</div>
       {footer && <div className="shrink-0 border-t border-line bg-card px-5 py-4 pb-safe">{footer}</div>}
     </dialog>
   );
@@ -281,7 +276,6 @@ export function Toaster() {
 export function Empty({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
   return (
     <div className="py-14 px-6 text-center flex flex-col items-center gap-3">
-      <div className="h-12 w-12 rounded-full border border-dashed border-line-strong" />
       <p className="display text-[18px]">{title}</p>
       {body && <p className="text-[14px] text-ink-3 max-w-[32ch]">{body}</p>}
       {action}
@@ -301,8 +295,9 @@ export function SectionTitle({ children, right, className }: { children: ReactNo
 
 /* ───────────── Page transition wrapper ───────────── */
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
+  const reduced = useReducedMotion();
   return (
-    <motion.main initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }} className={clsx("px-5 md:px-8 lg:px-10", className)}>
+    <motion.main initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={reduced ? { duration: 0 } : workspaceMotion.gentle} className={clsx("app-page px-5 md:px-8 lg:px-10", className)}>
       {children}
     </motion.main>
   );

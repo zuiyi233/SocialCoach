@@ -33,17 +33,29 @@ export function buildSession(scenario: Scenario, origin: Session["origin"], lang
 }
 
 export function historyFor(sessions: Session[], lang: Lang) {
-  return sessions
-    .filter((s) => s.status === "assessed" || s.status === "ended")
+  const latest = new Map<string, Session>();
+  // Keep each practice's newest completed snapshot in recency order. Updating
+  // an existing Map key would leave a continuation at its original position.
+  for (const session of [...sessions].sort((a, b) => b.startedAt - a.startedAt)) {
+    if (session.status !== "assessed" && session.status !== "ended") continue;
+    const id = session.sceneContext?.practiceId ?? session.id;
+    if (!latest.has(id)) latest.set(id, session);
+  }
+  return [...latest.values()]
     .slice(0, 12)
     .reverse()
     .map((s) => ({
+      sessionId:s.id,practiceId:s.sceneContext?.practiceId,
+      diagnosis:s.report?.scoringVersion===2?(s.report.ratings??[]).filter(r=>s.messages.some(m=>m.role==="learner"&&m.text.includes(r.evidence))).map(r=>({skill:r.skill,level:r.level,evidence:r.evidence,deficit:s.report?.weaknesses.find(w=>w.skill===r.skill&&s.messages.some(m=>m.role==="learner"&&m.text.includes(w.evidence)))?.deficit})):undefined,
+      nextStep:s.report?.nextStep?.slice(0,2000),
+      reflections:(s.reflections??[]).slice(-3).map(r=>({question:r.question.slice(0,2000),answer:r.answer.slice(0,2000)})),
       scenarioId: s.scenario.id,
       title: s.scenario.title[lang],
       skills: s.scenario.skills,
       context: s.scenario.context,
       outcome: s.outcome,
-      stars: s.report?.stars,
+      stars: s.report?.scoringVersion === 2 && !s.report.ratings?.length ? undefined : s.report?.stars,
+      scoringVersion: s.report?.scoringVersion,
       at: s.startedAt,
     }));
 }

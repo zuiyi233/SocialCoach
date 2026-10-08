@@ -1,0 +1,71 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {PerspectiveCamera,Vector3} from 'three';
+import {scenarios} from '../../src/features/dinner/lib/content';
+import {opening} from '../../src/features/dinner/lib/engine';
+import {createWorld,focusPerson,focusConversation,freeLook,goNear,snapshot,stepWorld} from '../../src/features/dinner/lib/room';
+import {attentionSubject,bearing,cameraPose,dialogueFraming,eyeHeight,gazePose,playerEyeHeight,trackAttention,turnToward,wrapAngle} from '../../src/features/dinner/lib/attention';
+const scene=scenarios[0];
+const reactions=opening(scene,'zh').reactions!;
+test('attention stays on the approached person throughout walking and after arrival',()=>{
+  for(const character of scene.characters){const world=createWorld(scene);goNear(world,character.id);let movingFrames=0;for(let i=0;i<600;i++){stepWorld(world,1/30,{x:0,z:0},world.viewYaw,reactions);trackAttention(world,1/30);const target=attentionSubject(world)!;assert.equal(target.id,character.id);if(i>60)assert.ok(Math.abs(wrapAngle(world.viewYaw-bearing(world.player,target)))<.15);if(world.player.moving)movingFrames++;}assert.ok(movingFrames>30);assert.equal(world.attentionMode,'person');}
+});
+test('manual looking remains free until attention is explicitly resumed and saves restore it',()=>{
+  const world=createWorld(scene);focusPerson(world,scene.characters[1].id);freeLook(world);world.viewYaw=.5;world.viewPitch=.2;goNear(world,scene.characters[0].id);freeLook(world);for(let i=0;i<90;i++){stepWorld(world,1/30,{x:1,z:0},world.viewYaw,reactions);trackAttention(world,1/30);}assert.equal(world.viewYaw,.5);assert.equal(world.viewPitch,.2);const restored=createWorld(scene,snapshot(world));assert.equal(restored.attentionMode,'free');assert.equal(restored.viewYaw,.5);focusConversation(world);trackAttention(world,1/30,true);assert.equal(attentionSubject(world)?.id,scene.characters[0].id);
+});
+test('short smooth turns cross the pi boundary without spinning around',()=>{
+  const start=Math.PI-.02,target=-Math.PI+.02,turned=turnToward(start,target,1/30);assert.ok(wrapAngle(turned-start)>0);assert.ok(Math.abs(wrapAngle(turned-start))<.04);const opposite=turnToward(0,Math.PI,.05);assert.ok(Math.abs(opposite)<=.21);
+});
+test('both camera views keep the player and approached face in portrait and landscape framing',()=>{
+  for(const character of scene.characters){const world=createWorld(scene);goNear(world,character.id);for(let i=0;i<650;i++){stepWorld(world,1/30,{x:0,z:0},world.viewYaw,reactions);trackAttention(world,1/30);}const subject=attentionSubject(world)!;for(const aspect of [1280/720,390/844])for(const view of ['first','third'] as const){const pose=cameraPose(world,view,aspect),camera=new PerspectiveCamera(pose.fov,aspect,.1,60);camera.position.set(...pose.position as [number,number,number]);camera.lookAt(...pose.target as [number,number,number]);camera.updateMatrixWorld();const face=new Vector3(subject.x,subject.seated?2.48:2.88,subject.z).project(camera);assert.ok(Math.abs(face.x)<.65&&Math.abs(face.y)<.65,`${view} face ${face.toArray()}`);if(view==='third'){const player=new Vector3(world.player.x,playerEyeHeight(world.player),world.player.z).project(camera);assert.ok(Math.abs(player.x)<.95&&Math.abs(player.y)<.75);}}}
+});
+test('a seated character looks upward at a standing visitor with limited torso and neck rotation',()=>{
+  const world=createWorld(scene),npc=world.npcs[0];const gaze=gazePose(npc,{x:1.8,z:-3.3,eye:2.98});assert.ok(gaze.pitch<0);assert.ok(Math.abs(gaze.torso)<=.48);assert.ok(Math.abs(gaze.head)<=1.08);const behind=gazePose(npc,{x:0,z:-4,eye:2.98});assert.ok(Math.abs(behind.torso+behind.head)<Math.PI*.51,'A neck cannot spin around');
+});
+test('third-person camera leaves a clear view of the approached face beside the player head',()=>{
+  for(const character of scene.characters){const world=createWorld(scene);goNear(world,character.id);for(let i=0;i<650;i++){stepWorld(world,1/30,{x:0,z:0},world.viewYaw,reactions);trackAttention(world,1/30);}const subject=attentionSubject(world)!;for(const aspect of [1280/720,390/844]){const pose=cameraPose(world,'third',aspect),camera=new PerspectiveCamera(pose.fov,aspect,.1,60);camera.position.set(...pose.position as [number,number,number]);camera.lookAt(...pose.target as [number,number,number]);camera.updateMatrixWorld();const direction=camera.getWorldDirection(new Vector3());const heads=[new Vector3(world.player.x,2.88,world.player.z),new Vector3(subject.x,2.48,subject.z)];const depths=heads.map(p=>p.clone().sub(camera.position).dot(direction));const projected=heads.map(p=>p.clone().project(camera));const scale=1/Math.tan(pose.fov*Math.PI/360),width=depths.reduce((sum,d)=>sum+.36*scale/(d*aspect),0),height=depths.reduce((sum,d)=>sum+.43*scale/d,0);assert.ok(((projected[0].x-projected[1].x)/width)**2+((projected[0].y-projected[1].y)/height)**2>1,`Keep ${character.id} clear at ${aspect}: ${((projected[0].x-projected[1].x)/width)**2+((projected[0].y-projected[1].y)/height)**2}`);}}
+});
+test('conversation follows a new speaker but a chosen person keeps priority',()=>{
+  const world=createWorld(scene);world.speakerId=scene.characters[1].id;trackAttention(world,.05,true);assert.equal(attentionSubject(world)?.id,scene.characters[1].id);focusPerson(world,scene.characters[0].id);world.speakerId=scene.characters[2].id;trackAttention(world,.05,true);assert.equal(attentionSubject(world)?.id,scene.characters[0].id);
+});
+
+test('a seated landscape view keeps every dining face inside the frame',()=>{
+  for(const scene of scenarios.filter(s=>!s.space))for(const aspect of [1280/720,1024/768,1440/900]) {
+    const world=createWorld(scene);trackAttention(world,0,true);
+    for(const view of ['first','third'] as const) {
+      const pose=cameraPose(world,view,aspect),camera=new PerspectiveCamera(pose.fov,aspect,.1,60);
+      camera.position.set(...pose.position as [number,number,number]);camera.lookAt(...pose.target as [number,number,number]);camera.updateMatrixWorld();
+      for(const actor of world.npcs) {
+        const face=new Vector3(actor.x,eyeHeight(actor),actor.z).project(camera);
+        assert.ok(Math.abs(face.x)<.9&&Math.abs(face.y)<.75&&face.z>0&&face.z<1,`${scene.id} ${view}: ${actor.id} ${face.toArray()}`);
+      }
+    }
+  }
+});
+
+test('the focused face stays above the dialogue for desktop, phone and long drafts',()=>{
+  for(const [width,height,hud] of [[1280,720,250],[390,844,310],[390,844,410],[896,414,240]])for(const scene of scenarios) {
+    const world=createWorld(scene);trackAttention(world,0,true);
+    const pose=cameraPose(world,'first',width/height),camera=new PerspectiveCamera(pose.fov,width/height,.1,60);
+    camera.position.set(...pose.position as [number,number,number]);camera.lookAt(...pose.target as [number,number,number]);
+    camera.setViewOffset(width,height,0,dialogueFraming(width,height,hud),width,height);camera.updateMatrixWorld();
+    const subject=attentionSubject(world)!,face=new Vector3(subject.x,eyeHeight(subject),subject.z).project(camera);
+    const y=(.5-face.y*.5)*height;
+    assert.ok(y>90&&y<height-hud-30,`${scene.id} ${width}×${height}: ${y}`);
+  }
+});
+
+test('non-dinner opening speakers can be framed before play without moving characters or advancing time',()=>{
+ for(const scene of scenarios.filter(s=>s.space))for(const speaker of scene.characters){const world=createWorld(scene),poses=world.npcs.map(n=>({x:n.x,z:n.z,seated:n.seated}));world.speakerId=speaker.id;trackAttention(world,0,true);assert.equal(world.clock,0);assert.deepEqual(world.npcs.map(n=>({x:n.x,z:n.z,seated:n.seated})),poses);const subject=attentionSubject(world)!;for(const aspect of [1280/720,390/844]){const pose=cameraPose(world,'first',aspect),camera=new PerspectiveCamera(pose.fov,aspect,.1,60);camera.position.set(...pose.position as [number,number,number]);camera.lookAt(...pose.target as [number,number,number]);camera.updateMatrixWorld();const face=new Vector3(subject.x,playerEyeHeight(subject),subject.z).project(camera);assert.ok(Math.abs(face.x)<.05&&Math.abs(face.y)<.15,`Opening face ${speaker.id}: ${face.toArray()}`);}}
+});
+
+
+test('third-person cameras stay in the lobby at the panel and inside the cabin after entering',()=>{
+  const scene=scenarios.find(s=>s.space==='elevator')!;
+  for(const aspect of [1280/720,390/844]){
+    const world=createWorld(scene);world.player.x=2.4;world.player.z=-1.3;trackAttention(world,0,true);
+    let pose=cameraPose(world,'third',aspect);assert.ok(pose.position[2]>=-1.8,'Lobby wall cannot cover the whole screen');
+    world.player.x=1.25;world.player.z=-3.5;trackAttention(world,0,true);
+    pose=cameraPose(world,'third',aspect);assert.ok(Math.abs(pose.position[0])<=1.72);assert.ok(pose.position[2]>=-4.5&&pose.position[2]<=-2.55);assert.ok(pose.position[1]<=4.45);
+  }
+});

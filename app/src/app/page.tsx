@@ -3,8 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Check, Clock3, PenLine, RefreshCw } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Clock3, RefreshCw } from "lucide-react";
+import { DinnerEntry } from "@/components/DinnerEntry";
+import { CoachMascot } from "@/components/CoachMascot";
 import { Shell } from "@/components/Shell";
+import { GitHubLink } from "@/components/GitHubLink";
 import { Button, Page, SectionTitle, Stages, Stars } from "@/components/ui";
 import { Level, SkillTag } from "@/components/SkillBits";
 import { computeStreak, todayKey, useApp, useLang } from "@/store/useApp";
@@ -23,6 +26,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inflight = useRef(false);
+  // Restored archives may be stored oldest-first. Display recency without
+  // rewriting device records or conflating independent continuation snapshots.
+  const orderedSessions = useMemo(() => [...sessions].sort((a, b) => b.startedAt - a.startedAt), [sessions]);
 
   const today = todayKey();
   const todaySession = useMemo(
@@ -30,18 +36,18 @@ export default function Home() {
     [sessions, todaySessionId, todayDate, today],
   );
   const streak = computeStreak(practiceDays);
-  const unfinished = sessions.find((s) => s.id !== todaySessionId && s.status === "active" && s.messages.some((m) => m.role === "learner"));
+  const unfinished = orderedSessions.find((s) => s.status === "active" || s.status === "ended");
   /** Last session's verdict, to fill today's wait with something worth reading. */
   const lastVerdict = useMemo(() => {
-    const last = [...sessions].reverse().find((x) => x.status === "assessed" && x.report?.verdict);
+    const last = orderedSessions.find((x) => x.status === "assessed" && x.report?.verdict && x.report.verdictEvidence);
     if (!last) return null;
     const trail = last.stanceTrail ?? [];
     const gaveGroundOn: number[] = [];
     trail.forEach((v, i) => {
       if (v < (i === 0 ? 20 : trail[i - 1])) gaveGroundOn.push(i + 1);
     });
-    return { verdict: last.report!.verdict, title: last.scenario.title[lang], gaveGroundOn };
-  }, [sessions, lang]);
+    return { evidence: last.report!.verdictEvidence, verdict: last.report!.verdict, title: last.scenario.title[lang], gaveGroundOn };
+  }, [orderedSessions, lang]);
 
   const hour = new Date().getHours();
   const greet = hour < 12 ? "home_greeting_morning" : hour < 18 ? "home_greeting_afternoon" : "home_greeting_evening";
@@ -71,57 +77,80 @@ export default function Home() {
     pruneSessions();
   }, [pruneSessions]);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- kick off an async request on mount
-    if (profile && !todaySession && !loading && !error) void planToday();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, todaySession]);
-
   if (!profile) return null;
-  const recent = sessions.filter((s) => s.status === "assessed").slice(0, 3);
+  const recent = orderedSessions.filter((s) => s.status === "assessed").slice(0, 3);
+
+  const rehearsalInvitation = (
+    <section className="home-rehearsal-secondary flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
+      <div className="min-w-0 flex-1 basis-56">
+        <h2 className="display text-[18px] leading-snug text-ink-2">{t(lang, "home_rehearse_title")}</h2>
+        <p className="text-[13px] text-ink-3 mt-1.5 leading-relaxed">{t(lang, "home_rehearse_sub")}</p>
+      </div>
+      <Link href="/rehearse" className="press inline-flex items-center gap-2 min-h-11 px-2 rounded-[var(--radius-sm)] text-[13px] font-medium text-ink-2 hover:bg-inset">
+        {t(lang, "home_rehearse_action")}<ArrowUpRight size={15} aria-hidden />
+      </Link>
+    </section>
+  );
 
   return (
     <Shell>
-      <Page className="pt-5 lg:pt-10 flex flex-col gap-7 lg:gap-9">
+      <Page className="home-page pt-5 lg:pt-10 flex flex-col gap-7 lg:gap-9">
         {/* header */}
-        <header className="flex flex-wrap items-end justify-between gap-4 pb-6 border-b border-line">
-          <div>
+        <header className="home-header flex flex-wrap items-end justify-between gap-4 pb-6 border-b border-line">
+          <div className="home-greeting flex items-center gap-4 lg:gap-6">
+            <CoachMascot variant="portrait" className="home-coach-portrait" preload sizes="(min-width: 1024px) 128px, 96px" />
+            <div className="min-w-0">
             <p className="eyebrow text-accent-deep">
-              {t(lang, greet)}
+              {t(lang, "coach_identity")}<span className="text-ink-3"> · {t(lang, greet)}
               {profile.name ? `, ${profile.name}` : ""}
+              </span>
             </p>
             <h1 className="display text-[32px] lg:text-[38px] leading-tight mt-3">{t(lang, "home_today")}</h1>
             <p className="text-[14px] text-ink-3 mt-3">{t(lang, "home_intro")}</p>
+            </div>
           </div>
-          <Link
-            href="/arena"
-            className="press flex items-center gap-2 min-h-11 text-[13px] font-medium text-ink-2 rounded-full px-3 hover:bg-inset"
-          >
-            {t(lang, "home_browse")}
-            <ArrowUpRight size={16} />
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <GitHubLink lang={lang} className="lg:hidden" />
+            <Link
+              href="/arena"
+              className="press flex items-center gap-2 min-h-11 text-[13px] font-medium text-ink-2 rounded-full px-3 hover:bg-inset"
+            >
+              {t(lang, "home_browse")}
+              <ArrowUpRight size={16} />
+            </Link>
+          </div>
         </header>
-        <div className="flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_var(--margin-w)] xl:gap-8 xl:items-start">
-          <div className="flex flex-col gap-6 min-w-0">
-            {unfinished && (
-              <Link
-                href={`/practice/${unfinished.id}`}
-                className="press flex items-center gap-3 rounded-[var(--radius-sm)] border border-line px-4 py-3 hover:bg-inset"
-              >
-                <Clock3 size={18} className="text-accent-deep shrink-0" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] text-ink-3">{t(lang, "home_resume")}</span>
-                  <span className="block text-[14px] font-medium truncate">{unfinished.scenario.title[lang]}</span>
-                </span>
-                <ArrowRight size={16} />
-              </Link>
-            )}
+        {unfinished && (
+          <Link
+            href={`/practice/${unfinished.id}`}
+            className="home-resume press flex flex-wrap items-center gap-3 rounded-[var(--radius-sm)] border border-line-strong bg-card px-4 py-4 hover:bg-inset"
+          >
+            <Clock3 size={18} className="text-accent-deep shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[12px] text-ink-3">{t(lang, unfinished.status === "ended" ? "home_resume_review" : "home_resume")}</span>
+              <span className="block text-[14px] font-medium truncate">{unfinished.scenario.title[lang]}</span>
+            </span>
+            <span className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-full bg-action text-accent-ink text-[13px] font-semibold">
+              {t(lang, unfinished.status === "ended" ? "home_review_action" : "home_resume_action")}<ArrowRight size={16} />
+            </span>
+          </Link>
+        )}
 
+
+        <div className="home-practice-layout flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_var(--margin-w)] xl:gap-8 xl:items-start">
+          <div className="flex flex-col gap-6 min-w-0">
             {/* Today card */}
-            <section aria-live="polite" aria-busy={loading}>
+            <section className="home-daily-practice" aria-live="polite" aria-busy={loading}>
+              {!todaySession && !loading && !error && (
+                <div className="home-daily-invitation flex flex-col gap-4 p-6 lg:p-8">
+                  <h2 className="display text-[25px] lg:text-[28px] leading-snug">{t(lang, "home_plan_title")}</h2>
+                  <p className="text-[14px] text-ink-2 leading-relaxed max-w-[var(--measure)]">{t(lang, "home_plan_body")}</p>
+                  <Button requiresModel variant={unfinished ? "secondary" : "primary"} onClick={planToday} className="self-start mt-1">{t(lang, "home_plan_action")}<ArrowRight size={17} /></Button>
+                </div>
+              )}
               {loading && (
                 <div className="card p-6 lg:p-8 min-h-80 flex flex-col justify-center gap-7">
-                  <Stages title={t(lang, "home_scheduling")} steps={tList(lang, "home_scheduling_steps")} slowAfterMs={25000} />
+                  <Stages title={t(lang, "home_scheduling")} steps={tList(lang, "home_scheduling_steps")} />
                   {/* The first thing anyone sees on their first visit of the day used
                       to be ten seconds of a four-step checklist. The wait is the
                       right length; what was wrong is that it carried nothing. Last
@@ -130,6 +159,7 @@ export default function Home() {
                   {lastVerdict && (
                     <div className="dotted pt-5 flex flex-col gap-1.5">
                       <p className="eyebrow">{t(lang, "home_last_time")}</p>
+                      <blockquote className="text-[13px] text-ink-3 leading-relaxed">“{lastVerdict.evidence}”</blockquote>
                       <p className="display text-[17px] leading-snug text-ink-2">{lastVerdict.verdict}</p>
                       {lastVerdict.gaveGroundOn.length > 0 && (
                         <p className="text-[12.5px] text-ink-3">
@@ -144,27 +174,30 @@ export default function Home() {
                 <div className="card p-5 flex flex-col gap-3">
                   {todaySession && <p className="text-[14px] text-ink-2">{t(lang, "home_swap_error")}</p>}
                   <p className="text-[14px] text-danger">{error}</p>
-                  <Button variant="secondary" onClick={planToday}>
+                  <Button requiresModel variant="secondary" onClick={planToday}>
                     <RefreshCw size={16} />
                     {t(lang, "retry")}
                   </Button>
                 </div>
               )}
-              {todaySession && !loading && (
-                <TodayCard session={todaySession} onStart={() => router.push(`/practice/${todaySession.id}`)} onSwap={planToday} />
+              {todaySession && todaySession.id !== unfinished?.id && !loading && (
+                <TodayCard secondary={!!unfinished} session={todaySession} onStart={() => router.push(`/practice/${todaySession.id}`)} onSwap={planToday} />
               )}
             </section>
 
-            <Link href="/rehearse" className="press group flex items-start gap-4 rounded-[var(--radius)] rehearsal-invitation p-5 lg:p-6">
-              <span className="h-11 w-11 rounded-xl bg-card border border-line flex items-center justify-center shrink-0">
-                <PenLine size={20} className="text-accent-deep" aria-hidden />
-              </span>
-              <div className="flex-1">
-                <h2 className="display text-[19px] leading-snug">{t(lang, "home_rehearse_title")}</h2>
-                <p className="text-[13px] text-ink-2 mt-2 leading-relaxed max-w-[var(--measure)]">{t(lang, "home_rehearse_sub")}</p>
-              </div>
-              <ArrowUpRight size={18} className="mt-1 text-ink-3 shrink-0 group-hover:text-accent-deep" />
-            </Link>
+            {rehearsalInvitation}
+
+            {recent[0]?.report?.nextStep && recent[0].report.verdictEvidence && (
+              <section className="takeaway-note flex flex-col gap-3 py-5 border-y border-line">
+                <div className="flex flex-wrap items-center justify-between gap-x-3">
+                  <h2 className="eyebrow">{t(lang, "home_carry_forward")}</h2>
+                  <Link href={`/practice/${recent[0].id}`} className="press inline-flex items-center gap-1 min-h-11 text-[12px] text-accent-deep">{t(lang, "home_review_link")}<ArrowUpRight size={14} /></Link>
+                </div>
+                {recent[0].report.verdictEvidence && <blockquote className="text-[13px] text-ink-3 leading-relaxed">“{recent[0].report.verdictEvidence}”</blockquote>}
+                <p className="text-[16px] font-medium leading-relaxed max-w-[var(--measure)]">{recent[0].report.nextStep}</p>
+              </section>
+            )}
+
           </div>
 
           {/* the margin: what you are working on, and what you have already done */}
@@ -174,7 +207,7 @@ export default function Home() {
             <section className="flex flex-col gap-3">
               <SectionTitle
                 right={
-                  <Link href="/progress" className="press min-h-11 inline-flex items-center text-[12px] text-action">
+                  <Link href="/progress" className="press min-h-11 min-w-11 inline-flex items-center text-[12px] text-action">
                     {t(lang, "nav_progress")} →
                   </Link>
                 }
@@ -213,7 +246,9 @@ export default function Home() {
                             {relDate(s.startedAt, lang)} · {contextById(s.scenario.context).name[lang]}
                           </p>
                         </div>
-                        <Stars n={s.report?.stars ?? 0} size={14} />
+                        <span title={s.report?.scoringVersion === 2 ? t(lang, "rp_quality", { n: s.report.stars }) : t(lang, "rp_legacy")}>
+                          {s.report?.scoringVersion === 2 && !s.report.ratings?.length ? <span className="text-[11px] text-ink-3">{t(lang, "rp_unrated")}</span> : <Stars n={s.report?.stars ?? 0} size={14} />}
+                        </span>
                       </Link>
                     </li>
                   ))}
@@ -228,12 +263,13 @@ export default function Home() {
             )}
           </aside>
         </div>
+        <DinnerEntry />
       </Page>
     </Shell>
   );
 }
 
-function TodayCard({ session, onStart, onSwap }: { session: ReturnType<typeof buildSession>; onStart: () => void; onSwap: () => void }) {
+function TodayCard({ session, onStart, onSwap, secondary }: { secondary?: boolean; session: ReturnType<typeof buildSession>; onStart: () => void; onSwap: () => void }) {
   const lang = useLang();
   const [why, setWhy] = useState(false);
   const sc = session.scenario;
@@ -243,13 +279,13 @@ function TodayCard({ session, onStart, onSwap }: { session: ReturnType<typeof bu
     <motion.article
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="card overflow-hidden lg:grid lg:grid-cols-[38%_minmax(0,1fr)] lg:min-h-[360px]"
+      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+      className="today-feature card overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_32%] lg:min-h-[380px]"
     >
-      <div className="relative h-44 bg-paper-deep lg:h-auto lg:border-r lg:border-line">
+      <div className="relative h-36 bg-paper-deep lg:order-2 lg:h-auto lg:border-l lg:border-line">
         <ScenarioCover scenario={sc} size={160} full className="lg:hidden" />
         <ScenarioCover scenario={sc} tall className="hidden lg:block" />
-        <div className="absolute left-4 top-4 flex gap-2">
+        <div className="absolute left-4 top-4 flex flex-wrap gap-2 lg:hidden">
           <span className="h-7 px-2.5 inline-flex items-center rounded-full bg-paper/90 text-[12px] font-medium">
             {t(lang, "scheduled_badge")}
           </span>
@@ -258,9 +294,10 @@ function TodayCard({ session, onStart, onSwap }: { session: ReturnType<typeof bu
           </span>
         </div>
       </div>
-      <div className="p-5 flex flex-col gap-4 lg:p-6 lg:gap-5 lg:justify-center min-w-0">
+      <div className="p-5 flex flex-col gap-4 lg:p-8 lg:gap-5 lg:justify-center min-w-0">
+        <p className="eyebrow hidden lg:block">{t(lang, "scheduled_badge")} <span className="px-1.5">/</span> {contextById(sc.context).name[lang]}</p>
         <div>
-          <h2 className="display text-[24px] lg:text-[28px] leading-tight">{sc.title[lang]}</h2>
+          <h2 className="display text-[26px] lg:text-[30px] leading-tight">{sc.title[lang]}</h2>
           <p className="text-[14px] lg:text-[15.5px] text-ink-2 mt-2 lg:mt-3 leading-relaxed lg:max-w-[var(--measure)]">{sc.hook[lang]}</p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -292,12 +329,12 @@ function TodayCard({ session, onStart, onSwap }: { session: ReturnType<typeof bu
         )}
         <div className="flex flex-col gap-2 pt-1 lg:max-w-[440px]">
           <div className="flex gap-2">
-            <Button block size="lg" variant={done ? "secondary" : "primary"} onClick={onStart}>
+            <Button requiresModel={session.status === "briefing" || session.status === "active"} block size="lg" variant={done || secondary ? "secondary" : "primary"} onClick={onStart}>
               {done ? t(lang, "home_view_report") : active ? t(lang, "home_continue") : t(lang, "home_start")}
               <ArrowRight size={18} />
             </Button>
             {!active && !done && (
-              <Button
+              <Button requiresModel
                 size="lg"
                 variant="ghost"
                 onClick={onSwap}
@@ -310,7 +347,7 @@ function TodayCard({ session, onStart, onSwap }: { session: ReturnType<typeof bu
             )}
           </div>
           {done && (
-            <Button block size="md" variant="ghost" onClick={onSwap} className="text-ink-2">
+            <Button requiresModel block size="md" variant="ghost" onClick={onSwap} className="text-ink-2">
               <RefreshCw size={16} />
               {t(lang, "home_another")}
             </Button>

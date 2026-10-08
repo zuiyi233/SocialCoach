@@ -4,28 +4,36 @@ import { clsx } from "clsx";
 import { Check, Download, Monitor, Moon, Pencil, Sun, Trash2, ChevronRight, HardDrive, SlidersHorizontal } from "lucide-react";
 import { SkillTag } from "@/components/SkillBits";
 import { Shell } from "@/components/Shell";
+import { GitHubLink } from "@/components/GitHubLink";
+import { dinnerBackup, DINNER_SAVE_KEY, DINNER_LAUNCH_KEY } from "@/features/dinner/storage";
 import { Button, Chip, Page, SectionTitle, Sheet, Switch, useToast } from "@/components/ui";
-import { isReady, STORAGE_KEY, useByok } from "@/lib/byok";
+import { useModelAccess } from "@/lib/model-access";
+import { M } from "@/lib/model-copy";
+import { isReady, useByok } from "@/lib/byok";
 import { stopSpeaking, unlockSpeech } from "@/lib/speech";
 import { DEFAULT_PATIENCE, useApp, useLang } from "@/store/useApp";
 import { t, pick } from "@/lib/i18n";
 import { clockMarks, PatiencePicker } from "@/components/practice/ReplyClock";
-import { COMPETENCIES, SKILLS, type Lang, type SkillId } from "@/data/taxonomy";
+import { COMPETENCIES, SKILLS, type SkillId } from "@/data/taxonomy";
 import { compColor } from "@/lib/format";
 import { AvatarFigure, learnerSeed } from "@/data/avatars";
 import { AvatarPicker } from "@/components/AvatarPicker";
+import { LanguagePicker } from "@/components/LanguagePicker";
+import {BackupRestore} from "@/components/BackupRestore";
+import { FeedbackButton } from "@/components/Feedback";
 
 export default function Settings() {
   const lang = useLang();
+  const modelAccess = useModelAccess();
   const {
     profile,
     proficiency,
     sessions,
     settings,
+    saveIssue,
     setSettings,
     setLang,
     updateProfile,
-    setProficiency,
     reset,
     customScenarios,
     bookmarks,
@@ -46,7 +54,7 @@ export default function Settings() {
     const blob = new Blob(
       [
         JSON.stringify(
-          { profile, proficiency, sessions, customScenarios, bookmarks, practiceDays, avatar: { seed: settings.avatarSeed, portrait: settings.avatarPortrait }, exportedAt: new Date().toISOString() },
+          { profile, proficiency, sessions, customScenarios, bookmarks, practiceDays, dinner3d: dinnerBackup(), avatar: { seed: settings.avatarSeed, portrait: settings.avatarPortrait, image: settings.avatarImage }, exportedAt: new Date().toISOString() },
           null,
           2,
         ),
@@ -64,7 +72,6 @@ export default function Settings() {
     const has = profile.goals.includes(id);
     if (has && profile.goals.length <= 1) return;
     updateProfile({ goals: has ? profile.goals.filter((g) => g !== id) : [...profile.goals, id] });
-    if (!has && proficiency[id] == null) setProficiency({ ...proficiency, [id]: 2.5 });
   };
 
   return (
@@ -86,7 +93,7 @@ export default function Settings() {
                     setBio(profile.bio);
                     setEdit(true);
                   }}
-                  className="press text-[13px] text-action min-h-11"
+                  className="press text-[13px] text-action min-h-11 min-w-11"
                 >
                   {t(lang, "st_edit")}
                 </button>
@@ -102,7 +109,7 @@ export default function Settings() {
                   aria-label={pick({ zh: "编辑头像", en: "Edit portrait" }, lang)}
                   className="press relative rounded-full shrink-0"
                 >
-                  <AvatarFigure seed={learnerSeed(profile.name, settings.avatarSeed, settings.avatarPortrait)} hue={40} size={72} />
+                  <AvatarFigure imageData={settings.avatarImage} seed={learnerSeed(profile.name, settings.avatarSeed, settings.avatarPortrait)} hue={40} size={72} />
                   <span className="absolute -bottom-1 -right-1 rounded-full bg-card border border-line p-1.5 text-ink-2"><Pencil size={12} aria-hidden /></span>
                 </button>
                 <div className="min-w-0">
@@ -119,7 +126,7 @@ export default function Settings() {
           <section className="flex flex-col gap-3">
             <SectionTitle
               right={
-                <button onClick={() => setGoalsOpen(true)} className="press text-[13px] text-action min-h-11">
+                <button onClick={() => setGoalsOpen(true)} className="press text-[13px] text-action min-h-11 min-w-11">
                   {t(lang, "st_edit")}
                 </button>
               }
@@ -137,21 +144,7 @@ export default function Settings() {
             <SectionTitle>{t(lang, "st_prefs")}</SectionTitle>
             <div className="card divide-y divide-line">
               <Row label={t(lang, "st_language")}>
-                <div className="inline-flex rounded-full border border-line p-0.5 text-[12px] font-medium">
-                  {(["zh", "en"] as Lang[]).map((l) => (
-                    <button
-                      key={l}
-                      aria-pressed={lang === l}
-                      onClick={() => setLang(l)}
-                      className={clsx(
-                        "press px-3 min-h-11 rounded-full inline-flex items-center gap-1.5",
-                        lang === l ? "bg-ink text-paper" : "text-ink-3",
-                      )}
-                    >
-                      {l === "zh" ? "中文" : "English"}
-                    </button>
-                  ))}
-                </div>
+                <LanguagePicker lang={lang} onChange={setLang} />
               </Row>
               <Row label={t(lang, "st_theme")}>
                 <div className="inline-flex rounded-full border border-line p-0.5 text-[12px] font-medium">
@@ -190,6 +183,13 @@ export default function Settings() {
                   label={t(lang, "st_voice")}
                 />
               </Row>
+              {settings.tts && <Row label={t(lang, "st_voice_engine")} hint={t(lang, "st_voice_engine_hint")}>
+                <div className="inline-flex rounded-full bg-paper-deep p-0.5 text-[12px] font-medium">
+                  {(["natural", "system"] as const).map(engine => <button key={engine} aria-pressed={(settings.voiceEngine ?? "natural") === engine} onClick={() => { stopSpeaking(); unlockSpeech(); setSettings({ voiceEngine: engine }); }} className={clsx("press px-3 min-h-11 rounded-full", (settings.voiceEngine ?? "natural") === engine ? "bg-ink text-paper" : "text-ink-3")}>
+                    {t(lang, engine === "natural" ? "st_voice_natural" : "st_voice_system")}
+                  </button>)}
+                </div>
+              </Row>}
               <Row label={t(lang, "pr_clock_title")} hint={t(lang, "pr_clock_explain", clockMarks(settings.patience ?? DEFAULT_PATIENCE))}>
                 <Switch checked={!!settings.timed} onChange={(v) => setSettings({ timed: v })} label={t(lang, "pr_clock_title")} />
               </Row>
@@ -210,7 +210,7 @@ export default function Settings() {
                   {ownModel ? `${t(lang, "st_model_own")} · ${byok.fastModel}` : t(lang, "st_model_default")}
                 </span>
                 <span className="text-[12px] text-ink-3 leading-snug">
-                  {ownModel ? t(lang, "st_model_local") : t(lang, "st_model_row_hint")}
+                  {modelAccess.state === "available" ? pick(M.connected, lang) : modelAccess.state === "unverified" ? pick(M.unknown, lang) : modelAccess.state === "checking" ? pick(M.checking, lang) : pick(M.pending, lang)}
                 </span>
               </span>
               <ChevronRight size={16} className="text-ink-4 shrink-0" />
@@ -238,8 +238,9 @@ export default function Settings() {
                 </span>
                 <ChevronRight size={16} className="ml-auto text-ink-4" />
               </button>
+              <BackupRestore/>
               <button
-                onClick={() => setConfirm(true)}
+                disabled={saveIssue==="conflict"} onClick={() => setConfirm(true)}
                 className="press w-full flex items-center gap-3 px-4 py-3.5 text-left text-[14px] font-medium text-danger"
               >
                 <Trash2 size={17} />
@@ -250,6 +251,11 @@ export default function Settings() {
 
           <section className="flex flex-col gap-2">
             <SectionTitle>{t(lang, "st_about")}</SectionTitle>
+            <FeedbackButton className="self-start mb-2" />
+            <div>
+              <GitHubLink lang={lang} className="self-start" />
+              <p className="px-3 text-[12px] text-ink-3 leading-relaxed">{t(lang, "github_hint")}</p>
+            </div>
             <p className="text-[13px] text-ink-3 leading-relaxed lg:max-w-[var(--measure)]">{t(lang, "st_about_body")}</p>
             <a
               className="text-[13px] text-teal underline underline-offset-2"
@@ -264,11 +270,12 @@ export default function Settings() {
       </Page>
 
       {avatarOpen && <AvatarPicker
+        currentImage={settings.avatarImage}
         currentSeed={learnerSeed(profile.name, settings.avatarSeed, settings.avatarPortrait)}
         lang={lang}
         onClose={() => setAvatarOpen(false)}
-        onSave={(avatarPortrait) => {
-          setSettings({ avatarPortrait });
+        onSave={(avatarPortrait,avatarImage) => {
+          setSettings({ avatarPortrait,avatarImage });
           setAvatarOpen(false);
           toast(pick({ zh: "头像已更新", en: "Portrait updated" }, lang));
         }}
@@ -342,10 +349,11 @@ export default function Settings() {
             block
             variant="danger"
             onClick={() => {
-              byok.clear();
               try {
-                localStorage.removeItem(STORAGE_KEY);
-              } catch {}
+                byok.clear();
+                localStorage.removeItem(DINNER_SAVE_KEY);
+                localStorage.removeItem(DINNER_LAUNCH_KEY);
+              } catch {toast(pick({zh:'设备未能清除数据，请保留备份并重试。',en:'Device data could not be cleared. Keep your backup and retry.'},lang));return;}
               reset();
               setConfirm(false);
             }}

@@ -12,24 +12,25 @@ import type { Prescription, RetrievalTrace } from "./types";
  * Ranking combines tag alignment with a lexical match on the query.
  */
 
-const tokenize = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter((t) => t.length > 1);
-
-function lexicalScore(query: string, doc: string[]): number {
-  const q = new Set(tokenize(query));
-  if (!q.size) return 0;
-  const d = new Set(doc.flatMap(tokenize));
-  let hit = 0;
-  for (const t of q) if (d.has(t)) hit++;
-  return hit / q.size;
+export function tokenize(s:string):string[]{
+ const lower=s.toLowerCase(),tokens:string[]=lower.match(/[a-z0-9][a-z0-9-]+/g)??[];
+ for(const phrase of lower.match(/[\u4e00-\u9fff]+/g)??[]){if(phrase.length===1)tokens.push(phrase);for(let i=0;i<phrase.length-1;i++)tokens.push(phrase.slice(i,i+2));}
+ return tokens;
+}
+export function lexicalScore(query:string,doc:string[]):number{
+ const q=new Set(tokenize(query)),d=new Set(doc.flatMap(tokenize));
+ if(!q.size||!d.size)return 0;
+ let hit=0;for(const t of q)if(d.has(t))hit++;
+ return hit/Math.sqrt(q.size*d.size);
 }
 
 function scenarioText(s: Scenario) {
-  return [s.title.en, s.title.zh, s.hook.en, s.hook.zh, s.background.en, ...s.keywords, ...s.skills.map((k) => skillById(k).name.en)];
+  return [s.title.en, s.title.zh, s.hook.en, s.hook.zh, s.background.en,s.background.zh, ...s.keywords, ...s.skills.map((k) => skillById(k).name.en)];
+}
+
+export function matchesCore(s: Scenario, p: Prescription): boolean {
+  return !s.custom && p.core_constraints.target_skills.some((k) => s.skills.includes(k) || s.relatedSkills?.includes(k))
+    && (!p.core_constraints.contexts?.length || p.core_constraints.contexts.includes(s.context));
 }
 
 export function retrieveScenario(
@@ -42,11 +43,7 @@ export function retrieveScenario(
   const opt = p.optional_constraints ?? {};
 
   const base = pool.filter((s) => !exclude.has(s.id) && !s.custom);
-  const coreOk = (s: Scenario) => {
-    const skillHit = core.target_skills.some((k) => s.skills.includes(k) || s.relatedSkills?.includes(k));
-    const ctxOk = !core.contexts?.length || core.contexts.includes(s.context);
-    return skillHit && ctxOk;
-  };
+  const coreOk = (s: Scenario) => matchesCore(s, p);
 
   let cands = base.filter(coreOk);
   // Relaxation order for optional constraints (fixed): relationship → difficulty → related skills
@@ -110,9 +107,19 @@ export function retrieveKnowledge(opts: {
       .sort((a, b) => b.score - a.score)
       .map((x) => x.t);
 
-  const theories = rank(THEORIES, (t) => [t.title.en, t.principle.en]).slice(0, opts.acquisition ? 3 : 2);
-  const cases = rank(CASES, (c) => [c.title.en, c.situation.en, c.takeaway.en])
-    .sort((a, b) => (a.context === opts.context ? -1 : 0) - (b.context === opts.context ? -1 : 0))
-    .slice(0, opts.performance ? 3 : 2);
+const theories = rank(THEORIES, (t) => [t.title.en, t.title.zh, t.principle.en, t.principle.zh, ...t.howTo.flatMap((l) => [l.zh, l.en])]).slice(0, opts.acquisition ? 3 : 2);
+  // Context is a modest ranking feature (0.5), love topic a real boost (+3); neither is an unconditional first sort.
+  const cases = CASES.map((t) => ({
+    t,
+    score:
+      opts.skills.filter((k) => t.skills.includes(k)).length * 2 +
+      (opts.loveTopic && t.loveTopic === opts.loveTopic ? 3 : 0) +
+      lexicalScore(opts.query, [t.title.zh, t.title.en, t.situation.zh, t.situation.en, t.takeaway.zh, t.takeaway.en, ...t.keywords]) * 3 +
+      (t.context === opts.context ? 0.5 : 0),
+  }))
+    .filter((x) => x.score > 0.5)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, opts.performance ? 3 : 2)
+    .map((x) => x.t);
   return { theories, cases };
 }

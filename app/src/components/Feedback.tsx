@@ -50,9 +50,9 @@ const useFeedback = create<{ open: boolean; rating?: Feedback["rating"]; show: (
   open: false, show: (rating) => set({ open: true, rating }), close: () => set({ open: false }),
 }));
 
-export function FeedbackButton({ className = "" }: { className?: string }) {
+export function FeedbackButton({ className = "", compact = false }: { className?: string; compact?: boolean }) {
   const lang = useLang();
-  return <button type="button" className={`press inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-line bg-card px-4 text-[13px] font-medium text-ink-2 ${className}`} onClick={() => useFeedback.getState().show()}><MessageSquare size={16} />{pick(copy.entry, lang)}</button>;
+  return <button type="button" aria-label={pick(copy.entry, lang)} className={`press inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-line bg-card ${compact ? "px-3 sm:px-4" : "px-4"} text-[13px] font-medium text-ink-2 ${className}`} onClick={() => useFeedback.getState().show()}><MessageSquare size={16} /><span className={compact ? "hidden sm:inline" : undefined}>{pick(copy.entry, lang)}</span></button>;
 }
 
 export function FeedbackPrompt() {
@@ -112,7 +112,7 @@ export function FeedbackWidget() {
   }
 
   return <>
-    {!path.startsWith("/practice/") && <FeedbackButton className="fixed z-30 right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:right-6 lg:bottom-6" />}
+    {!path.startsWith("/practice/") && path !== "/onboarding" && <div className="hidden lg:block fixed z-30 right-6 bottom-6"><FeedbackButton /></div>}
     <Sheet open={open} onClose={dismiss} title={pick(copy.title, lang)} footer={!sent && <><p className="mb-3 text-[12px] leading-relaxed text-ink-3">{pick(copy.consent, lang)}</p><Button form="socialcoach-feedback-form" type="submit" block disabled={busy || (!category && !rating) || available === false} aria-busy={busy}><Send size={16} />{pick(copy[busy ? "sending" : "send"], lang)}</Button></>}>
       {sent ? <div role="status" className="py-8 text-center flex flex-col items-center gap-4">
         <CheckCircle2 size={40} className="text-moss" />

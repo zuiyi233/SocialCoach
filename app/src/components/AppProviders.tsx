@@ -1,44 +1,56 @@
 "use client";
 import { MotionConfig } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useApp, useLang } from "@/store/useApp";
-import { isReady, useByok } from "@/lib/byok";
+import { observeArchiveChanges,useApp, useLang } from "@/store/useApp";
+import { observeByokChanges,useByok } from "@/lib/byok";
+import { promptUnavailableSharedModel, refreshModelAccess, syncModelConfiguration, useCanUseModel, useModelAccess } from "@/lib/model-access";
 import { ModelSheet } from "./ModelSheet";
 import { FeedbackWidget } from "./Feedback";
 import { Toaster } from "./ui";
 import { trackOpen } from "@/lib/analytics/track";
+import { DinnerAnnouncement } from "./DinnerEntry";
+import { StorageRecovery } from "./StorageRecovery";
+import {SaveNotice} from "./SaveNotice";
+import {useDinnerUiLanguage} from '@/lib/ui-language';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const hydrated = useApp((s) => s.hydrated);
+  const storageIssue = useApp((s) => s.storageIssue);
   const profile = useApp((s) => s.profile);
+  const unfinished = useApp(s => s.sessions.some(s => s.status === "active" || s.status === "ended"));
   const settings = useApp((s) => s.settings);
   const router = useRouter();
   const path = usePathname();
+  const immersiveReview=useApp(s=>s.sessions.some(session=>path===`/practice/${session.id}`&&session.sceneContext?.kind==='3d'&&(session.status==='ended'||session.status==='assessed')));
   const byok = useByok();
-  const lang = useLang();
-  const [needsModel, setNeedsModel] = useState(false);
-  const forced = needsModel && !isReady(byok);
-
-  // Does this deployment have a model of its own? Booleans only.
-  useEffect(() => {
-    let live = true;
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then((h: { serverKey?: boolean; requireByok?: boolean }) => {
-        if (live) setNeedsModel(!h.serverKey || !!h.requireByok);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, []);
+  const mainLang=useLang(),sceneLang=useDinnerUiLanguage(s=>s.lang);
+  const dinner = path === "/3d";
+  const lang=dinner&&sceneLang?sceneLang:mainLang;
+  const learning = path === "/learn";
+  const canUseModel = useCanUseModel();
+  const modelAccess = useModelAccess();
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (!profile && path !== "/onboarding") router.replace("/onboarding");
-    if (profile && path === "/onboarding") router.replace("/");
-  }, [hydrated, profile, path, router]);
+    if (hydrated && byok.hydrated && !storageIssue && !learning) promptUnavailableSharedModel();
+  }, [hydrated, byok.hydrated, storageIssue, learning, modelAccess.state, modelAccess.source, modelAccess.issue, modelAccess.epoch]);
+
+  useEffect(() => {
+    if (!byok.hydrated || learning) return;
+    syncModelConfiguration();
+    void refreshModelAccess();
+    return useByok.subscribe((next, previous) => {
+      if (["enabled", "provider", "baseUrl", "apiKey", "fastModel", "smartModel", "tokenParam", "disableThinking"].some(key => next[key as keyof typeof next] !== previous[key as keyof typeof previous])) {
+        syncModelConfiguration();
+        void refreshModelAccess();
+      }
+    });
+  }, [byok.hydrated, learning]);
+
+  useEffect(() => {
+    if (!hydrated || storageIssue) return;
+    if (!profile && path !== "/onboarding" && !dinner && !learning && !immersiveReview) router.replace("/onboarding");
+  }, [hydrated, storageIssue, profile, path, dinner, learning, immersiveReview, router]);
 
   useEffect(() => {
     // Follow the resolved language, not just an explicit choice: before
@@ -55,10 +67,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     else document.documentElement.setAttribute("data-theme", t);
   }, [settings.theme]);
 
+  useEffect(()=>observeArchiveChanges(),[]);
+  useEffect(()=>observeByokChanges(),[]);
+
   // Once per day, profile or not; the flag separates visitors from learners.
   useEffect(() => {
-    if (hydrated) trackOpen(!!profile);
-  }, [hydrated, profile]);
+    if (hydrated && !storageIssue) trackOpen(!!profile);
+  }, [hydrated, storageIssue, profile]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
@@ -68,12 +83,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="sheet">
-      {hydrated ? children : <div className="min-h-dvh" />}
-      {/* One instance for the whole app. `forced` has nothing to fall back on,
-          so it cannot be dismissed until it works. */}
-      <ModelSheet open={hydrated && (forced || byok.sheetOpen)} onClose={byok.closeSheet} forced={forced} />
-      {hydrated && <FeedbackWidget />}
+    <div className={dinner ? "sheet sheet-immersive" : "sheet"}>
+      {hydrated ? storageIssue ? <><SaveNotice lang={lang}/><StorageRecovery issue={storageIssue} /></> : <><SaveNotice lang={lang}/>{children}</> : <div className="min-h-dvh" />}
+      <ModelSheet open={hydrated && !storageIssue && byok.sheetOpen} onClose={byok.closeSheet} lang={lang} />
+      {hydrated && !storageIssue && !dinner && <FeedbackWidget />}
+      <DinnerAnnouncement enabled={hydrated && !storageIssue && !!profile && path === "/" && canUseModel && !byok.sheetOpen && !unfinished} />
       <Toaster />
     </div>
     </MotionConfig>

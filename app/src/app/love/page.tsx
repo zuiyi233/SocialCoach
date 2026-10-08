@@ -52,7 +52,7 @@ export default function Love() {
     return {
       count: done.length,
       minutes: done.reduce((a, s) => a + sessionMinutes(s), 0),
-      stars: done.reduce((a, s) => a + (s.report?.stars ?? 0), 0),
+      stars: done.reduce((a, s) => a + (s.report && s.report.scoringVersion === 2 ? s.report.stars : 0), 0),
     };
   }, [sessions]);
   /** Least-practiced topic with an unseen scene: a gentle "what to do next". */

@@ -7,11 +7,16 @@ import type { Scenario } from "@/data/corpus/types";
 import type { ChatMessage, Profile, Proficiency, Reflection, Report, Session } from "@/lib/types";
 import type { PatternResult } from "@/lib/tasks/types";
 import { DEVICE_KEY, OPEN_DAY_KEY } from "@/lib/analytics/keys";
+import {parseArchive} from '@/lib/archive';
+import {estimateProficiency} from '@/lib/proficiency';
+import {createArchiveStorage,type SaveIssue} from './archive-storage';
 
 export type Theme = "system" | "light" | "dark";
 
 export interface Settings {
   tts: boolean;
+  /** Natural streaming voice with a bounded wait; system voice needs no speech service. */
+  voiceEngine?: "natural" | "system";
   /** "system" follows the OS; the other two pin it. */
   theme?: Theme;
   /** The learner has been told that voice input uploads audio to their browser's vendor. */
@@ -24,6 +29,8 @@ export interface Settings {
   avatarSeed?: number;
   /** Validated versioned portrait; independent of the learner’s display name. */
   avatarPortrait?: string;
+  /** Cropped, re-encoded raster data; stays on this device and out of model inputs. */
+  avatarImage?:string;
   /**
    * Default for new scenes: replies on the clock. Real conversations do not
    * wait fifteen seconds for an answer, and neither, with this on, does the
@@ -46,7 +53,12 @@ export const PATIENCE_OPTIONS: readonly Patience[] = [10, 15, 20];
 
 interface AppState {
   hydrated: boolean;
+  /** Read failures are shown before practice; the unreadable bytes stay intact. */
+  storageIssue: "unreadable" | "unavailable" | null;
   /** In-memory onboarding choice, shared with global dialogs. */
+  saveIssue:SaveIssue|null;
+  retrySave:()=>void;
+  restoreArchive:(archive:ReturnType<typeof parseArchive>,replace:boolean)=>Promise<boolean>;
   onboardingLang: Lang | undefined;
   profile: Profile | null;
   /**
@@ -102,6 +114,8 @@ export const todayKey = (d = new Date()) => {
 
 const initial = {
   hydrated: false,
+  storageIssue: null,
+  saveIssue:null,
   onboardingLang: undefined as Lang | undefined,
   profile: null,
   proficiency: {},
@@ -118,11 +132,21 @@ const initial = {
   settings: { tts: true },
 };
 
+const archiveStorage=createArchiveStorage(issue=>{
+ queueMicrotask(()=>{if(useApp.getState().saveIssue!==issue)useApp.setState({saveIssue:issue});});
+});
+const appStorage=createJSONStorage(()=>{
+ if(typeof window==='undefined')throw new Error('Browser storage is not available during server rendering.');
+ return archiveStorage;
+});
+
 export const useApp = create<AppState>()(
   persist(
-    (set) => ({
+    (set,get) => ({
       ...initial,
-      setHydrated: () => set({ hydrated: true }),
+      setHydrated: () => set({ hydrated: true, storageIssue: null }),
+      retrySave:()=>{archiveStorage.retry();set({saveIssue:null});},
+      restoreArchive:async(archive,replace)=>{if(replace)archiveStorage.reset(true);set({...archive,sessions:archive.sessions as Session[],proficiency:estimateProficiency(archive.sessions as Session[],archive.proficiency),hydrated:true,storageIssue:null});await archiveStorage.settled();await Promise.resolve();return get().saveIssue===null;},
       setProfile: (profile) => set({ profile }),
       updateProfile: (p) => set((s) => ({ profile: s.profile ? { ...s.profile, ...p } : s.profile })),
       setLang: (lang) => set((s) => ({ onboardingLang: lang, profile: s.profile ? { ...s.profile, lang } : s.profile })),
@@ -160,27 +184,34 @@ export const useApp = create<AppState>()(
         })),
       applyReport: (id, report) =>
         set((s) => {
-          const prof = { ...s.proficiency };
+const sess = s.sessions.find((x) => x.id === id);
+          if (!sess || sess.status !== "ended" || sess.report) return s;
+          const creditedReport = { ...report };
+          const reviewed = s.sessions.map((x) => (x.id === id ? { ...x, report: creditedReport, status: "assessed" as const } : x));
+          const prof = estimateProficiency(reviewed, s.proficiency);
+          // Changes are derived from verified recent observations. A model's
+          // proposed reward cannot alter ability, including on legacy reports.
+          creditedReport.deltas = Object.fromEntries(
+            Object.entries(prof)
+              .filter(([k, v]) => v !== s.proficiency[k as SkillId])
+              .map(([k, v]) => [k, +((v ?? 2.5) - (s.proficiency[k as SkillId] ?? 2.5)).toFixed(2)]),
+          );
           const love = { ...s.loveProficiency };
-          const sess = s.sessions.find((x) => x.id === id);
-          const allowed = new Set<SkillId>([...(s.profile?.goals ?? []), ...(sess?.scenario.skills ?? [])]);
-          for (const [k, v] of Object.entries(report.deltas)) {
-            const key = k as SkillId;
-            if (!allowed.has(key)) continue;
-            const cur = prof[key] ?? 2.5;
-            prof[key] = Math.min(5, Math.max(1, +(cur + (v ?? 0)).toFixed(2)));
-          }
-          const topic = sess?.scenario.loveTopic;
+          const topic = sess.scenario.loveTopic;
           if (topic) {
-            // Same gate as the generic proficiency: only count deltas for skills
+            // Same gate as the generic proficiency: count only deltas for skills
             // this session actually targeted, so the love view and the skill view
             // never drift apart. Cap the per-session gain so one great report
             // nudges the topic instead of filling it.
-            const gain = Math.min(
-              0.4,
-              Object.entries(report.deltas)
-                .filter(([k]) => allowed.has(k as SkillId))
-                .reduce((a, [, v]) => a + (v ?? 0), 0),
+            const allowed = new Set<SkillId>([...(s.profile?.goals ?? []), ...(sess.scenario.skills ?? [])]);
+            const gain = Math.max(
+              -0.4,
+              Math.min(
+                0.4,
+                Object.entries(creditedReport.deltas)
+                  .filter(([k]) => allowed.has(k as SkillId))
+                  .reduce((a, [, v]) => a + (v ?? 0), 0),
+              ),
             );
             const cur = love[topic] ?? 2.5;
             love[topic] = Math.min(5, Math.max(1, +(cur + gain).toFixed(2)));
@@ -190,7 +221,7 @@ export const useApp = create<AppState>()(
             proficiency: prof,
             loveProficiency: love,
             practiceDays: s.practiceDays.includes(day) ? s.practiceDays : [...s.practiceDays, day],
-            sessions: s.sessions.map((x) => (x.id === id ? { ...x, report, status: "assessed", outcome: report.outcome } : x)),
+            sessions: s.sessions.map((x) => (x.id === id ? { ...x, report:creditedReport, status: "assessed", outcome: report.outcome } : x)),
           };
         }),
       addReflection: (id, r) => set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? { ...x, reflections: [...x.reflections, r] } : x)) })),
@@ -204,7 +235,13 @@ export const useApp = create<AppState>()(
       setSettings: (p) => set((s) => ({ settings: { ...s.settings, ...p } })),
       setPatternInsight: (result, from) => set({ patternInsight: { result, from, at: Date.now() } }),
       reset: () => {
-        try { sessionStorage.removeItem("socialcoach.rehearsal-draft"); } catch {}
+        archiveStorage.reset(true);
+        try {
+          // Clear only this app's tab state, including unsent practice drafts.
+          for (const key of Object.keys(sessionStorage)) {
+            if (key === "socialcoach.rehearsal-draft" || key === "socialcoach.rehearsal-brief" || key === "socialcoach.arena.location" || key.startsWith("socialcoach.draft.")) sessionStorage.removeItem(key);
+          }
+        } catch {}
         // The analytics device id goes with everything else: a reset learner is a new device.
         try { localStorage.removeItem(DEVICE_KEY); localStorage.removeItem(OPEN_DAY_KEY); } catch {}
         set({ ...initial, hydrated: true });
@@ -212,12 +249,13 @@ export const useApp = create<AppState>()(
     }),
     {
       name: "socialcoach.v1",
-      storage: createJSONStorage(() => localStorage),
+      storage: appStorage,
       partialize: (s) => ({
         profile: s.profile,
+        onboardingLang:s.onboardingLang,
         proficiency: s.proficiency,
-        loveProficiency: s.loveProficiency,
-        sessions: s.sessions.slice(0, 200),
+loveProficiency: s.loveProficiency,
+        sessions: s.sessions,
         customScenarios: s.customScenarios,
         bookmarks: s.bookmarks,
         practiceDays: s.practiceDays,
@@ -230,7 +268,20 @@ export const useApp = create<AppState>()(
         // call on every visit to Growth, which is what caching it prevents.
         patternInsight: s.patternInsight,
       }),
-      onRehydrateStorage: () => (state) => state?.setHydrated(),
+      merge:(persisted,current)=>{
+        if(persisted===undefined)return current;
+        const archive=parseArchive(persisted);
+        return {...current,...archive,proficiency:estimateProficiency(archive.sessions as Session[],archive.proficiency),loveProficiency:archive.loveProficiency??current.loveProficiency} as AppState;
+      },
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          // Initial hydration can fail before the exported store is assigned.
+          queueMicrotask(() => useApp.setState({ hydrated: true, storageIssue: error instanceof SyntaxError ? "unreadable" : "unavailable" }));
+          return;
+        }
+        archiveStorage.reset();
+        state?.setHydrated();
+      },
     },
   ),
 );
@@ -258,3 +309,14 @@ export const useLang = (): Lang => useApp((s) => s.profile?.lang ?? s.onboarding
 export const useGoals = (): SkillId[] => useApp((s) => s.profile?.goals ?? []);
 export const useContexts = (): ContextId[] => useApp((s) => s.profile?.contexts ?? []);
 export const useLoveProficiency = (): Partial<Record<LoveTopicId, number>> => useApp((s) => s.loveProficiency);
+
+/** Other windows may publish new records; retain unsaved local work on conflict. */
+export function observeArchiveChanges(){
+ const listener=(event:StorageEvent)=>{
+  if(event.key!=='socialcoach.v1'||!archiveStorage.changed(event.newValue))return;
+  if(archiveStorage.dirty()||useApp.getState().saveIssue||!archiveStorage.acceptsRemote(event.oldValue)){useApp.setState({saveIssue:'conflict'});return;}
+  void useApp.persist.rehydrate();
+ };
+ window.addEventListener('storage',listener);
+ return ()=>window.removeEventListener('storage',listener);
+}

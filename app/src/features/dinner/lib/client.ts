@@ -1,0 +1,36 @@
+'use client';
+import {watched} from '@/lib/client-api';
+import {taskLLM} from '@/lib/task-runtime';
+import type { ModelIssue } from '@/lib/model-status';
+
+class DinnerRequestError extends Error {
+  constructor(message: string, public status: number, public modelIssue?: ModelIssue | null) { super(message); }
+}
+import { byokConfig } from '@/lib/byok';
+import type { DinnerInput } from './director';
+import { scenarios } from './content';
+import { validateReply } from './engine';
+
+export async function directDinner(input: DinnerInput, signal: AbortSignal) {
+  const own = byokConfig();
+  return watched("dinner",!!own,input.lang, async () => {
+  // Credentials travel directly to the chosen provider, just like the main app.
+  if (own) {
+    const [{runDinner},{makeByokLLM}]=await Promise.all([import('./director'),import('@/lib/llm-client')]);
+    signal.throwIfAborted();
+    return runDinner(input, taskLLM(makeByokLLM(own),"dinner",signal,undefined,input.lang), own.fastModel.trim(), signal);
+  }
+  const response = await fetch('/api/dinner/direct', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input), signal,
+  }).catch(error => {
+    if (signal.aborted) throw error;
+    throw new DinnerRequestError('Connection failed', 0, 'network');
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new DinnerRequestError(body.error || 'Reply unavailable', response.status, body.modelIssue);
+  }
+  return validateReply(await response.json(), scenarios.find(s => s.id === input.scenarioId)!);
+  });
+}

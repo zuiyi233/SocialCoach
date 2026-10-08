@@ -1,40 +1,58 @@
 "use client";
+import { useCanUseModel } from "@/lib/model-access";
+import { M } from "@/lib/model-copy";
+import { pick } from "@/lib/i18n";
 import { FeedbackPrompt } from "@/components/Feedback";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { clsx } from "clsx";
-import { ArrowLeft, Bookmark, ChevronDown, RotateCcw, Share2, Send } from "lucide-react";
-import { BottomBar, Button, IconButton, Marginalia, Stages, Stars, Spinner, useToast } from "@/components/ui";
+import { Bookmark, ChevronDown, RotateCcw, Share2, Send, MessageSquareText } from "lucide-react";
+import { BottomBar, Button, IconButton, Marginalia, Stages, Stars, Spinner } from "@/components/ui";
+import { SlowModelNotice } from "@/components/SlowModelNotice";
 import { SkillTag, Level } from "@/components/SkillBits";
 import { CaseBody, TheoryBody } from "@/components/Knowledge";
+import { DebriefAssistant, type DebriefAssistantHandle } from "./DebriefAssistant";
 import { useApp, useLang } from "@/store/useApp";
 import { t, tList } from "@/lib/i18n";
 import { assessStream, reflectStream } from "@/lib/client-api";
 import { track } from "@/lib/analytics/track";
 import { buildSession } from "@/lib/session-utils";
-import type { Report, Session } from "@/lib/types";
+import type { Report, Session,Reflection } from "@/lib/types";
 import type { Character } from "@/data/corpus/types";
+import { PracticeJourney } from "./PracticeJourney";
 import { TurnMap } from "./TurnMap";
 import { caseById, theoryById } from "@/data/corpus";
 import { skillById, SKILLS, type SkillId } from "@/data/taxonomy";
 import { compColor } from "@/lib/format";
+import {SceneReview,sceneReviewCopy} from './SceneReview';
+import {TranscriptReader} from './TranscriptReader';
+import {ReviewSplit} from './ReviewSplit';
+import {OriginalAims} from './OriginalAims';
+import {hasQuote} from '@/lib/practice-policy';
+import dynamic from 'next/dynamic';
+import {defaultShareCard} from '@/lib/share-card';
+const SharePractice=dynamic(()=>import('./SharePractice').then(m=>m.SharePractice),{ssr:false});
 
 const skillIds = new Set(SKILLS.map((s) => s.id));
 
 export function Debrief({ session }: { session: Session }) {
   const lang = useLang();
+  const canUseModel = useCanUseModel();
   const router = useRouter();
   const { profile, applyReport, addSession, updateSession } = useApp();
   const [err, setErr] = useState<string | null>(null);
   const [partial, setPartial] = useState<Partial<Report> | null>(null);
   const inflight = useRef(false);
+  const assessment=useRef<AbortController|null>(null);
+  const restarting = useRef(false);
   const sc = session.scenario;
   const report = session.report;
 
   const run = useCallback(async () => {
-    if (!profile || inflight.current) return;
+    if (!canUseModel || (!profile&&!session.sceneContext) || inflight.current) return;
     inflight.current = true;
+    const controller=new AbortController();assessment.current=controller;
     try {
       const final = await assessStream(
         {
@@ -42,34 +60,43 @@ export function Debrief({ session }: { session: Session }) {
           learnerCharacterId: session.learnerCharacterId,
           messages: session.messages,
           lang,
-          goals: profile.goals,
-          learnerName: profile.name,
-          objectiveDone: session.objectiveDone,
+          goals: profile?.goals??sc.skills,
+          learnerName: profile?.name,
+          objectiveDone: session.sceneContext?undefined:session.objectiveDone,
           outcome: session.outcome,
+          sceneContext:session.sceneContext,
         },
-        (p) => setPartial(p),
+        (p) => {if(!controller.signal.aborted)setPartial(p);},
+        controller.signal,
       );
+      if(controller.signal.aborted)return;
       applyReport(session.id, final);
-      track({ name: "debrief_view", ts: Date.now(), session: session.id, scenario: sc.custom ? "custom" : sc.id, stars: final.stars, outcome: final.outcome });
+      track({ name: "debrief_view", ts: Date.now(), session: session.id, scenario:session.sceneContext?sc.id:sc.custom ? "custom" : sc.id, mode:session.sceneContext?"3d":sc.custom?"rehearse":"text",practice:session.sceneContext?.practiceId, stars: final.stars, outcome: final.outcome, scoring_version: final.scoringVersion, rated: final.scoringVersion === 2 ? !!final.ratings?.length : true });
       setPartial(null);
     } catch (e) {
+      if(controller.signal.aborted)return;
       console.error("[assess]", e);
       const raw = e instanceof Error ? e.message : "";
       const friendly = /JSON|position|Unexpected|garbled|unexpectedly/i.test(raw) ? t(lang, "rp_failed") : raw || t(lang, "error_generic");
       setErr(friendly);
       setPartial(null);
     } finally {
-      inflight.current = false;
+      if(assessment.current===controller){inflight.current=false;assessment.current=null;}
     }
-  }, [profile, sc, session, lang, applyReport]);
+  }, [profile, sc, session, lang, applyReport, canUseModel]);
+
+  useEffect(()=>()=>{assessment.current?.abort();assessment.current=null;inflight.current=false;},[session.id,lang]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- kick off an async request on mount
-    if (session.status === "ended" && !report) void run();
+    if (canUseModel && session.status === "ended" && !report) void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.status]);
+  }, [session.status, canUseModel,lang]);
 
   const again = () => {
+    if (restarting.current) return;
+    restarting.current = true;
+    if(session.sceneContext){const c=session.sceneContext;router.push(`/3d?scene=${encodeURIComponent(c.sceneId)}&opening=${encodeURIComponent(c.openingId)}&restart=1`);return;}
     const s = buildSession(sc, session.origin, lang, session.adaptation ? { adaptation: session.adaptation } : undefined);
     addSession(s);
     router.push(`/practice/${s.id}`);
@@ -93,7 +120,7 @@ export function Debrief({ session }: { session: Session }) {
         characters={withHidden}
         outcomeKey={outcomeKey}
         objectivesMet={n}
-        ready={!!report || hasPartial}
+        ready={!!report || hasPartial || !canUseModel}
         err={err}
         onRetry={() => { setErr(null); void run(); }}
         onDone={() => updateSession(session.id, { revealSeen: true })}
@@ -104,23 +131,24 @@ export function Debrief({ session }: { session: Session }) {
   /* ── phase: ended, report not yet started streaming ── */
   if (!report && !hasPartial) {
     return (
-      <div className="min-h-dvh pt-safe px-5 flex flex-col lg:mx-auto lg:w-full lg:max-w-[1000px] xl:max-w-[1120px] lg:px-6">
-        <div className="pt-2 -ml-2"><IconButton label={t(lang, "back")} onClick={() => router.push("/")}><ArrowLeft size={20} /></IconButton></div>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} className="flex-1 flex flex-col gap-8 pt-10 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-12 lg:items-start lg:pt-14">
+      <div className="min-h-dvh pt-safe px-5 flex flex-col lg:mx-auto lg:w-full lg:max-w-[var(--focus-max)] lg:px-6">
+        <PracticeJourney phase={2} onBack={() => router.push(session.sceneContext?'/3d':"/")} />
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} className="flex-1 flex flex-col gap-8 pt-10 lg:grid lg:grid-cols-[minmax(0,1fr)_var(--margin-w)] lg:gap-x-10 lg:items-start lg:pt-14">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col items-center text-center gap-4 lg:items-start lg:text-left">
-              <StarBurst n={n} of={sc.objectives.length} />
-              <h1 className="display text-[32px] leading-tight">{t(lang, outcomeKey)}</h1>
-              <p className="text-[14px] text-ink-3 max-w-[32ch]">{t(lang, "pr_ended_sub")}</p>
+              {session.sceneContext?<span className="eyebrow text-teal">SocialCoach · 3D</span>:<StarBurst n={n} of={sc.objectives.length} />}
+              <h1 className="display text-[32px] leading-tight">{session.sceneContext?pick(sceneReviewCopy.preparing,lang):t(lang, outcomeKey)}</h1>
+              <p className="text-[14px] text-ink-3 max-w-[32ch]">{session.sceneContext?pick(sceneReviewCopy.preparingNote,lang):t(lang, "pr_ended_sub")}</p>
+              {session.sceneContext&&<Quote text={session.messages.findLast(m=>m.role==='learner')?.text} session={session}/>}
             </div>
             <div className="card p-5">
               {err ? (
                 <div className="flex flex-col gap-3">
                   <p className="text-[14px] text-danger">{err}</p>
-                  <Button variant="secondary" onClick={() => { setErr(null); void run(); }}>{t(lang, "retry")}</Button>
+                  <Button requiresModel variant="secondary" onClick={() => { setErr(null); void run(); }}>{t(lang, "retry")}</Button>
                 </div>
               ) : (
-                <Stages title={t(lang, "pr_assessing")} steps={tList(lang, "pr_assess_steps")} intervalMs={6000} slowAfterMs={60000} />
+                canUseModel ? <Stages title={t(lang, "pr_assessing")} steps={tList(lang, "pr_assess_steps")} /> : <p className="text-[14px] text-ink-3">{pick(M.pending, lang)}</p>
               )}
             </div>
           </div>
@@ -158,8 +186,6 @@ function cjkGap(name: string) {
 function HiddenReveal({
   session,
   characters,
-  outcomeKey,
-  objectivesMet,
   ready,
   err,
   onRetry,
@@ -175,15 +201,15 @@ function HiddenReveal({
   onDone: () => void;
 }) {
   const lang = useLang();
-  const got = session.revealedAtTurn;
+  const router = useRouter();
   const ease = [0.16, 1, 0.3, 1] as const;
 
   return (
-    <div className="min-h-dvh pt-safe px-5 flex flex-col lg:mx-auto lg:w-full lg:max-w-[760px] lg:px-6">
+    <div className="min-h-dvh pt-safe px-5 flex flex-col lg:mx-auto lg:w-full lg:max-w-[var(--form-max)] lg:px-6">
+      <PracticeJourney phase={2} onBack={() => router.push("/")} />
       <div className="flex-1 flex flex-col justify-center gap-7 py-14">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }} className="flex flex-col gap-2">
-          <Stars n={objectivesMet} of={session.objectiveDone.length} />
-          <h1 className="display text-[26px] leading-tight text-ink-2">{t(lang, outcomeKey as "pr_ended_success")}</h1>
+          <h1 className="display text-[26px] leading-tight text-ink-2">{t(lang,"pr_reveal_review")}</h1>
         </motion.div>
 
         {characters.map((c, i) => (
@@ -199,6 +225,7 @@ function HiddenReveal({
             <blockquote className="bg-slab text-slab-ink rounded-2xl px-5 py-4 text-[17px] leading-relaxed">
               {c.hidden![lang]}
             </blockquote>
+            {(session.disclosures??[]).filter(d=>d.characterId===c.id&&session.messages.some(m=>m.id===d.messageId&&m.role==="npc"&&m.characterId===c.id&&m.text.includes(d.quote))).map(d=><p key={d.messageId} className="text-[13px] text-ink-2">{t(lang,"pr_reveal_quote",{n:d.turn})} “{d.quote}”</p>)}
           </motion.section>
         ))}
 
@@ -208,11 +235,9 @@ function HiddenReveal({
           transition={{ duration: 0.5, delay: 0.35 + characters.length * 0.5 + 0.35 }}
           className="dotted pt-5 flex flex-col gap-1.5"
         >
-          <p className={clsx("text-[15px] font-semibold", got ? "text-moss" : "text-ink")}>
-            {got ? t(lang, "pr_reveal_got_it", { n: got }) : t(lang, "pr_reveal_missed")}
-          </p>
+          <p className="text-[15px] font-semibold">{t(lang,"pr_reveal_context")}</p>
           <p className="text-[13.5px] text-ink-3 leading-relaxed lg:max-w-[var(--measure)]">
-            {t(lang, got ? "pr_reveal_got_why" : "pr_reveal_missed_why")}
+            {t(lang,"pr_reveal_context_detail")}
           </p>
         </motion.div>
       </div>
@@ -221,7 +246,7 @@ function HiddenReveal({
         {err ? (
           <div className="flex flex-col gap-2">
             <p className="text-[13px] text-danger">{err}</p>
-            <Button block variant="secondary" onClick={onRetry}>{t(lang, "retry")}</Button>
+            <Button requiresModel block variant="secondary" onClick={onRetry}>{t(lang, "retry")}</Button>
           </div>
         ) : (
           <Button block size="lg" variant="ink" onClick={onDone} disabled={!ready}>
@@ -236,7 +261,7 @@ function HiddenReveal({
 
 function StarBurst({ n, of }: { n: number; of: number }) {
   return (
-    <div className="flex items-center gap-2" aria-label={`${n}/${of}`}>
+    <div className="flex items-center gap-2" role="img" aria-label={`${n}/${of}`}>
       {Array.from({ length: of }).map((_, i) => (
         <motion.span key={i} initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.25 + i * 0.18, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}>
           <Stars n={i < n ? 1 : 0} of={1} size={38} />
@@ -255,7 +280,7 @@ function Transcript({ session, title }: { session: Session; title?: string }) {
       <ol className="flex flex-col gap-2.5">
         {session.messages.filter((m) => m.role !== "coach").map((m) => {
           if (m.role === "event") {
-            return <li key={m.id} className="text-[12.5px] italic text-ink-4 pl-6">{m.text}</li>;
+            return <li key={m.id} className="text-[12.5px] italic text-ink-3 pl-6">{m.text}</li>;
           }
           const c = sc.characters.find((x) => x.id === m.characterId);
           const mine = m.role === "learner";
@@ -274,11 +299,13 @@ function Transcript({ session, title }: { session: Session; title?: string }) {
 function ReportView({ session, report, streaming, onAgain }: { session: Session; report: Partial<Report>; streaming: boolean; onAgain: () => void }) {
   const lang = useLang();
   const router = useRouter();
-  const toast = useToast((s) => s.show);
   const { proficiency, bookmarks, toggleBookmark, addReflection, updateReflection } = useApp();
-  const goals = useApp((s) => s.profile?.goals ?? []);
+  const goals = useApp((s) => s.profile?.goals) ?? session.scenario.skills;
   const sc = session.scenario;
   const [showTranscript, setShowTranscript] = useState(false);
+  const [transcriptSelection,setTranscriptSelection]=useState<string|null>(null);
+  const [showShare,setShowShare]=useState(false);
+  const assistant = useRef<DebriefAssistantHandle>(null);
   const theories = (report.knowledge?.theoryIds ?? []).map(theoryById).filter(Boolean);
   const cases = (report.knowledge?.caseIds ?? []).map(caseById).filter(Boolean);
   const strengths = (report.strengths ?? []).filter((s) => s && s.behavior && skillIds.has(s.skill));
@@ -287,55 +314,59 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
   const questions = (report.reflectionQuestions ?? []).filter(Boolean);
   const deltaEntries = (Object.entries(report.deltas ?? {}) as [SkillId, number][]).filter(([k, v]) => (v ?? 0) > 0 && (goals.includes(k) || sc.skills.includes(k)));
   const stars = report.stars ?? session.objectiveDone.filter(Boolean).length;
-
-  const share = async () => {
-    const lines = [
-      lang === "zh" ? `我在「SocialCoach」练了《${sc.title.zh}》` : `I practiced "${sc.title.en}" on SocialCoach`,
-      t(lang, "rp_stars_of", { n: stars, m: sc.objectives.length }),
-      strengths[0] ? `${t(lang, "rp_strengths")}: ${strengths[0].behavior}` : "",
-      report.nextStep ? `${t(lang, "rp_next_step")}: ${report.nextStep}` : "",
-    ].filter(Boolean).join("\n");
-    try {
-      if (navigator.share) await navigator.share({ text: lines });
-      else { await navigator.clipboard.writeText(lines); toast(t(lang, "rp_copied")); }
-    } catch {}
-  };
+  const quality = report.scoringVersion === 2;
+  const rated = !quality || !!report.ratings?.length;
+  const starLabel = quality ? (rated ? t(lang, "rp_quality", { n: stars }) : t(lang, "rp_unrated")) : t(lang, "rp_stars_of", { n: stars, m: sc.objectives.length });
 
   return (
-    <div className="min-h-dvh pt-safe pb-36 lg:pb-12 lg:mx-auto lg:w-full lg:max-w-[1000px] xl:max-w-[1120px] lg:px-6">
-      <div className="px-3 pt-2 flex items-center justify-between lg:px-0">
-        <IconButton label={t(lang, "back")} onClick={() => router.push("/")}><ArrowLeft size={20} /></IconButton>
-        <div className="flex items-center gap-1">
-          <AnimatePresence>
-            {streaming && (
-              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="inline-flex items-center gap-2 text-[12px] text-ink-3 pr-2">
-                <Spinner />{t(lang, "rp_writing")}
-              </motion.span>
-            )}
-          </AnimatePresence>
-          <IconButton label={t(lang, "rp_share")} onClick={share} disabled={streaming} className={streaming ? "opacity-40" : ""}><Share2 size={18} /></IconButton>
-        </div>
+    <div className="min-h-dvh pt-safe pb-48 lg:pb-12 lg:mx-auto lg:w-full lg:max-w-[var(--focus-max)] lg:px-6">
+      <div className="px-3 lg:px-0 mb-6">
+        <PracticeJourney phase={2} onBack={() => router.push(session.sceneContext?'/3d':"/")} actions={<IconButton label={t(lang, "rp_share")} onClick={()=>setShowShare(true)} disabled={streaming}><Share2 size={18} /></IconButton>} />
       </div>
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-12 lg:items-start">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="px-5 flex flex-col gap-9 lg:px-0">
+      <ReviewSplit lang={lang} aside={<div className="lg:sticky lg:top-6 lg:h-[calc(100dvh-5rem)] lg:overflow-y-auto"><button className="press min-h-11 text-[13px] text-action" onClick={()=>setTranscriptSelection('')}>{pick({zh:'展开完整对话',en:'Open full conversation'},lang)}</button><Transcript session={session} title={t(lang, "rp_transcript")} /></div>}>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }} className="px-5 flex flex-col gap-9 lg:px-0">
         <header className="flex flex-col gap-3">
           <p className="eyebrow">{t(lang, "rp_title")} · {sc.title[lang]}</p>
           {/* The verdict carries the first screen. Stars and a tally are a score,
               and a score answers a question nobody was asking; they drop below it. */}
+          {report.verdictEvidence && <Quote text={report.verdictEvidence} session={session} onInspect={setTranscriptSelection} />}
           {report.verdict ? (
             <h1 className="display text-[27px] leading-[1.24] text-ink lg:text-[31px]">
               {report.verdict}
               {streaming && !report.summary && <Caret />}
             </h1>
           ) : (
-            streaming && <p className="display text-[27px] leading-[1.24] text-ink-4">…</p>
+            streaming && <p className="display text-[27px] leading-[1.24] text-ink-3">…</p>
           )}
           <div className="flex items-center gap-3">
-            <Stars n={stars} of={sc.objectives.length} size={20} />
-            <span className="text-[12px] text-ink-3">{t(lang, "rp_stars_of", { n: stars, m: sc.objectives.length })}</span>
+            {rated && <Stars n={stars} of={quality ? 3 : sc.objectives.length} size={20} />}
+            <span className="text-[12px] text-ink-3">{starLabel}</span>
           </div>
+          {quality&&!session.sceneContext && <p className="text-[12px] text-ink-3">{t(lang, "rp_stars_of", { n: session.objectiveDone.filter(Boolean).length, m: sc.objectives.length })}</p>}
           {report.summary && <p className="text-[15px] leading-[1.65] text-ink-2 lg:max-w-[var(--measure)]">{report.summary}{streaming && !strengths.length && <Caret />}</p>}
+          <OriginalAims results={report.objectiveResults} session={session} lang={lang} onInspect={setTranscriptSelection}/>
         </header>
+
+        {!streaming && (
+          <nav aria-label={t(lang, "rp_reading_guide")} className="review-index sticky top-0 z-10 flex gap-1 overflow-x-auto bg-paper py-2 border-y border-line">
+            {[
+              { id: "review-strengths", label: "rp_strengths" as const, show: strengths.length > 0 },
+              { id: "review-weaknesses", label: "rp_weaknesses" as const, show: weaknesses.length > 0 },
+              { id: "review-alternatives", label: "rp_alternatives" as const, show: alternatives.length > 0 },
+              { id: "review-reflect", label: "rp_reflect" as const, show: questions.length > 0 },
+            ].filter((item) => item.show).map((item) => <a key={item.id} href={`#${item.id}`} className="press shrink-0 inline-flex items-center justify-center rounded-full px-3 min-h-11 text-[13px] text-ink-2 hover:bg-inset">{t(lang, item.label)}</a>)}
+            {session.sceneContext&&<a href="#review-scene" className="press shrink-0 inline-flex items-center justify-center rounded-full px-3 min-h-11 text-[13px] text-ink-2 hover:bg-inset">{pick(sceneReviewCopy.title,lang)}</a>}
+            <button onClick={() => assistant.current?.ask()} className="press shrink-0 inline-flex items-center justify-center rounded-full px-3 min-h-11 text-[13px] text-teal hover:bg-teal-soft">{t(lang, "da_title")}</button>
+          </nav>
+        )}
+
+        {!streaming && report.nextStep && (
+          <section className="bg-slab text-slab-ink rounded-[var(--radius)] p-6 flex flex-col gap-3">
+            <h2 className="eyebrow text-slab-ink">{t(lang, "rp_next_step")}</h2>
+            <p className="display text-[20px] leading-relaxed">{report.nextStep}</p>
+            <p className="text-[13px] leading-relaxed">{t(lang, "rp_repeat_note")}</p>
+          </section>
+        )}
 
         {(session.stanceTrail?.length ?? 0) > 0 && (
           <Section title={t(lang, "rp_map_title")}>
@@ -343,18 +374,18 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
           </Section>
         )}
 
+        {session.sceneContext&&<SceneReview context={session.sceneContext} notes={report.sceneNotes} lang={lang}/>}
+
         {strengths.length > 0 && (
-          <Section title={t(lang, "rp_strengths")}>
+          <Section id="review-strengths" title={t(lang, "rp_strengths")}>
             <ul className="flex flex-col gap-4">
               {strengths.map((s, i) => (
-                <Reveal key={i}>
-                  <li className="flex flex-col gap-2">
+                <Reveal key={i} className="flex flex-col gap-2">
+                    <Quote text={s.evidence} good session={session} onInspect={setTranscriptSelection} />
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-[15px] font-semibold leading-snug">{s.behavior}</p>
                       <SkillTag id={s.skill} lang={lang} small className="shrink-0 mt-0.5" />
                     </div>
-                    <Quote text={s.evidence} good session={session} />
-                  </li>
                 </Reveal>
               ))}
             </ul>
@@ -362,16 +393,15 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
         )}
 
         {weaknesses.length > 0 && (
-          <Section title={t(lang, "rp_weaknesses")}>
+          <Section id="review-weaknesses" title={t(lang, "rp_weaknesses")}>
             <ul className="flex flex-col gap-5">
               {weaknesses.map((w, i) => (
-                <Reveal key={i}>
-                  <li className="flex flex-col gap-2">
+                <Reveal key={i} className="flex flex-col gap-2">
+                    <Quote text={w.evidence} session={session} onInspect={setTranscriptSelection} />
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-[15px] font-semibold leading-snug">{w.behavior}</p>
                       <SkillTag id={w.skill} lang={lang} small className="shrink-0 mt-0.5" />
                     </div>
-                    <Quote text={w.evidence} session={session} />
                     {w.whyItMatters && <p className="text-[14px] text-ink-2 leading-relaxed">{w.whyItMatters}</p>}
                     {w.deficit && (
                       <div className={clsx("inline-flex items-center gap-2 self-start rounded-full pl-1 pr-3 h-7 text-[12px] font-medium", w.deficit === "acquisition" ? "bg-teal-soft text-teal" : "bg-accent-soft text-accent-deep")} title={t(lang, w.deficit === "acquisition" ? "rp_deficit_acq_hint" : "rp_deficit_perf_hint")}>
@@ -379,7 +409,6 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
                         {t(lang, w.deficit === "acquisition" ? "rp_deficit_acq" : "rp_deficit_perf")}
                       </div>
                     )}
-                  </li>
                 </Reveal>
               ))}
             </ul>
@@ -387,16 +416,14 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
         )}
 
         {alternatives.length > 0 && (
-          <Section title={t(lang, "rp_alternatives")}>
+          <Section id="review-alternatives" title={t(lang, "rp_alternatives")}>
             <ul className="flex flex-col gap-4">
               {alternatives.map((a, i) => (
-                <Reveal key={i}>
-                  <li className="card p-4 flex flex-col gap-3">
+                <Reveal key={i} className="card p-4 flex flex-col gap-3">
                     <div><span className="eyebrow">{t(lang, "rp_you_said")}</span><p className="text-[14px] text-ink-3 mt-1 leading-relaxed">“{a.original}”</p></div>
                     <div className="hairline" />
                     <div><span className="eyebrow text-moss">{t(lang, "rp_try")}</span><p className="text-[15px] mt-1 leading-relaxed font-medium">“{a.better}”</p></div>
                     {a.why && <p className="text-[13px] text-ink-3 leading-relaxed">{a.why}</p>}
-                  </li>
                 </Reveal>
               ))}
             </ul>
@@ -406,17 +433,19 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
         {!streaming && (theories.length > 0 || cases.length > 0) && (
           <Section title={t(lang, "rp_knowledge")} sub={report.knowledge?.whyThis}>
             <div className="flex flex-col gap-3">
-              {theories.map((th) => th && <KnowledgeCard key={th.id} kind="theory" title={th.title[lang]} source={`${th.source.book} · ${th.source.author}`} saved={bookmarks.includes(th.id)} onSave={() => toggleBookmark(th.id)}><TheoryBody t={th} /></KnowledgeCard>)}
-              {cases.map((c) => c && <KnowledgeCard key={c.id} kind="case" title={c.title[lang]} source={`${c.source.book} · ${c.source.author}`} saved={bookmarks.includes(c.id)} onSave={() => toggleBookmark(c.id)}><CaseBody c={c} /></KnowledgeCard>)}
+              {theories.map((th) => th && <KnowledgeCard key={th.id} kind="theory" title={th.title[lang]} source={`${th.source.book} · ${th.source.author}`} saved={bookmarks.includes(th.id)} onSave={() => toggleBookmark(th.id)} onAsk={() => assistant.current?.ask(t(lang, "da_knowledge_question", { title: th.title[lang] }))}><TheoryBody t={th} /></KnowledgeCard>)}
+              {cases.map((c) => c && <KnowledgeCard key={c.id} kind="case" title={c.title[lang]} source={`${c.source.book} · ${c.source.author}`} saved={bookmarks.includes(c.id)} onSave={() => toggleBookmark(c.id)} onAsk={() => assistant.current?.ask(t(lang, "da_knowledge_question", { title: c.title[lang] }))}><CaseBody c={c} /></KnowledgeCard>)}
             </div>
           </Section>
         )}
 
+        {!streaming && session.report && <DebriefAssistant key={session.id} session={session} ref={assistant} />}
+
         {!streaming && questions.length > 0 && (
-          <Section title={t(lang, "rp_reflect")} sub={t(lang, "rp_reflect_sub")}>
+          <Section id="review-reflect" title={t(lang, "rp_reflect")} sub={t(lang, "rp_reflect_sub")}>
             <div className="flex flex-col gap-4">
               {questions.map((q, i) => (
-                <ReflectItem key={i} session={session} question={q} idx={i} addReflection={addReflection} updateReflection={updateReflection} summary={report.summary ?? ""} />
+                <ReflectItem key={`${session.id}:${lang}:${q}`} session={session} question={q} idx={i} addReflection={addReflection} updateReflection={updateReflection} summary={report.summary ?? ""} />
               ))}
             </div>
           </Section>
@@ -424,12 +453,7 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
 
         {!streaming && <FeedbackPrompt />}
 
-        {!streaming && report.nextStep && (
-          <section className="bg-slab text-slab-ink rounded-[var(--radius)] p-5 flex flex-col gap-2">
-            <span className="eyebrow text-slab-ink/60">{t(lang, "rp_next_step")}</span>
-            <p className="display text-[20px] leading-snug">{report.nextStep}</p>
-          </section>
-        )}
+
 
         {!streaming && deltaEntries.length > 0 && (
           <Section title={t(lang, "rp_growth")} sub={t(lang, "rp_growth_note")}>
@@ -455,28 +479,24 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
         )}
 
         {!streaming && (
-          <section className="lg:hidden">
-            <button onClick={() => setShowTranscript((x) => !x)} className="press inline-flex items-center gap-1.5 text-[13px] text-ink-3 h-8">
+          <section>
+            <button className="press min-h-11 text-[14px] text-action mr-4" onClick={()=>setTranscriptSelection('')}>{pick({zh:'完整对话',en:'Full conversation'},lang)}</button><button aria-expanded={showTranscript} aria-controls="review-transcript" onClick={() => setShowTranscript((x) => !x)} className="press inline-flex items-center gap-1.5 text-[13px] text-ink-3 min-h-11">
               {t(lang, "rp_transcript")} <ChevronDown size={14} className={clsx("transition-transform", showTranscript && "rotate-180")} />
             </button>
-            <div className="grid transition-[grid-template-rows] duration-300" style={{ gridTemplateRows: showTranscript ? "1fr" : "0fr" }}>
-              <div className="overflow-hidden pt-2"><Transcript session={session} /></div>
-            </div>
+            <div id="review-transcript" hidden={!showTranscript} className="pt-3"><Transcript session={session} /></div>
           </section>
         )}
         {!streaming && (
-          <BottomBar className="px-5 pb-safe pb-6 pt-4 flex gap-2 lg:px-0 lg:pb-0">
-            <Button block size="lg" variant="ink" onClick={() => router.push("/")}>{t(lang, "rp_back_home")}</Button>
-            <Button size="lg" variant="secondary" onClick={onAgain} className="px-4" aria-label={t(lang, "rp_practice_again")}><RotateCcw size={18} /></Button>
+          <BottomBar className="px-5 pb-safe pb-6 pt-4 flex flex-col sm:flex-row gap-2 lg:px-0 lg:pb-0">
+            <Button requiresModel block size="lg" onClick={onAgain}><RotateCcw size={18} />{session.sceneContext?pick(sceneReviewCopy.repeat,lang):t(lang, "rp_practice_again")}</Button>
+            <Button size="lg" variant="ghost" onClick={() => router.push(session.sceneContext?'/3d':"/")} className="shrink-0">{session.sceneContext?pick(sceneReviewCopy.returnScene,lang):t(lang, "rp_back_home")}</Button>
           </BottomBar>
         )}
       </motion.div>
 
-      {/* the margin: your own words, so every quoted line can be checked against the source */}
-      <Marginalia lgOnly className="lg:sticky lg:top-6 lg:h-[calc(100dvh-5rem)] lg:overflow-y-auto">
-        <Transcript session={session} title={t(lang, "rp_transcript")} />
-      </Marginalia>
-      </div>
+      </ReviewSplit>
+      <TranscriptReader session={session} lang={lang} selection={transcriptSelection} onClose={()=>setTranscriptSelection(null)}/>
+      {showShare&&<SharePractice open onClose={()=>setShowShare(false)} session={session} stars={stars} quality={quality&&rated?defaultShareCard(lang,stars).quality:starLabel} lang={lang}/>}
     </div>
   );
 }
@@ -485,17 +505,17 @@ function Caret() {
   return <span className="inline-block w-[2px] h-[1em] bg-accent align-[-0.15em] ml-0.5 animate-pulse" aria-hidden />;
 }
 
-function Reveal({ children }: { children: React.ReactNode }) {
+function Reveal({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+    <motion.li className={className} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
       {children}
-    </motion.div>
+    </motion.li>
   );
 }
 
-function Section({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
+function Section({ id, title, sub, children }: { id?: string; title: string; sub?: string; children: React.ReactNode }) {
   return (
-    <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="flex flex-col gap-4">
+    <motion.section id={id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="flex flex-col gap-4 scroll-mt-24">
       <div className="flex flex-col gap-1">
         <h2 className="display text-[20px] leading-tight">{title}</h2>
         {sub && <p className="text-[13px] text-ink-3 leading-relaxed">{sub}</p>}
@@ -505,40 +525,41 @@ function Section({ title, sub, children }: { title: string; sub?: string; childr
   );
 }
 
-function Quote({ text, good, session }: { text?: string; good?: boolean; session: Session }) {
+function Quote({ text, good, session,onInspect }: { text?: string; good?: boolean; session: Session;onInspect?:(quote:string)=>void }) {
   const lang = useLang();
   if (!text) return null;
-  const norm = (x: string) => x.replace(/[\s“”"'‘’。，,.!！?？…—-]/g, "");
-  const said = norm(text);
-  const isQuote = said.length > 0 && session.messages.some((m) => m.role === "learner" && norm(m.text).includes(said.slice(0, Math.min(said.length, 12))));
+  const isQuote=Boolean(hasQuote(text,session.messages.filter(m=>m.role==='learner').map(m=>m.text)));
   return (
     <p className="text-[14px] leading-relaxed text-ink-2">
       <span className="eyebrow mr-2">{t(lang, "rp_evidence")}</span>
-      {isQuote ? <span className={good ? "mark-good" : "mark-quote"}>“{text}”</span> : <span className="italic text-ink-3">{text.replace(/^no attempt\s*[—-]*\s*/i, "")}</span>}
+      {isQuote ? <><span className={good ? "mark-good" : "mark-quote"}>“{text}”</span>{onInspect&&<button type="button" className="press inline-flex items-center justify-center min-h-11 min-w-11 align-middle text-action" onClick={()=>onInspect(text)} aria-label={pick({zh:'在完整对话中查看这句原话',en:'View this quote in the full conversation'},lang)}><MessageSquareText size={15} aria-hidden/></button>}</> : <span className="italic text-ink-3">{text.replace(/^no attempt\s*[—-]*\s*/i, "")}</span>}
     </p>
   );
 }
 
-function KnowledgeCard({ kind, title, source, saved, onSave, children }: { kind: "theory" | "case"; title: string; source: string; saved: boolean; onSave: () => void; children: React.ReactNode }) {
+function KnowledgeCard({ kind, title, source, saved, onSave, onAsk, children }: { kind: "theory" | "case"; title: string; source: string; saved: boolean; onSave: () => void; onAsk: () => void; children: React.ReactNode }) {
   const lang = useLang();
   const [open, setOpen] = useState(false);
   return (
     <div className="card overflow-hidden">
-      <button onClick={() => setOpen((o) => !o)} className="press w-full text-left p-4 flex flex-col gap-1.5">
+      <button aria-expanded={open} onClick={() => setOpen((o) => !o)} className="press w-full text-left p-4 flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <span className={clsx("eyebrow", kind === "theory" ? "text-teal" : "text-accent-deep")}>{t(lang, kind === "theory" ? "rp_theory" : "rp_case")}</span>
-          <ChevronDown size={16} className={clsx("text-ink-4 transition-transform", open && "rotate-180")} />
+          <ChevronDown size={16} className={clsx("text-ink-3 transition-transform", open && "rotate-180")} />
         </div>
         <p className="display text-[17px] leading-snug">{title}</p>
         <p className="text-[12px] text-ink-3">{t(lang, "rp_from")} {source}</p>
       </button>
       <div className="grid transition-[grid-template-rows] duration-300" style={{ gridTemplateRows: open ? "1fr" : "0fr" }}>
         <div className="overflow-hidden">
-          <div className="px-4 pb-4 flex flex-col gap-3">
+          <div hidden={!open} className={clsx("px-4 pb-4 flex-col gap-3", open && "flex")}>
             {children}
-            <button onClick={onSave} className={clsx("press self-start h-8 px-3 rounded-full border text-[12px] font-medium inline-flex items-center gap-1.5", saved ? "bg-ink text-paper border-ink" : "border-line-strong")}>
+            <div className="flex flex-wrap gap-2">
+            <button onClick={onSave} className={clsx("press self-start min-h-11 px-3 rounded-full border text-[12px] font-medium inline-flex items-center gap-1.5", saved ? "bg-ink text-paper border-ink" : "border-line-strong")}>
               <Bookmark size={13} fill={saved ? "currentColor" : "none"} />{saved ? t(lang, "ln_bookmarked") : t(lang, "ln_bookmark")}
             </button>
+            <button onClick={onAsk} className="press min-h-11 px-3 rounded-full bg-teal-soft text-teal text-[12px] font-medium">{t(lang, "da_ask_knowledge")}</button>
+            </div>
           </div>
         </div>
       </div>
@@ -546,30 +567,38 @@ function KnowledgeCard({ kind, title, source, saved, onSave, children }: { kind:
   );
 }
 
-function ReflectItem({ session, question, idx, addReflection, updateReflection, summary }: { session: Session; question: string; idx: number; addReflection: (id: string, r: { question: string; answer: string }) => void; updateReflection: (id: string, idx: number, patch: { coachReply?: string }) => void; summary: string }) {
+function ReflectItem({ session, question, idx, addReflection, updateReflection, summary }: { session: Session; question: string; idx: number; addReflection: (id: string, r: Reflection) => void; updateReflection: (id: string, idx: number, patch: { coachReply?: string;answer?:string;revision?:string }) => void; summary: string }) {
   const lang = useLang();
+  const canUseModel = useCanUseModel();
   const existing = useMemo(() => session.reflections.find((r) => r.question === question), [session.reflections, question]);
   const rIdx = session.reflections.findIndex((r) => r.question === question);
   const [text, setText] = useState(existing?.answer ?? "");
   const [busy, setBusy] = useState(false);
+  const [error,setError]=useState<string|null>(null);
   const [live, setLive] = useState<string | null>(null);
-  const strip = (x: string) => x.replace(/\*\*(.+?)\*\*/g, "$1").replace(/(^|\s)\*(\S.*?)\*/g, "$1$2");
+  const request=useRef<AbortController|null>(null);
+  useEffect(()=>()=>request.current?.abort(),[session.id,question,lang]);
 
   const submit = async () => {
     const answer = text.trim();
-    if (!answer || busy) return;
-    setBusy(true);
+    if (!answer || busy || !canUseModel) return;
+    setBusy(true);setError(null);
+    const controller=new AbortController();request.current?.abort();request.current=controller;
+    const revision=crypto.randomUUID();
     let index = rIdx;
     if (index === -1) {
-      addReflection(session.id, { question, answer });
+      addReflection(session.id, { question, answer,revision });
       track({ name: "reflect", ts: Date.now(), session: session.id, index: idx });
       index = session.reflections.length;
     }
+    if(rIdx!==-1)updateReflection(session.id,index,{answer,revision,coachReply:undefined});
+    const current=()=>!controller.signal.aborted&&useApp.getState().sessions.find(s=>s.id===session.id)?.reflections[index]?.revision===revision;
     try {
-      const reply = await reflectStream({ scenario: session.scenario, question, answer, lang, summary }, (acc) => setLive(strip(acc)));
-      updateReflection(session.id, index, { coachReply: strip(reply).trim() });
-    } catch {
-      updateReflection(session.id, index, { coachReply: undefined });
+      const reply = await reflectStream({ scenario: session.scenario, question, answer, lang, summary,learnerCharacterId:session.learnerCharacterId,messages:session.messages.filter(m=>m.role==="learner"||m.role==="npc").map(({id,role,characterId,text,ts})=>({id,role,characterId,text,ts})) }, (acc) => {if(current())setLive(acc);},controller.signal);
+      if(current())updateReflection(session.id, index, { coachReply: reply.trim() });
+    } catch(e) {
+      if(current())setError(e instanceof Error?e.message:t(lang,"error_generic"));
+      if(current())updateReflection(session.id, index, { coachReply: undefined });
     } finally {
       setBusy(false);
       setLive(null);
@@ -579,7 +608,7 @@ function ReflectItem({ session, question, idx, addReflection, updateReflection, 
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[15px] leading-relaxed font-medium"><span className="num text-ink-4 mr-2">{idx + 1}</span>{question}</p>
+      <p className="text-[15px] leading-relaxed font-medium"><span className="num text-ink-3 mr-2">{idx + 1}</span>{question}</p>
       {existing?.coachReply ? (
         <>
           <p className="text-[14px] leading-relaxed whitespace-pre-wrap pl-5 text-ink-2">{existing.answer}</p>
@@ -588,11 +617,13 @@ function ReflectItem({ session, question, idx, addReflection, updateReflection, 
       ) : (
         <>
           <div className="flex items-end gap-2">
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder={t(lang, "rp_reflect_ph")} className="flex-1 px-3.5 py-2.5 rounded-2xl bg-card border border-line text-[14px] leading-relaxed placeholder:text-ink-4 focus:border-ink transition-colors" disabled={busy} />
-            <button onClick={submit} disabled={!text.trim() || busy} aria-label={t(lang, "rp_send")} className="press h-10 w-10 shrink-0 rounded-full bg-ink text-paper inline-flex items-center justify-center disabled:opacity-30">
+            <textarea aria-label={question} maxLength={4000} value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder={t(lang, "rp_reflect_ph")} className="flex-1 px-3.5 py-2.5 rounded-2xl bg-card border border-line text-[14px] leading-relaxed placeholder:text-ink-3 focus:border-ink transition-colors" disabled={busy} />
+            <button onClick={submit} disabled={!text.trim() || busy || !canUseModel} aria-label={t(lang, "rp_send")} className="press h-11 w-11 shrink-0 rounded-full bg-ink text-paper inline-flex items-center justify-center disabled:opacity-30">
               {busy && !reply ? <Spinner /> : <Send size={16} />}
             </button>
           </div>
+          {error&&<p role="alert" className="text-[13px] text-danger">{error}</p>}
+          {busy && <SlowModelNotice />}
           {reply && <p className="bubble-coach px-4 py-3 text-[14px] leading-relaxed">{reply}</p>}
         </>
       )}
