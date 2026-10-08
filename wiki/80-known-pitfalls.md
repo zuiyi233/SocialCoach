@@ -368,3 +368,10 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **原因：** 服务端收集完整 PCM 再封装 WAV；浏览器 AudioContext 只在进入 Chat 之后的下一次手势解锁，已错过进入练习的点击。
 - **解法：** 实时转发有界 PCM，按 24 kHz PCM16LE 排序播放，进入练习的点击中同步解锁音频；3.5 秒首样本截止并取消 / 降级；跨网络块的奇数单字节保留到下一块，不能丢样本。实测区分上游、客户端首段、WebAudio 调度；取消 / 暂停 / 断流不复播都有专门检查。
 - **教训：** 不能把网关目录指标或服务端首事件当作用户等待保证。后台声音与晚到音频会破坏练习，需沿发送 / 开麦 / 隐藏 / 卸载统一生命周期验收。见 [语音记录](../docs/reviews/mimo-speech-2026-10-08/README.md)。
+
+### 给 persist 归档加新字段必须同步读取 schema（2026-10-09）
+
+- **现象：** 合并上游后，恋爱模块的 `loveProficiency` 每次刷新页面归零、复盘写回静默跳过；`scenario.loveTopic` 在归档读取后消失，恋爱检索加权失效。
+- **原因：** 上游把 zustand persist 的读取从默认浅合并改成了自定义 `merge` → `parseArchive`（Zod 校验）。Zod `z.object` 默认 **strip 未知字段**：`ArchiveSchema` 没有 `loveProficiency`、`ScenarioSchema` 没有 `loveTopic`，于是任何新增字段一旦写进归档，下次 rehydrate 就被静默剥掉。写入路径（`partialize` allow-list）反而没问题。
+- **解法：** `ScenarioSchema` 补 `loveTopic: LoveTopicSchema.optional()`；`ArchiveSchema` 补 `loveProficiency: LoveProficiencySchema.default({})`；`merge` 显式 `loveProficiency: archive.loveProficiency ?? current.loveProficiency`。`check-corpus` 增加“所有 `context === "romantic"` 的场景必须带 `loveTopic`”断言，防止新场景再次脱离恋爱轨道。
+- **教训：** 自定义 `merge` + Zod 校验的持久化层是“字段白名单”，新增状态字段要同时改 `partialize` 和读取 schema 两处；独立审查要专门跑一次“写入 → rehydrate → 断言字段存活”的路径。→ [合并记录](./specs/spec-love-module.md#十上游合并记录2026-10-09)

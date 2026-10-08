@@ -151,3 +151,16 @@ skills 字段 1–3 个、按重要度排序，competencies 由 `skillById` 反�
 - 依赖：新增 `app/src/data/corpus/love-*.ts` 三文件 + index.ts 合并
 
 **遗留（已随第二批完成，2026-09-17）**：`long-distance`、`family` 主题缺理论/案例的问题已解决——第二批补了 2 条理论（love-theory-long-distance / love-theory-family）、5 条案例（approach / define-relationship / breakup / long-distance / family 各 1）、1 个 boundary 场景（love-boundary-online-reply）。**8 个恋爱主题现已全部具备 场景+理论+案例 全覆盖**（romantic 场景 15、恋爱理论 12、恋爱案例 9）。检索断言同步强化（主题无关 query，反事实实验验证有效）。
+
+## 十、上游合并记录（2026-10-09）
+
+**状态**：已整体合并官方上游 `GeminiLight/SocialCoach` 最新 `main`（154 个新提交，merge 提交 `8ffe847`），恋爱模块功能全部保留、无功能冲突。
+
+**合并方式**：`git merge upstream/main` 手动解决 10 个冲突文件。语料层零冲突（上游未动 `taxonomy` / `scenarios-b/c` / `love-*`），逻辑层逐处融合（`retrieval` / `useApp` / `arena` / `progress` / `Shell` / `assess` / `check-corpus`）。合并后恋爱模块适配上游新机制：`estimateProficiency`（从全部 assessed sessions 重估）、归档 + 多窗口存储（`parseArchive` / `appStorage` / `archiveStorage`）、评分 `scoringVersion===2`、URL 驱动 arena 筛选、中文 bigram 检索。
+
+**合并后独立审查发现的修复（全部完成）**：
+- **P0（数据丢失）**：上游把持久化读取改为 Zod schema 校验（`parseArchive`），但 `ScenarioSchema` 缺 `loveTopic`、`ArchiveSchema` 缺 `loveProficiency`、store `merge` 未保留该字段——每次刷新 / 跨窗口 rehydrate 会把恋爱熟练度剥离归零、复盘写回静默跳过、恋爱加权失效。修复：`runtime-contracts.ts` 新增 `LoveTopicSchema` 并入 `ScenarioSchema`；`archive.ts` 新增 `LoveProficiencySchema`（默认 `{}`）；`useApp.ts` merge 显式 `loveProficiency: archive.loveProficiency ?? current.loveProficiency`。
+- **P1**：上游 D 批 2 个 romantic 场景（`partner-location-pressure` → `boundary`、`partner-trip-change` → `trust`）补 `loveTopic`；`check-corpus` 新增强制断言——**所有 `context === "romantic"` 的场景必须带 `loveTopic`**（防止未来新增浪漫场景再次脱离恋爱模块）。
+- **P2**：`applyReport` 恋爱 gain 对称截断（`Math.max(-0.4, Math.min(0.4, …))`，负分也回落，与 generic 轨道口径一致）；arena 的 `loveTopic` 仅在 `ctx === "romantic"` 时计入筛选计数与 selected-filters 显示（消除深链残留不一致）；love 页 stars 按 `scoringVersion === 2` 口径统计。
+
+**当前语料基线**：romantic 场景 17（旧 4 + 第二批新增 + 上游 D 批 2）、恋爱理论 12、恋爱案例 9。验证：`lint` / `tsc` / `check-corpus` / `build` 全部通过。
