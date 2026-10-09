@@ -126,6 +126,7 @@ const authored: Scenario[] = [
   },
   {
     id: "partner-location-pressure",
+    series: { id: "love-trust-boundary", name: L("信任与边界", "Trust & boundaries") },
     simulationFacts: L("只有今天半小时未看手机；没有过去失约、失信、没电或发生事故的已知事件，不可编造。宁远害怕约好的见面落空，但这只是担忧。没有已确认的新晚饭或见面时间；如果提议，只是提议，用户追问不算接受。", "Only today's thirty-minute phone gap is established. No past missed meeting, betrayal, dead battery or accident exists in the facts; do not invent one. Ning fears missing an agreed meeting, but that is a worry. No new dinner or appointment has been accepted. Suggestions stay suggestions; a learner's question is not acceptance."),
     title: L("“那你现在把定位打开”", "“Then Turn On Your Location”"),
     hook: L("晚回了半小时消息，伴侣要求你一直共享定位。", "You reply thirty minutes late and your partner demands continuous location sharing."),

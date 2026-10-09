@@ -159,6 +159,9 @@ export default function Love() {
                   <span className="flex-1 min-w-0 flex flex-col gap-2">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-[16px] leading-snug">{sc.title[lang]}</span>
+                      {sc.series && (
+                        <span className="rounded-full border border-accent-soft text-accent-deep px-2 py-0.5 text-[11px]">{sc.series.name[lang]}</span>
+                      )}
                       {sc.custom && (
                         <span className="rounded-full bg-accent-soft text-accent-deep px-2 py-0.5 text-[11px]">{t(lang, "custom_badge")}</span>
                       )}

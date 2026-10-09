@@ -34,7 +34,7 @@ for (const item of items) {
   assert(item.skills.length, `${item.id}: no skill`);
   for (const skill of item.skills) assert(skills.has(skill), `${item.id}: invalid skill ${skill}`);
   for (const c of item.competencies) assert(competencies.has(c), `${item.id}: invalid competency ${c}`);
-  if ("context" in item) assert(contexts.has(item.context), `${item.id}: invalid context`);
+  if ("context" in item && item.context) assert(contexts.has(item.context), `${item.id}: invalid context`);
   assert(item.source, `${item.id}: no source`);
   bilingual(item.title, `${item.id}.title`);
 }
@@ -76,6 +76,18 @@ for (const s of LOVE_SCENARIOS) {
 // the love page, the arena topic filter and the love proficiency track.
 for (const s of SCENARIOS) {
   if (s.context === "romantic") assert(s.loveTopic, `${s.id}: romantic scene missing loveTopic`);
+}
+for (const t of LOVE_THEORIES) {
+  assert.equal(t.context, "romantic", `${t.id}: love theory must carry context romantic`);
+}
+// Storyline series: the same series id must always carry the same bilingual name.
+const seriesNames = new Map<string, string>();
+for (const s of SCENARIOS) {
+  if (!s.series) continue;
+  const key = JSON.stringify([s.series.id, s.series.name.zh, s.series.name.en]);
+  const seen = seriesNames.get(s.series.id);
+  assert(!seen || seen === key, `${s.id}: series ${s.series.id} name mismatch`);
+  seriesNames.set(s.series.id, key);
 }
 for (const c of CASES_C) {
   assert(c.title.zh.startsWith("示例") && c.title.en.startsWith("Illustration"), `${c.id}: fictional case not labelled`);

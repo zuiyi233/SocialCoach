@@ -95,13 +95,15 @@ export function retrieveKnowledge(opts: {
   /** Romance-track topic: boosts theories/cases about the same love topic so love practice gets love-flavored knowledge. */
   loveTopic?: LoveTopicId;
 }): { theories: Theory[]; cases: Case[] } {
-  const rank = <T extends { skills: SkillId[]; keywords: string[]; competencies: string[]; loveTopic?: LoveTopicId }>(items: T[], text: (t: T) => string[]) =>
+  const rank = <T extends { skills: SkillId[]; keywords: string[]; competencies: string[]; loveTopic?: LoveTopicId; context?: ContextId }>(items: T[], text: (t: T) => string[]) =>
     items
       .map((t) => {
         const skill = opts.skills.filter((k) => t.skills.includes(k)).length * 2;
+        // Same modest context boost as cases: match helps, absence never hurts.
+        const ctx = t.context === opts.context ? 0.5 : 0;
         const love = opts.loveTopic && t.loveTopic === opts.loveTopic ? 3 : 0;
         const lex = lexicalScore(opts.query, [...text(t), ...t.keywords]) * 3;
-        return { t, score: skill + love + lex };
+        return { t, score: skill + love + ctx + lex };
       })
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)

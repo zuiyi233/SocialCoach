@@ -4,6 +4,8 @@ import { THEORIES as THEORIES_BASE } from "./theories";
 import { THEORIES_C } from "./theories-c";
 import { SCENARIOS_C } from "./scenarios-c";
 import { SCENARIOS_D } from "./scenarios-d";
+import { SCENARIOS_JUNIOR } from "./scenarios-junior";
+import { SCENARIOS_FAMILY } from "./scenarios-family";
 import { CASES_C } from "./cases-c";
 import { CASES as CASES_BASE } from "./cases";
 import { LOVE_SCENARIOS } from "./love-scenarios";
@@ -84,6 +86,23 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "love-uneven-investment": L("付出更多的一方", "The one investing more"),
   "love-trust-repair": L("隐瞒被揭穿的人", "The one whose secret came out"),
   "love-boundary-online-reply": L("想守住下线时间的伴侣", "The partner who logs off at night"),
+  // love module deep-dive (2026-10-09)
+  "love-ld-routine": L("每晚例行视频的异地伴侣", "The long-distance partner on a nightly call"),
+  "love-ld-visit-plan": L("计划异地见面的伴侣", "The partner planning a visit"),
+  "love-family-unhappy": L("见家长后得到糟心反馈的一方", "The one who got tough feedback from the family"),
+  "love-family-holiday": L("商量春节去谁家的伴侣", "The partner deciding whose family for the holiday"),
+  "love-approach-gym": L("在健身房被搭话的人", "The one approached at the gym"),
+  "love-approach-followup": L("加了微信还没发消息的人", "The one who added a contact but hasn't messaged"),
+  // power & family relations (2026-10-09)
+  "jm-feedback-deflected": L("带新人三个月的组长", "Lead coaching a new hire"),
+  "jm-misread-request": L("把需求交给下属对接的负责人", "Lead who handed the requirement to a junior"),
+  "jm-pushback-task": L("分配月末汇总的负责人", "Lead who assigned the month-end consolidation"),
+  "jm-over-commit": L("把客户需求交下属跟进的人", "Lead who delegated a client requirement"),
+  "pf-mom-visits": L("独自在外生活的成年子女", "Adult child living on their own"),
+  "fm-care-decision": L("在外地工作的子女", "Child working in another city"),
+  "fm-share-cost": L("参与分摊手术费的子女", "Child splitting the surgery cost"),
+  "fm-brother-loan": L("被弟弟借钱的哥哥", "Older sibling asked for a loan"),
+  "ch-missed-promise": L("工作很忙的单亲家长", "Busy single parent"),
 };
 
 /** Every corpus scenario gets an explicit, playable "you" character so scheduling, role-play and reports share one id. */
@@ -102,7 +121,7 @@ export function withLearner(s: Scenario): Scenario {
   return { ...s, characters: [you, ...s.characters] };
 }
 
-export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...LOVE_SCENARIOS].map(withLearner);
+export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_JUNIOR, ...SCENARIOS_FAMILY, ...LOVE_SCENARIOS].map(withLearner);
 export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C, ...LOVE_THEORIES];
 export const CASES: Case[] = [...CASES_BASE, ...CASES_C, ...LOVE_CASES];
 export type { Case, Scenario, Theory };

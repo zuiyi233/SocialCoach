@@ -25,6 +25,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["identifying-emotions", "emotion-regulation"],
     keywords: ["attachment", "anxiety", "avoidance", "pursuit", "security", "依恋"],
     loveTopic: "trust",
+    context: "romantic",
   },
   {
     id: "love-theory-soft-start",
@@ -44,6 +45,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["communication"],
     keywords: ["soft start-up", "conflict", "facts", "feelings", "request", "软启动"],
     loveTopic: "trust",
+    context: "romantic",
   },
   {
     id: "love-theory-responsiveness",
@@ -67,6 +69,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["empathy"],
     keywords: ["responsiveness", "understood", "validation", "care", "disclosure", "回应性"],
     loveTopic: "trust",
+    context: "romantic",
   },
   {
     id: "love-theory-bids",
@@ -86,6 +89,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["empathy", "sense-of-belonging"],
     keywords: ["bids", "turning toward", "attention", "celebration", "connection", "情感邀约"],
     loveTopic: "define-relationship",
+    context: "romantic",
   },
   {
     id: "love-theory-attraction-ethics",
@@ -109,6 +113,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["social-norms", "examining-bias"],
     keywords: ["attraction", "speed dating", "cold reading", "curiosity", "ethics", "吸引"],
     loveTopic: "approach",
+    context: "romantic",
   },
   {
     id: "love-theory-rejection",
@@ -128,6 +133,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["self-efficacy", "perseverance"],
     keywords: ["rejection", "facts", "interpretation", "fear", "self-worth", "拒绝"],
     loveTopic: "rejection",
+    context: "romantic",
   },
   {
     id: "love-theory-investment",
@@ -151,6 +157,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["goal-setting", "analyzing-consequences"],
     keywords: ["investment", "reciprocity", "trend", "reduce effort", "exit", "投入"],
     loveTopic: "define-relationship",
+    context: "romantic",
   },
   {
     id: "love-theory-guard",
@@ -174,6 +181,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["examining-bias", "ethical-responsibility"],
     keywords: ["manipulation", "gaslighting", "compliance", "exit", "safety", "操控"],
     loveTopic: "boundary",
+    context: "romantic",
   },
   {
     id: "love-theory-closure",
@@ -197,6 +205,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["emotion-regulation"],
     keywords: ["breakup", "closure", "clean exit", "goodbye", "no false hope", "分手"],
     loveTopic: "breakup",
+    context: "romantic",
   },
   {
     id: "love-theory-boundary",
@@ -216,6 +225,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["standing-up", "self-discipline"],
     keywords: ["boundary", "no", "enforceable", "control", "exit", "边界"],
     loveTopic: "boundary",
+    context: "romantic",
   },
   {
     id: "love-theory-long-distance",
@@ -239,6 +249,7 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["communication", "emotion-regulation"],
     keywords: ["long distance", "anxiety", "request", "ritual", "reply", "异地"],
     loveTopic: "long-distance",
+    context: "romantic",
   },
   {
     id: "love-theory-family",
@@ -258,5 +269,6 @@ export const LOVE_THEORIES: Theory[] = [
     skills: ["social-norms", "communication"],
     keywords: ["meeting the family", "boundaries", "three-way", "norms", "autonomy", "见家长"],
     loveTopic: "family",
+    context: "romantic",
   },
 ];

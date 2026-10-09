@@ -53,6 +53,8 @@ export interface Scenario {
   keywords: string[];
   /** Romance-track topic; only set for scenarios in the romantic context (love module). */
   loveTopic?: LoveTopicId;
+  /** Belongs to a multi-scene storyline (same cast or theme); play in order for the arc. */
+  series?: { id: string; name: L };
   /** Set for scenarios the user generated with /rehearse. */
   custom?: boolean;
 }
@@ -67,6 +69,8 @@ export interface Theory {
   competencies: CompetencyId[];
   skills: SkillId[];
   keywords: string[];
+  /** Primary context the theory speaks to; unset means cross-context (applies anywhere). */
+  context?: ContextId;
   /** Romance-track topic; set for theories in the love module so debrief knowledge retrieval can match by topic. */
   loveTopic?: LoveTopicId;
 }

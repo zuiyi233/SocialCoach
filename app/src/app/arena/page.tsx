@@ -9,7 +9,7 @@ import { SCENARIOS } from "@/data/corpus";
 import { SCENARIOS_D } from "@/data/corpus/scenarios-d";
 import type { Scenario } from "@/data/corpus/types";
 import { LOVE_TOPICS, loveTopicById, type LoveTopicId } from "@/data/corpus/love-topics";
-import { CONTEXTS, SKILLS, contextById, skillById, type ContextId, type SkillId } from "@/data/taxonomy";
+import { CONTEXTS, RELATIONSHIPS, SKILLS, contextById, skillById, type ContextId, type RelationshipType, type SkillId } from "@/data/taxonomy";
 import { useApp, useLang } from "@/store/useApp";
 import { pick, t } from "@/lib/i18n";
 import { buildSession } from "@/lib/session-utils";
@@ -22,6 +22,7 @@ const copy = {
 };
 
 const RECENT_IDS = new Set(SCENARIOS_D.map((s) => s.id));
+const RELATIONSHIPS_IDS = Object.keys(RELATIONSHIPS) as RelationshipType[];
 
 export default function Arena() {
   const lang = useLang();
@@ -38,6 +39,7 @@ export default function Arena() {
   const practiced = ["new", "done"].includes(params.get("history") ?? "") ? params.get("history")! : "all";
   const recent = params.get("collection") === "recent";
   const loveTopic = (LOVE_TOPICS.find((t) => t.id === params.get("loveTopic"))?.id ?? null) as LoveTopicId | null;
+  const rel = RELATIONSHIPS_IDS.find((r) => r === params.get("relationship")) ?? "all";
   const visible = Math.max(12, Math.min(500, Number(params.get("limit")) || 12));
   const setFilter = (key: string, value: string | null) => {
     // Consecutive input events can precede React's next URL snapshot.
@@ -56,6 +58,7 @@ export default function Arena() {
   const setSkill = (value: SkillId | null) => setFilter("skill", value);
   const setDifficulty = (value: string) => setFilter("difficulty", value);
   const setLoveTopic = (value: LoveTopicId | null) => setFilter("loveTopic", value);
+  const setRel = (value: RelationshipType | "all") => setFilter("relationship", value === "all" ? null : value);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const filterToggle = useRef<HTMLButtonElement>(null);
@@ -107,6 +110,7 @@ export default function Arena() {
       if (ctx === "mine" && !s.custom) return false;
       if (ctx !== "all" && ctx !== "mine" && s.context !== ctx) return false;
       if (loveTopic && ctx === "romantic" && s.loveTopic !== loveTopic) return false;
+      if (rel !== "all" && !s.relationship.includes(rel)) return false;
       if (skill && !s.skills.includes(skill) && !s.relatedSkills?.includes(skill)) return false;
       if (difficulty !== "all" && s.difficulty !== Number(difficulty)) return false;
       if (query) {
@@ -124,7 +128,7 @@ export default function Arena() {
       }
       return true;
     });
-}, [all, ctx, skill, difficulty, q, loveTopic, practiced, counts, recent]);
+}, [all, ctx, skill, difficulty, q, loveTopic, rel, practiced, counts, recent]);
   const forYou = useMemo(() => {
     if (!profile) return [];
     return SCENARIOS.filter(
@@ -142,14 +146,14 @@ export default function Arena() {
     router.push(`/practice/${session.id}`);
   };
 const loveFilterActive = ctx === "romantic" && !!loveTopic;
-const filtering = ctx !== "all" || !!skill || !!q.trim() || difficulty !== "all" || loveFilterActive || practiced !== "all" || recent;
+const filtering = ctx !== "all" || !!skill || !!q.trim() || difficulty !== "all" || loveFilterActive || rel !== "all" || practiced !== "all" || recent;
   const reset = () => {
     window.history.replaceState(null, "", "/arena");
     searchRef.current?.focus();
   };
   const orderedSkills = [...SKILLS.filter((s) => profile?.goals.includes(s.id)), ...SKILLS.filter((s) => !profile?.goals.includes(s.id))];
 
-  const extraFilters = Number(!!skill) + Number(difficulty !== "all") + Number(practiced !== "all") + Number(loveFilterActive);
+  const extraFilters = Number(!!skill) + Number(difficulty !== "all") + Number(practiced !== "all") + Number(loveFilterActive) + Number(rel !== "all");
 
   return (
     <Shell>
@@ -218,6 +222,10 @@ const filtering = ctx !== "all" || !!skill || !!q.trim() || difficulty !== "all"
             {customScenarios.length > 0 && <Chip active={ctx === "mine"} onClick={() => setCtx("mine")}>{t(lang, "custom_badge")}<span className="num">{customScenarios.length}</span></Chip>}
             {CONTEXTS.map((c) => <Chip key={c.id} active={ctx === c.id} onClick={() => setCtx(ctx === c.id ? "all" : c.id)}>{c.name[lang]}<span className="num">{all.filter((s) => s.context === c.id).length}</span></Chip>)}
           </ChoiceGroup>
+          <ChoiceGroup className="arena-relationships flex gap-1 overflow-x-auto no-scrollbar" label={t(lang, "arena_by_relationship")}>
+            <Chip active={rel === "all"} onClick={() => setRel("all")}>{t(lang, "arena_all")}<span className="num">{all.length}</span></Chip>
+            {RELATIONSHIPS_IDS.map((r) => <Chip key={r} active={rel === r} onClick={() => setRel(rel === r ? "all" : r)}>{RELATIONSHIPS[r][lang]}<span className="num">{all.filter((s) => s.relationship.includes(r)).length}</span></Chip>)}
+          </ChoiceGroup>
           {ctx === "romantic" && (
             <div className="flex flex-col gap-2" aria-label={t(lang, "arena_love_topics")}>
               <span className="text-[12px] text-ink-3">{t(lang, "arena_love_topics")}</span>
@@ -236,6 +244,7 @@ const filtering = ctx !== "all" || !!skill || !!q.trim() || difficulty !== "all"
             {difficulty !== "all" && <span>{t(lang, `diff_${difficulty}` as "diff_1")}</span>}
             {practiced !== "all" && <span>{t(lang, practiced === "new" ? "arena_status_new" : "arena_status_done")}</span>}
             {ctx === "romantic" && loveTopic && <span>{loveTopicById(loveTopic)!.name[lang]}</span>}
+            {rel !== "all" && <span>{RELATIONSHIPS[rel][lang]}</span>}
             <button onClick={reset} className="press min-h-11 text-accent-deep">{t(lang, "arena_reset")}</button>
           </div>}
         </section>
@@ -268,7 +277,7 @@ const filtering = ctx !== "all" || !!skill || !!q.trim() || difficulty !== "all"
               const count = counts.get(sc.id) ?? 0;
               return <button key={sc.id} onClick={() => start(sc)} className="arena-row notebook-row group text-left flex items-start gap-4 py-5">
                 <span className="flex-1 min-w-0 flex flex-col gap-2">
-                  <span className="flex flex-wrap items-center gap-2"><span className="font-semibold text-[17px] leading-snug">{sc.title[lang]}</span>{sc.custom && <span className="text-[11px] text-accent-deep">{t(lang, "custom_badge")}</span>}</span>
+                  <span className="flex flex-wrap items-center gap-2"><span className="font-semibold text-[17px] leading-snug">{sc.title[lang]}</span>{sc.series && <span className="text-[11px] text-accent-deep border border-accent-soft rounded-full px-2 py-0.5">{sc.series.name[lang]}</span>}{sc.custom && <span className="text-[11px] text-accent-deep">{t(lang, "custom_badge")}</span>}</span>
                   <span className="text-[14px] text-ink-2 leading-relaxed max-w-[var(--measure)]">{sc.hook[lang]}</span>
                   <span className="arena-metadata flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">
                     <span className="font-medium">{contextById(sc.context).name[lang]}</span>

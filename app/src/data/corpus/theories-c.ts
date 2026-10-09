@@ -138,5 +138,6 @@ export const THEORIES_C: Theory[] = [
     competencies: ["social-awareness", "responsible-decision-making"],
     skills: ["appreciating-diversity", "sense-of-belonging", "ethical-responsibility"],
     keywords: ["无障碍", "字幕", "活动", "参与", "accessibility", "captions", "inclusion", "event"],
+    context: "public",
   },
 ];

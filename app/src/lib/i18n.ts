@@ -208,6 +208,7 @@ const dict = {
   arena_practiced: { zh: "已练 {n} 次", en: "Practiced {n}×" },
   arena_by_skill: { zh: "按技能", en: "By skill" },
   arena_by_context: { zh: "按情境", en: "By context" },
+  arena_by_relationship: { zh: "关系对象", en: "By relationship" },
   arena_more_skills: { zh: "更多技能", en: "More skills" },
   arena_fewer_skills: { zh: "收起", en: "Show fewer" },
   arena_my_goals: { zh: "我的目标", en: "My goals" },

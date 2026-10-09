@@ -106,6 +106,7 @@ export const THEORIES: Theory[] = [
     competencies: ["relationship-skills", "social-awareness"],
     skills: ["resolving-conflicts", "leadership", "perspective-taking"],
     keywords: ["negotiation", "face", "relationship", "substance", "firm", "kind"],
+    context: "workplace",
   },
   {
     id: "interests-not-positions",
@@ -123,6 +124,7 @@ export const THEORIES: Theory[] = [
     competencies: ["responsible-decision-making", "social-awareness"],
     skills: ["problem-solving", "perspective-taking", "resolving-conflicts"],
     keywords: ["negotiation", "why", "options", "compromise", "underlying", "win-win"],
+    context: "workplace",
   },
   {
     id: "batna-and-anchor",
@@ -140,6 +142,7 @@ export const THEORIES: Theory[] = [
     competencies: ["self-management", "self-awareness"],
     skills: ["goal-setting", "recognizing-strengths", "perseverance"],
     keywords: ["salary", "raise", "number", "anchor", "market", "silence"],
+    context: "workplace",
   },
   {
     id: "tactical-empathy-labeling",
@@ -157,6 +160,7 @@ export const THEORIES: Theory[] = [
     competencies: ["social-awareness", "self-management"],
     skills: ["empathy", "emotion-regulation", "stress-management"],
     keywords: ["angry client", "de-escalate", "label", "sounds like", "silence"],
+    context: "workplace",
   },
   {
     id: "accusation-audit",
@@ -174,6 +178,7 @@ export const THEORIES: Theory[] = [
     competencies: ["social-awareness", "relationship-skills"],
     skills: ["perspective-taking", "communication", "seeking-help"],
     keywords: ["apology", "delay", "bad news", "defensive", "preempt"],
+    context: "workplace",
   },
   {
     id: "three-conversations",
@@ -225,6 +230,7 @@ export const THEORIES: Theory[] = [
     competencies: ["relationship-skills"],
     skills: ["leadership", "communication"],
     keywords: ["feedback", "manager", "direct report", "performance", "care"],
+    context: "workplace",
   },
   {
     id: "sbi-feedback",
@@ -242,6 +248,7 @@ export const THEORIES: Theory[] = [
     competencies: ["relationship-skills"],
     skills: ["communication", "leadership"],
     keywords: ["feedback", "specific", "behavior", "impact", "observable"],
+    context: "workplace",
   },
   {
     id: "receiving-feedback-triggers",
@@ -259,6 +266,7 @@ export const THEORIES: Theory[] = [
     competencies: ["self-awareness"],
     skills: ["growth-mindset", "identifying-emotions", "recognizing-strengths"],
     keywords: ["criticism", "defensive", "promotion", "rejected", "learn"],
+    context: "workplace",
   },
   {
     id: "gottman-soft-startup",
@@ -276,6 +284,7 @@ export const THEORIES: Theory[] = [
     competencies: ["relationship-skills", "self-management"],
     skills: ["communication", "impulse-control"],
     keywords: ["partner", "criticism", "contempt", "opening", "marriage", "chores"],
+    context: "romantic",
   },
   {
     id: "gottman-repair",
@@ -293,6 +302,7 @@ export const THEORIES: Theory[] = [
     competencies: ["relationship-skills", "self-management"],
     skills: ["resolving-conflicts", "emotion-regulation"],
     keywords: ["fight", "partner", "apology", "pause", "de-escalate", "anniversary"],
+    context: "romantic",
   },
   {
     id: "vulnerability-courage",
@@ -344,6 +354,7 @@ export const THEORIES: Theory[] = [
     competencies: ["self-awareness"],
     skills: ["growth-mindset", "recognizing-strengths", "self-efficacy"],
     keywords: ["interview", "weakness", "improve", "honest", "example"],
+    context: "workplace",
   },
   {
     id: "name-it-to-tame-it",
@@ -395,6 +406,7 @@ export const THEORIES: Theory[] = [
     competencies: ["relationship-skills", "self-awareness"],
     skills: ["building-relationships", "self-efficacy"],
     keywords: ["date", "intimacy", "sharing", "silence", "connection"],
+    context: "romantic",
   },
   {
     id: "describe-dont-judge-kids",
@@ -412,6 +424,7 @@ export const THEORIES: Theory[] = [
     competencies: ["social-awareness", "relationship-skills"],
     skills: ["perspective-taking", "communication", "problem-solving"],
     keywords: ["teenager", "parenting", "phone", "rules", "lecture"],
+    context: "family",
   },
   {
     id: "listening-first-parents",
@@ -429,6 +442,7 @@ export const THEORIES: Theory[] = [
     competencies: ["social-awareness", "self-management"],
     skills: ["perspective-taking", "emotion-regulation", "communication"],
     keywords: ["parents", "career", "fear", "family", "approval"],
+    context: "family",
   },
   {
     id: "ladder-of-inference",
@@ -480,6 +494,7 @@ export const THEORIES: Theory[] = [
     competencies: ["relationship-skills", "social-awareness"],
     skills: ["standing-up", "sense-of-belonging", "social-norms"],
     keywords: ["interrupt", "ally", "meeting", "credit", "inclusion"],
+    context: "workplace",
   },
   {
     id: "time-boxed-experiment",
@@ -497,6 +512,7 @@ export const THEORIES: Theory[] = [
     competencies: ["responsible-decision-making", "relationship-skills"],
     skills: ["problem-solving", "analyzing-consequences", "teamwork"],
     keywords: ["disagreement", "experiment", "deadline", "compromise", "research"],
+    context: "workplace",
   },
   {
     id: "question-not-label",
@@ -514,6 +530,7 @@ export const THEORIES: Theory[] = [
     competencies: ["responsible-decision-making", "social-awareness"],
     skills: ["ethical-responsibility", "curiosity", "appreciating-diversity"],
     keywords: ["prejudice", "dinner party", "values", "disagreement", "persuade"],
+    context: "party",
   },
   {
     id: "consequences-map",
@@ -531,6 +548,7 @@ export const THEORIES: Theory[] = [
     competencies: ["responsible-decision-making"],
     skills: ["analyzing-consequences", "problem-solving", "resolving-conflicts"],
     keywords: ["siblings", "caregiving", "fairness", "decision", "trade-off"],
+    context: "family",
   },
   {
     id: "quiet-introvert-strength",
@@ -565,6 +583,7 @@ export const THEORIES: Theory[] = [
     competencies: ["self-management", "social-awareness"],
     skills: ["stress-management", "expressing-gratitude", "social-norms"],
     keywords: ["toast", "speech", "improvise", "birthday", "nervous"],
+    context: "party",
   },
   {
     id: "ask-for-help-prioritize",
@@ -582,5 +601,6 @@ export const THEORIES: Theory[] = [
     competencies: ["self-management", "relationship-skills"],
     skills: ["organizational-skills", "seeking-help", "goal-setting"],
     keywords: ["overload", "prioritize", "manager", "help", "burnout"],
+    context: "workplace",
   },
 ];
