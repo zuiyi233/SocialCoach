@@ -2,6 +2,13 @@
 
 # 踩坑记录
 
+### pnpm 的 Next standalone 输出是符号链接农场；Tauri 的 frontendDist 不支持 false（2026-10-09）
+
+- **现象：** `desktop/sidecar/runtime/node.exe server.js` 报 `Cannot find module '@swc/helpers/_/_interop_require_default'`（require 栈指向 `next/dist/shared/lib/constants.js`）；逐个补 `@swc/helpers` 后又报缺 `@next/env`——漏包是系统性的。另 `cargo check` 报 `data did not match any variant of untagged enum FrontendDist`。
+- **原因：** pnpm 下 standalone 输出 `node_modules/` 里只有 `next`/`react`/`react-dom` 三个**符号链接**指向 `node_modules/.pnpm/<pkg>/…`，真实依赖都在 `.pnpm` 虚拟 store；`cpSync`（`dereference:false`）拷出死绝对链接，服务器按 pnpm 的“兄弟目录解析”找依赖必然失败。Tauri 2.10 的 `FrontendDist` 只有 `Url`/`Directory`/`Files` 三个变体，`false` 不是合法值。
+- **解法：** 拷贝 standalone 树用 `dereference:true`，再加 `flattenPnpmStore()` 把 `.pnpm/<pkg>/node_modules/*` 全部摊平到顶层 `node_modules`（首个版本胜出，standalone trace 已钉好版本）。`frontendDist` 改为 `"http://127.0.0.1:3210"`（`Url` 变体——不嵌资产、加载远程本地 URL，正是 sidecar 场景）。
+- **教训：** standalone 拷贝不是“复制目录”这么简单——pnpm 的解析模型（虚拟 store + 兄弟目录）和 npm 的扁平模型不同，拷完必须能 `require('next')`；Tauri 配置值以当前版本的 Rust enum 为准，不信模板/文档里的旧写法。
+
 ### check-core.mjs 在 Windows 上 spawn pnpm 必炸；package.json 尾随逗号静默断掉全部 tsx（2026-10-09）
 
 - **现象：** `pnpm check` 在 test:core 阶段退出 1；单跑 `node scripts/check-core.mjs` 无任何输出即退出 1，而 `npx tsx scripts/check-corpus.ts` 等 9 个子脚本单独跑全部 PASS。另有一次 package.json 改动（在 scripts 最后一行行尾留逗号）后，所有 `tsx` 脚本报 "JSON does not support trailing commas"，与脚本内容无关地全挂。

@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-08 | Current stage: B -->
+<!-- Last verified: 2026-10-09 | Current stage: B -->
 
 # 系统架构
 
@@ -59,6 +59,10 @@ SocialCoach/
 │   ├── scripts/og.mjs            用 app 的 sharp 生成 assets/og-{zh,en}.png
 │   ├── scripts/screenshots.mjs   DevTools 协议驱动 Chrome，对线上版自动拍三张手机截图
 │   └── assets/                   icon.svg（与 app/public 同源）· OG 图 · 真实产品截图 / 视频封面（发布前检查资源是否存在）
+├── desktop/                      桌面壳（Tauri 2 + Next standalone sidecar），独立于 app/ → 详见本文件「桌面壳」小节
+│   ├── scripts/build-runtime.mjs next build(standalone) → 组装 runtime（pnpm 虚拟 store 扁平化 + node.exe 下载）
+│   ├── scripts/smoke-runtime.mjs 不带壳冒烟：node server.js → /api/health → kill
+│   └── src-tauri/                Rust 壳：spawn sidecar → 轮询就绪 → 显示窗口；Exit 清理子进程
 ├── .github/workflows/site.yml    site/** 变更 → 构建 → GitHub Pages（Actions 来源；Pages 未启用时绿色跳过）
 ├── wiki/                         本文档体系
 └── README.md                     对外宣传物
@@ -392,3 +396,15 @@ AppProviders 在确认默认 API 不可用时自动打开可关闭的配置弹�
 最终接受的 NPC 台词 → `/api/speech`（同网关凭证、共享预算、固定 MiMo TTS）→ 24 kHz PCM16LE 实时转发 → 浏览器独立 AudioContext 按顺序播放。文字 / 输入先显示；语音不参与剧情判断、评分或档案正文。设备保留 `settings.voiceEngine`（缺省 natural）与原朗读开关；个人模型、设备模式、未解锁音频直接沿设备朗读，不向共享 TTS 发送个人模型台词。
 
 `speech-playback.ts` 统一首块 3.5 秒截止、取消、降级、不复播；`speech.ts` 管 WebAudio / 设备音色、2D 队列与朗读忙态，3D 播放沿同一个生命周期并保留主回复 / 插话顺序。暂停只影响朗读 context，房间声独立；开麦 / 发送 / 切页撤销旧声音和请求。共享预算只存匿名计数，语音原文 / 音频不在服务器持久化。接口配置检测不替代实际生成验收。见 [方案](./archive/specs/spec-natural-npc-speech.md) 与 [MiMo 协议参考](./refs/mimo-speech.md)。
+
+## 桌面壳（2026-10-09，desktop/）
+
+`desktop/` 把 `app/`（Next.js 16）打包为 Windows 桌面应用的集成目录，**不修改 `app/` 的 web 主线**。Next 无法静态导出（12 条 API 路由 + 流式），因此采用「Tauri 2 壳 + 本地 Next standalone 服务器」模式（方案 Y，零 bundle 风险）：
+
+- **sidecar**：`next build`（standalone）产物 + 固定版本 node.exe 作为 Tauri `bundle.resources`（`../sidecar/runtime` → `runtime`）。端口固定 3210；`/api/health` 就绪门控——窗口 `visible: false` 直到服务器应答 200，再 `show()`。
+- **生命周期**（`src-tauri/src/next_server.rs` + `lib.rs`）：setup 线程 spawn `runtime/node.exe server.js`（`NODE_ENV=production HOSTNAME=127.0.0.1 PORT=3210`）→ `TcpStream` 轮询就绪 → 显示主窗口；`RunEvent::Exit` 时 `child.kill()` 清理子进程，避免端口残留。子进程句柄经 `ServerProcess` managed state 在 setup 与 run 回调间共享。
+- **dev 模式**：不启动 sidecar，`beforeDevCommand` 跑 `next dev`（3000），`devUrl` 指向它——前端热更新，壳照常。
+- **构建链**（`desktop/scripts/build-runtime.mjs`）：next build → 拷贝 standalone 树（`dereference` 解引用符号链接）→ **`flattenPnpmStore()`** 把 pnpm 虚拟 store 摊平到顶层 `node_modules`（pnpm 的 standalone 输出是符号链接农场，直接拷贝会留死链接，报 `Cannot find module '@swc/helpers/…'`）→ 补 `.next/static` + `public`（standalone 故意不带）→ 下载并缓存 node.exe → `smoke-runtime.mjs` 无壳冒烟。`pnpm desktop:runtime / desktop:smoke / desktop:build`（NSIS 安装包，含简体中文）。
+- **托盘语义**（继承模板）：关窗口 = 隐藏到托盘（sidecar 继续跑），托盘 Quit 才 `app.exit(0)` 触发 Exit 清理。强杀（崩溃/任务管理器）会绕过 Exit 回调留下 node 残留——见 [桌面 README](./desktop/README.md) 故障排查。
+- **自动更新**：占位 key 会让本地构建崩（`PluginInitialization("updater", …)`），故默认关闭——`Cargo.toml` 预留 `updater` feature（依赖可选化），启用需补 `plugins.updater` 配置 + `--features updater` 构建。
+- **验证**：`desktop:runtime` + `desktop:smoke` 绿；`cargo check` 零警告；release 产物 `SocialCoach_0.1.0_x64-setup.exe`（86.54 MiB）受控冒烟通过（进程存活 + `/api/health` 应答 + 窗口可见 + 关闭隐藏 + 退出清理）。桌面壳改动后必须重建并冒烟（见根 `AGENTS.md` 桌面规范）。
