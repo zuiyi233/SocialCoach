@@ -81,11 +81,9 @@ const dict = {
   // love 剧情模式（Galgame）
   love_mode_title: { zh: "恋爱剧情模式", en: "Love Story Mode" },
   love_mode_sub: { zh: "有画面有剧情的恋爱练习，AI 实时生成剧情。", en: "A visual love practice — the AI writes the story as you go." },
-  love_mode_start: { zh: "开始一段剧情", en: "Start a story" },
   love_play_turns: { zh: "第 {n} 回合", en: "Turn {n}" },
   love_play_input_ph: { zh: "说点什么…", en: "Say something…" },
   love_play_options_hint: { zh: "选择一句你会说的话", en: "Pick the line you’d say" },
-  love_play_replying: { zh: "对方正在回应…", en: "Waiting for a reply…" },
   love_play_skip: { zh: "点一下显示全文", en: "Tap to reveal" },
   love_play_back_love: { zh: "返回恋爱首页", en: "Back to Love" },
   love_play_record: { zh: "记入统计", en: "Save to practice" },
