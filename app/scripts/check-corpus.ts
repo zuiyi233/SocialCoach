@@ -77,8 +77,10 @@ for (const s of LOVE_SCENARIOS) {
 for (const s of SCENARIOS) {
   if (s.context === "romantic") assert(s.loveTopic, `${s.id}: romantic scene missing loveTopic`);
 }
-for (const t of LOVE_THEORIES) {
-  assert.equal(t.context, "romantic", `${t.id}: love theory must carry context romantic`);
+for (const t of THEORIES) {
+  // Every theory on the romance track must be pinned to the romantic context,
+  // or context-weighted retrieval could surface it for the wrong domain.
+  if (t.loveTopic) assert.equal(t.context, "romantic", `${t.id}: love theory must carry context romantic`);
 }
 // Storyline series: the same series id must always carry the same bilingual name.
 const seriesNames = new Map<string, string>();

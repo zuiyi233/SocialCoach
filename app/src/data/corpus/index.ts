@@ -11,6 +11,10 @@ import { CASES as CASES_BASE } from "./cases";
 import { LOVE_SCENARIOS } from "./love-scenarios";
 import { LOVE_THEORIES } from "./love-theories";
 import { LOVE_CASES } from "./love-cases";
+import { THEORIES_DEEP_FAMILY } from "./love-theories-deep-family";
+import { THEORIES_DEEP_BREAKUP_TRUST } from "./love-theories-deep-breakup-trust";
+import { THEORIES_DEEP_BOUNDARY } from "./love-theories-deep-boundary";
+import { THEORIES_DEEP_APPROACH } from "./love-theories-deep-approach";
 import type { Case, Character, Scenario, Theory } from "./types";
 import { L } from "../taxonomy";
 
@@ -122,7 +126,7 @@ export function withLearner(s: Scenario): Scenario {
 }
 
 export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_JUNIOR, ...SCENARIOS_FAMILY, ...LOVE_SCENARIOS].map(withLearner);
-export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C, ...LOVE_THEORIES];
+export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C, ...LOVE_THEORIES, ...THEORIES_DEEP_FAMILY, ...THEORIES_DEEP_BREAKUP_TRUST, ...THEORIES_DEEP_BOUNDARY, ...THEORIES_DEEP_APPROACH];
 export const CASES: Case[] = [...CASES_BASE, ...CASES_C, ...LOVE_CASES];
 export type { Case, Scenario, Theory };
 
