@@ -1,6 +1,10 @@
-<!-- Last verified: 2026-10-09 | Current stage: C -->
+<!-- Last verified: 2026-10-10 | Current stage: C -->
 
 # Backlog
+
+## 恋爱 Galgame 视觉模式（2026-10-10，方案已出）
+
+用户提议恋爱模块加**可选**的 Galgame 游戏模式（有画面/剧情/选项，不替代教练主链）。方案见 [spec-love-visual-novel.md](./specs/spec-love-visual-novel.md)：双入口（教练模式 / 游戏模式）共用语料；`AvatarFigure` 扩展半身立绘；`Scenario.series` 承载多场景剧情线；游戏模式不写能力评估；验收沿用让步/拒绝/反问/玩笑/修复/续聊六项。P1 单场景试玩 → P2 剧情线，共 3-4.5 天。待用户拍板后实施。
 
 ## 恋爱 practical 场景化：通用/职场分桶（2026-10-09）
 
