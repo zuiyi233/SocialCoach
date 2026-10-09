@@ -182,4 +182,5 @@
 - **P2 剧情线**：`series` 字段落地（`love-approach-hobby-event` / `love-approach-date-followup` / `love-define-vague-investment` → `love-arc-approach`，Tess/Mae/Zoe）；`lib/love-series.ts` 聚合；`/love/play/series/[seriesId]` 静态段路由（避免与 `[scenarioId]` 竞态）+ `lib/love-series-progress.ts`（localStorage 设备端进度）。
 - **P3 增强**：`lib/love-play-typing.ts`（中文逐字/英文逐词、句末停顿、skip、尊重 reduced-motion）；hidden 揭示徽标 + 立绘 emphasize + 背景提亮（`revealed` 触发、自动淡出）；`LoveStanceBar`（stance 0-100 三档 `--clay/--teal/--rose`，role="meter"，首回合隐藏）。
 - **实测**：dev 三路由（love / play/series / play/[id]）200；`/api/love-play` 真实场景 payload → 无 key 优雅 `503 {"modelIssue":"setup"}`（契约与守卫验证通过）。
-- **遗留**：仅 Tess 有立绘（首批验证产物），其余角色回退 AvatarFigure；全量 50 角色出图可随时跑 `node scripts/gen-love-portraits.mjs --all`（未跑，避免烧 GPU）。立绘人眼验收待用户进行。
+- **遗留**：全量 50 角色出图已启动（`node scripts/gen-love-portraits.mjs`，2026-10-10 后台跑，热机 24s/张约 60-80 分钟，产物实时写入 `public/love-portraits/` + manifest）。立绘人眼验收待用户进行。
+- **审查**（2026-10-10，验证子代理）：修复 archive origin 枚举缺 `love-play` 导致的存档整体解析失败 + 回归测试；清理 2 个未用 i18n key；love-play 独立任务预算（`TASK_LIMITS['love-play']=[55s,2]`）；reveal 徽标首回合防御（挂 opening key）。全仓 `pnpm check` 254 项绿。
