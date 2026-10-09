@@ -93,3 +93,12 @@
 6. 冷读式开场的伦理替代
 
 —— 对应 [spec-love-module.md](../specs/spec-love-module.md) 的首批场景清单。
+## 八、提取映射表（2026-10-09）
+
+恋爱理论**全量提取批次**已完成（+109 条，见 spec-love-module 第十节之后的更新）。提取底座是三份条目级映射表，位于 `恋爱军师-skill/goutoujunshi-main/extraction-map/`（gitignore 内，不进仓库）：
+
+- `knowledge-map-1-10.md`：knowledge 01-10 共 128 条理论条目（含证据分级/依恋/操控防御/沟通/在线约会）
+- `knowledge-map-11-20.md`：knowledge 11-20 共 110 条理论条目（婚姻家庭/分手背叛/多元关系/法律安全等，13/14/17 大量跳过项已标注）
+- `practical-map.md`：practical 23 篇共 126 条话术 / 56 个场景情境 / 37 条原则；**核心判定：23 篇中仅 1 篇有学术出处**（关系投入失衡），其余降级为场景层素材——话术作 NPC 台词灵感，场景情境可改编为练习场景（source 标原创）
+
+后续把 practical 素材分批场景化时，直接按 practical-map 的场景情境清单设计（无需重新读源文件）。

@@ -163,6 +163,8 @@ skills 字段 1–3 个、按重要度排序，competencies 由 `skillById` 反�
 - **P1**：上游 D 批 2 个 romantic 场景（`partner-location-pressure` → `boundary`、`partner-trip-change` → `trust`）补 `loveTopic`；`check-corpus` 新增强制断言——**所有 `context === "romantic"` 的场景必须带 `loveTopic`**（防止未来新增浪漫场景再次脱离恋爱模块）。
 - **P2**：`applyReport` 恋爱 gain 对称截断（`Math.max(-0.4, Math.min(0.4, …))`，负分也回落，与 generic 轨道口径一致）；arena 的 `loveTopic` 仅在 `ctx === "romantic"` 时计入筛选计数与 selected-filters 显示（消除深链残留不一致）；love 页 stars 按 `scoringVersion === 2` 口径统计。
 
-**当前语料基线**：romantic 场景 23（旧 4 + 首批 + 第二批 + 上游 D 批 2 + 2026-10-09 恋爱深度 6：approach / long-distance / family 各 +2，含对方视角——**8 个恋爱主题现全部 2+ 场景**）、恋爱理论 12、恋爱案例 9。验证：`lint` / `tsc` / `check-corpus` / `build` 全部通过。
+**当前语料基线**：romantic 场景 23（旧 4 + 首批 + 第二批 + 上游 D 批 2 + 2026-10-09 恋爱深度 6：approach / long-distance / family 各 +2，含对方视角——**8 个恋爱主题现全部 2+ 场景**）、恋爱理论 121（12 原批 + 109 全量提取）、恋爱案例 9。验证：`lint` / `tsc` / `check-corpus` / `build` 全部通过。
+
+**恋爱理论全量提取（2026-10-09 第二批）**：按恋爱军师 knowledge 20 篇的条目级映射表（`恋爱军师-skill/goutoujunshi-main/extraction-map/`，gitignore 内）提取 **109 条**理论，分 4 个文件（family 27 / breakup-trust 26 / boundary 26 / approach 30，删 2 条与现有 attachment 重复的条目）。全部 `context=romantic` + loveTopic 八值打标，与 54 条通用理论**分类隔离**（检索 +0.5 情境加权只命中 romantic，loveTopic +3 只在恋爱情境触发）；出处分级严格——真实出处（Miller/Finkel/WHO/RAINN/SEP 等）与篇级出处（Goutoujunshi skill, knowledge NN）分开，独立审查确认无一处编造。操控识别与法律安全条目全部**防御立场**（识别+拒绝+转介，不提供实施步骤）。practical 篇 126 条话术与 56 个场景素材已盘点在映射表，待分批场景化。
 
 **2026-10-09 人际与恋爱深化**：新增向下管理 4 场景（jm-*）与家庭 5 场景（pf-/fm-/ch-*）补齐 junior/parent/child/sibling 语料空白；Theory 架构新增可选 `context`，33 条理论打标（恋爱 12 条均 romantic），`retrieveKnowledge` rank 加情境 +0.5 加权（与 Case 同口径，不破坏 loveTopic +3 断言）；arena 新增「关系对象」筛选；3 条系列场景线（junior-aze / family-care / love-trust-boundary）带双语徽标在 arena 与 /love 展示。
