@@ -1,6 +1,13 @@
-<!-- Last verified: 2026-10-09 | Current stage: C -->
+<!-- Last verified: 2026-10-10 | Current stage: C -->
 
 # 踩坑记录
+
+### ComfyUI 改动：启动假象 / Qwen 分层 latent 崩 / 抠图模型权限门（2026-10-10）
+
+- **现象：** ① `ComfyUI启动器-CLI.cmd start` 返回 `ready:false`，status 说未运行，但日志继续增长——后台 `python main.py` 确实在启动，只是 custom nodes 很多（1-2 分钟）超过启动器 60s 探测窗口，且 Bash 后台包装让进程"看似消失"。② 千问立绘用 `EmptyQwenImageLayeredLatentImage`（分层透明 latent）时 KSampler 报 `too many values to unpack (expected 4)`。③ 抠图 `imageRemBg` 用 RMBG 系列全部 401 gated。
+- **原因：** ① 启动探测窗口太短 + 输出管道截断的错觉，不是启动失败。② `qwen_image_2.1_int8` unet 只吃 4D batch，分层 latent 是 5D `[B,16,layers+1,H,W]`，需要未安装的 `qwen_image_layered` 模型。③ briaai RMBG-2.0 等需 huggingface token，本机未配。
+- **解法：** ① 排障用 `python main.py > 日志 &` 前台直跑 + 轮询端口，不信启动器的 ready 字段。② 改 4D `EmptyLatentImage` + 生成后 `easy imageRemBg` 的 **BEN2**（PramaLLC 公开，首次自动下载）。③ 同上——RMBG 系全跳过，直接用 BEN2；另外 `QwenLoader` 名字像千问 loader 实为 WanVideoWrapper 的，千问 Image 编码器用 `CLIPLoader(type=qwen_image)`。
+- **教训：** 服务"看起来没起来"先轮询端口/日志再判断；ComfyUI 节点名以 object_info 实际签名为准（`curl /object_info/<Node>`），不信文件名/常见名；生成管线的模型选择要实测权限门（401 就是 gated）。
 
 ### pnpm 的 Next standalone 输出是符号链接农场；Tauri 的 frontendDist 不支持 false（2026-10-09）
 

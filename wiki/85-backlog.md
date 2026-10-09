@@ -2,9 +2,11 @@
 
 # Backlog
 
-## 恋爱 Galgame 视觉模式（2026-10-10，方案已出）
+## 恋爱 Galgame 视觉模式（2026-10-10，P1-P3 已实施 ✅）
 
-用户提议恋爱模块加**可选**的 Galgame 游戏模式（有画面/剧情/选项，不替代教练主链）。方案见 [spec-love-visual-novel.md](./specs/spec-love-visual-novel.md)：双入口（教练模式 / 游戏模式）共用语料；`AvatarFigure` 扩展半身立绘；`Scenario.series` 承载多场景剧情线；游戏模式不写能力评估；验收沿用让步/拒绝/反问/玩笑/修复/续聊六项。P1 单场景试玩 → P2 剧情线，共 3-4.5 天。待用户拍板后实施。
+用户提议恋爱模块加**可选**的 Galgame 游戏模式（有画面/剧情/选项，不替代教练主链）。方案见 [spec-love-visual-novel.md](./specs/spec-love-visual-novel.md)：双入口（教练模式 / 游戏模式）共用语料；`AvatarFigure` 扩展半身立绘；`Scenario.series` 承载多场景剧情线；游戏模式不写能力评估；验收沿用让步/拒绝/反问/玩笑/修复/续聊六项。P1 单场景试玩 → P2 剧情线，共 3-4.5 天。
+
+**2026-10-10 实施完毕（P1-P3 全做，提交）**：`/api/love-play` AI 剧情引擎（复用 roleplay 契约与守卫）、`/love/play/[scenarioId]` Galgame 界面（背景/立绘/打字台词/选项/自由输入）、`completeLovePlay` 统计写入、千问 IMAGE 2.1 立绘管线（Tess 4 表情已产）、series 剧情线「初见与心动」+ 线式入口 + 设备端进度、P3 打字机流/揭示动画/好感度条。验证 254 项全绿。遗留见 spec 第九节：全量 50 角色出图待跑、立绘人眼验收待用户。
 
 ## 恋爱 practical 场景化：通用/职场分桶（2026-10-09）
 

@@ -1,6 +1,6 @@
 # 恋爱 Galgame 视觉模式（spec）
 
-> 状态：**方案（决策已拍板）**（2026-10-10，待实施）
+> 状态：**P1-P3 已实施**（2026-10-10，实施记录见[第九节](#九实施记录2026-10-10)）
 > 日期：2026-10-10　|　关联：[恋爱独立模块](./spec-love-module.md) · [场景创作](./spec-scene-craft.md) · [3D 饭局](./spec-3d-table-culture.md)
 
 ## 一、背景与目标
@@ -171,3 +171,15 @@
 1. **游戏模式计入练习统计**：practiceDays / 完成数 / 分钟数进入现有统计；能力评估不自动触发（口径见 5.4）。
 2. **立绘 AI 生成**：构建期 ComfyUI 批量出图进 `public/`，manifest 记录 source；不引入运行时图像服务。
 3. **剧情 AI 动态生成**：场景只定 cast/约束，台词与选项 LLM 实时生成（`/api/love-play`）；首批做基础剧情线（approach/define）。
+
+## 九、实施记录（2026-10-10）
+
+**P1-P3 全部按拍板方案实施完毕，一次性提交（`approve` 后 commit）**，验证 `pnpm check` 254 项全绿。
+
+- **P1 剧情引擎**：`POST /api/love-play`（`lib/tasks/love-play.ts` + `app/api/love-play/route.ts`）。复用 roleplay 的 `taskLLM`/`roleplaySystem`/`roleplaySpeechGuard`/`hasQuote` 守卫与一次有界修复；输出 `{ line: L, options: L[2-4], emotion, stance, revealed, terminal, ended }`。**预算键暂用 `"roleplay"`**（`TASK_LIMITS` 无 love-play 键；独立预算需另改 task-runtime，记 backlog）。
+- **P1 界面**：`/love/play/[scenarioId]`（`components/love/PlayScene.tsx` 等 4 文件 + `lib/love-play-client.ts`）。Galgame 布局（背景/立绘/打字台词/选项/自由输入）；开场本地展示后进历史；收束界面「记入统计」。`store.completeLovePlay()` 写 sessions（`origin:"love-play"`、`status:"ended"`、无 report）+ practiceDays + loveProficiency（success +0.3 / partial +0.15 / failure +0.05，clamp 1-5）。
+- **P2 立绘管线**：`scripts/gen-love-portraits.mjs`。千问 IMAGE 2.1 + `easy imageRemBg`(BEN2) 透明底；neutral 作参考图 → 其余表情 I2I 保一致性；`public/love-portraits/manifest.json` 溯源（prompt/seed/模型）。已产 Tess 4 表情（832×1216 RGBA）。**注意力坑**：分层 latent（`EmptyQwenImageLayeredLatentImage`）本机 2.1 unet 只吃 4D 会崩，改 4D `EmptyLatentImage` + 抠图补透明；`QwenLoader` 属 WanVideoWrapper 不适用，用 `CLIPLoader(type=qwen_image)`；RMBG 全系 401 gated 走 BEN2。
+- **P2 剧情线**：`series` 字段落地（`love-approach-hobby-event` / `love-approach-date-followup` / `love-define-vague-investment` → `love-arc-approach`，Tess/Mae/Zoe）；`lib/love-series.ts` 聚合；`/love/play/series/[seriesId]` 静态段路由（避免与 `[scenarioId]` 竞态）+ `lib/love-series-progress.ts`（localStorage 设备端进度）。
+- **P3 增强**：`lib/love-play-typing.ts`（中文逐字/英文逐词、句末停顿、skip、尊重 reduced-motion）；hidden 揭示徽标 + 立绘 emphasize + 背景提亮（`revealed` 触发、自动淡出）；`LoveStanceBar`（stance 0-100 三档 `--clay/--teal/--rose`，role="meter"，首回合隐藏）。
+- **实测**：dev 三路由（love / play/series / play/[id]）200；`/api/love-play` 真实场景 payload → 无 key 优雅 `503 {"modelIssue":"setup"}`（契约与守卫验证通过）。
+- **遗留**：仅 Tess 有立绘（首批验证产物），其余角色回退 AvatarFigure；全量 50 角色出图可随时跑 `node scripts/gen-love-portraits.mjs --all`（未跑，避免烧 GPU）。立绘人眼验收待用户进行。
