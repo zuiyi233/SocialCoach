@@ -1,0 +1,6 @@
+# Desktop shell build outputs (paths relative to this desktop/ directory)
+sidecar/
+vendor/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/Cargo.lock
