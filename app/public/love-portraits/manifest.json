@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-10-09T18:48:03.637Z",
+  "model": "qwen_image_2.1",
+  "characters": {
+    "tess": {
+      "name": {
+        "zh": "Tess",
+        "en": "Tess"
+      },
+      "hue": 92,
+      "emotions": {
+        "neutral": "tess-neutral.png",
+        "smile": "tess-smile.png",
+        "tight": "tess-tight.png",
+        "teary": "tess-teary.png"
+      },
+      "prompt": "Portrait of Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 969724957,
+      "referenceImage": "tess-neutral.png",
+      "prompts": {
+        "neutral": "Portrait of Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 969724957,
+        "smile": 2396946692,
+        "tight": 472053230,
+        "teary": 2800798869
+      }
+    }
+  },
+  "source": "Generated with Qwen-Image 2.1 via local ComfyUI; prompts recorded per character (traceable provenance)."
+}

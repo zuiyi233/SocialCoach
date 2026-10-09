@@ -26,6 +26,11 @@
   --danger: oklch(0.55 0.17 25);
   --danger-soft: oklch(0.94 0.04 25);
   --gold: oklch(0.78 0.14 85);
+  /* 情绪颜料：clay（疏远/抗拒）与 rose（敞开心扉）——复用场景色相的全局 token。 */
+  --clay: oklch(0.47 0.115 35);
+  --clay-soft: oklch(0.945 0.03 35);
+  --rose: oklch(0.47 0.085 15);
+  --rose-soft: oklch(0.945 0.02 15);
 
   /* Scene pigments: colored stock and matching ink, never a full hue wheel. */
   --scene-clay-color: light-dark(oklch(0.47 0.115 35), oklch(0.76 0.105 35));
@@ -157,6 +162,10 @@
     --danger: oklch(0.715 0.155 25);
     --danger-soft: oklch(0.305 0.06 25);
     --gold: oklch(0.815 0.13 85);
+    --clay: oklch(0.70 0.09 35);
+    --clay-soft: oklch(0.31 0.03 35);
+    --rose: oklch(0.72 0.08 15);
+    --rose-soft: oklch(0.30 0.026 15);
 
     --slab: oklch(0.30 0.016 62);
     --slab-ink: var(--ink);
@@ -222,6 +231,10 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-gold: var(--gold);
+  --color-clay: var(--clay);
+  --color-clay-soft: var(--clay-soft);
+  --color-rose: var(--rose);
+  --color-rose-soft: var(--rose-soft);
   --color-slab: var(--slab);
   --color-slab-ink: var(--slab-ink);
   --font-display: var(--font-display);

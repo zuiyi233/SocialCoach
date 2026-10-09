@@ -168,7 +168,7 @@ export interface Session {
   reflections: Reflection[];
   /** Separate from the simulation and scoring; included in local exports. */
   debriefChat?: DebriefExchange[];
-  origin: "scheduled" | "arena" | "rehearse";
+  origin: "scheduled" | "arena" | "rehearse" | "love-play";
   /** The other side's position after each learner turn. Drives the meter and, later, the turn map. */
   stanceTrail?: number[];
   /** 1-based learner turn on which the hidden motive came out. Absent means it never did. */

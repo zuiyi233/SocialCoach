@@ -9,6 +9,7 @@ import type { PatternResult } from "@/lib/tasks/types";
 import { DEVICE_KEY, OPEN_DAY_KEY } from "@/lib/analytics/keys";
 import {parseArchive} from '@/lib/archive';
 import {estimateProficiency} from '@/lib/proficiency';
+import {uid} from '@/lib/format';
 import {createArchiveStorage,type SaveIssue} from './archive-storage';
 
 export type Theme = "system" | "light" | "dark";
@@ -97,6 +98,12 @@ interface AppState {
   appendMessage: (id: string, m: ChatMessage) => void;
   updateLastNpc: (id: string, text: string, characterId: string, messageId: string) => void;
   applyReport: (id: string, report: Report) => void;
+  /**
+   * 恋爱 Galgame 模式的轻量收尾：只记一条「已结束」的会话、更新练习日历与
+   * 恋爱主题熟练度。不触发 applyReport / assess，也不产生 report —— 剧情模式
+   * 没有教练引语的复盘，只有结局归属感。
+   */
+  completeLovePlay: (scenario: Scenario, outcome: "success" | "partial" | "failure") => void;
   addReflection: (id: string, r: Reflection) => void;
   updateReflection: (id: string, idx: number, patch: Partial<Reflection>) => void;
   addCustomScenario: (s: Scenario) => void;
@@ -232,6 +239,40 @@ const sess = s.sessions.find((x) => x.id === id);
       addCustomScenario: (sc) => set((s) => ({ customScenarios: [sc, ...s.customScenarios.filter((x) => x.id !== sc.id)] })),
       toggleBookmark: (id) => set((s) => ({ bookmarks: s.bookmarks.includes(id) ? s.bookmarks.filter((b) => b !== id) : [...s.bookmarks, id] })),
       setToday: (todaySessionId) => set({ todaySessionId, todayDate: todayKey() }),
+      completeLovePlay: (scenario, outcome) =>
+        set((s) => {
+          // 剧情模式没有逐句复盘，只留一条轻量记录；角色取默认可扮演角色，
+          // 与 SCENARIOS 里 withLearner 注入的 "you" 一致（自定义场景同样如此）。
+          const learnerCharacterId = scenario.characters.find((c) => c.playable)?.id ?? scenario.characters[0].id;
+          const now = Date.now();
+          const session: Session = {
+            id: uid(),
+            scenario,
+            learnerCharacterId,
+            messages: [],
+            objectiveDone: [],
+            status: "ended",
+            outcome,
+            startedAt: now,
+            endedAt: now,
+            reflections: [],
+            origin: "love-play",
+          };
+          const day = todayKey();
+          const love = { ...s.loveProficiency };
+          const topic = scenario.loveTopic;
+          if (topic) {
+            // 按结局给微增益（沿用 applyReport 的 1-5 夹紧口径，且不被单局填满）。
+            const gain = outcome === "success" ? 0.3 : outcome === "partial" ? 0.15 : 0.05;
+            const cur = love[topic] ?? 2.5;
+            love[topic] = Math.min(5, Math.max(1, +(cur + gain).toFixed(2)));
+          }
+          return {
+            sessions: [session, ...s.sessions],
+            practiceDays: s.practiceDays.includes(day) ? s.practiceDays : [...s.practiceDays, day],
+            loveProficiency: love,
+          };
+        }),
       setSettings: (p) => set((s) => ({ settings: { ...s.settings, ...p } })),
       setPatternInsight: (result, from) => set({ patternInsight: { result, from, at: Date.now() } }),
       reset: () => {

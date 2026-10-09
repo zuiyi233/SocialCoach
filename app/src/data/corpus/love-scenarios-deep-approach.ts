@@ -55,6 +55,7 @@ export const LOVE_SCENARIOS_DEEP_APPROACH: Scenario[] = [
     source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-approach.ts#love-approach-hobby-event",
     keywords: ["活动", "开场", "陌生人", "搭话", "低压力", "hobby", "event", "opening", "stranger"],
     loveTopic: "approach",
+    series: { id: "love-arc-approach", name: L("初见与心动", "First Meeting & Sparks") },
     icon: "users",
   },
   {
@@ -105,6 +106,7 @@ export const LOVE_SCENARIOS_DEEP_APPROACH: Scenario[] = [
     source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-approach.ts#love-approach-date-followup",
     keywords: ["二次邀约", "主动表达", "见面", "时机", "second date", "initiative", "meeting", "timing"],
     loveTopic: "approach",
+    series: { id: "love-arc-approach", name: L("初见与心动", "First Meeting & Sparks") },
     icon: "door-open",
   },
   {

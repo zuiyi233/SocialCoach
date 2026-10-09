@@ -1,7 +1,8 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Play } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { Chip, Empty, Page } from "@/components/ui";
 import { SkillTag } from "@/components/SkillBits";
@@ -68,6 +69,17 @@ export default function Love() {
     addSession(session);
     router.push(`/practice/${session.id}`);
   };
+  /** 剧情模式入口指向的场景：优先 nextPick，否则第一个带 loveTopic 的恋爱场景。 */
+  const gameEntry = useMemo(
+    () => nextPick ?? ordered.find((s) => s.loveTopic) ?? loveScenarios[0] ?? null,
+    [nextPick, ordered, loveScenarios],
+  );
+  /** 剧情模式入口：已有剧情线时先进线内首页（能看到进度与场景列表），否则进单场景。 */
+  const gameHref = useMemo(() => {
+    const seriesScene = ordered.find((s) => s.series);
+    if (seriesScene?.series) return `/love/play/series/${seriesScene.series.id}`;
+    return gameEntry ? `/love/play/${gameEntry.id}` : null;
+  }, [ordered, gameEntry]);
 
   return (
     <Shell>
@@ -77,6 +89,21 @@ export default function Love() {
           <h1 className="display text-[29px] md:text-[34px] lg:text-[38px] leading-tight whitespace-pre-line">{t(lang, "love_heading")}</h1>
           <p className="text-[14px] text-ink-3 mt-3 max-w-[var(--measure)]">{t(lang, "love_sub")}</p>
         </header>
+
+        {gameHref && (
+          <section aria-label={t(lang, "love_mode_title")} className="flex flex-col gap-3">
+            <Link href={gameHref} className="press card card-link text-left p-5 flex items-center gap-4">
+              <span className="shrink-0 w-12 h-12 rounded-full grid place-items-center bg-accent-soft text-accent-deep">
+                <Play size={22} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-semibold text-[16px] leading-snug">{t(lang, "love_mode_title")}</span>
+                <span className="block text-[12px] text-ink-3 mt-1">{t(lang, "love_mode_sub")}</span>
+              </span>
+              <ArrowRight size={17} className="shrink-0 text-accent-deep" />
+            </Link>
+          </section>
+        )}
 
         <section aria-label={t(lang, "love_topics")} className="flex flex-col gap-3">
           <h2 className="display text-[20px]">{t(lang, "love_topics")}</h2>

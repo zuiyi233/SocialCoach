@@ -51,6 +51,7 @@ export const LOVE_SCENARIOS_DEEP_DEFINE: Scenario[] = [
     source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-define.ts#love-define-vague-investment",
     keywords: ["暧昧", "主动", "投入", "表达", "ambiguous", "reciprocity", "initiative", "communication"],
     loveTopic: "define-relationship",
+    series: { id: "love-arc-approach", name: L("初见与心动", "First Meeting & Sparks") },
     icon: "clock",
   },
   {

@@ -15,7 +15,7 @@ const session = z.string().regex(/^[a-z0-9-]{4,40}$/);
 /** A corpus id, or the literal `custom` — never the text of a generated scenario. */
 const scenario = z.string().regex(/^[a-z0-9-]{1,80}$/);
 const outcome = z.enum(["success", "partial", "failure"]);
-const origin = z.enum(["scheduled", "arena", "rehearse"]);
+const origin = z.enum(["scheduled", "arena", "rehearse", "love-play"]);
 
 export const TASKS = ["schedule", "roleplay", "hint", "assess", "reflect", "debrief-chat", "rehearse", "pattern", "dinner"] as const;
 
