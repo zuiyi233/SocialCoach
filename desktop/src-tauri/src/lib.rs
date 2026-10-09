@@ -44,10 +44,33 @@ pub fn run() {
             let handle = app.handle().clone();
             let holder = server_child.clone();
             std::thread::spawn(move || {
+                // Release: spawn the sidecar, wait until it answers, then point
+                // the (still hidden) window at it. Navigating only after readiness
+                // avoids the service-worker offline page greeting users on first
+                // paint (the window previously started loading http://127.0.0.1:3210
+                // before Node was up). Dev: `start` returns None and the window
+                // already targets the devUrl, so just show it.
                 let child = next_server::start(&handle);
                 *holder.lock().unwrap() = child;
                 let port = next_server::server_port();
-                let ready = next_server::wait_ready(port, Duration::from_secs(30));
+                let ready = if cfg!(debug_assertions) {
+                    // Dev: window already targets the devUrl.
+                    true
+                } else {
+                    // Release: wait until the sidecar answers, then point the
+                    // window at it (navigate-after-ready avoids the service-worker
+                    // offline page greeting users on first paint).
+                    let r = next_server::wait_ready(port, Duration::from_secs(30));
+                    if r {
+                        let url = format!("http://127.0.0.1:{port}");
+                        if let Some(window) = handle.get_webview_window("main") {
+                            if let Ok(u) = url.parse() {
+                                let _ = window.navigate(u);
+                            }
+                        }
+                    }
+                    r
+                };
                 eprintln!(
                     "[next-server] http://127.0.0.1:{port} ready={ready} — showing window"
                 );
