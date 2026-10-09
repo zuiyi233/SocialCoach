@@ -87,7 +87,9 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         }
         setEmotion(turn.emotion);
         setStance(turn.stance);
-        setRevealKey(turn.revealed && lineKey ? lineKey : null);
+        // 首回合（showLine=false）只有本地 opening 无 AI line；若模型仍标记
+        // revealed，徽标挂在 opening 的 key 上，避免揭示时刻被吞掉。
+        setRevealKey(turn.revealed ? lineKey ?? (history[0]?.id ?? null) : null);
         if (turn.terminal || turn.ended) {
           setOutcome(turn.terminal ?? "partial");
           setOptions(null);
