@@ -163,4 +163,6 @@ skills 字段 1–3 个、按重要度排序，competencies 由 `skillById` 反�
 - **P1**：上游 D 批 2 个 romantic 场景（`partner-location-pressure` → `boundary`、`partner-trip-change` → `trust`）补 `loveTopic`；`check-corpus` 新增强制断言——**所有 `context === "romantic"` 的场景必须带 `loveTopic`**（防止未来新增浪漫场景再次脱离恋爱模块）。
 - **P2**：`applyReport` 恋爱 gain 对称截断（`Math.max(-0.4, Math.min(0.4, …))`，负分也回落，与 generic 轨道口径一致）；arena 的 `loveTopic` 仅在 `ctx === "romantic"` 时计入筛选计数与 selected-filters 显示（消除深链残留不一致）；love 页 stars 按 `scoringVersion === 2` 口径统计。
 
-**当前语料基线**：romantic 场景 17（旧 4 + 第二批新增 + 上游 D 批 2）、恋爱理论 12、恋爱案例 9。验证：`lint` / `tsc` / `check-corpus` / `build` 全部通过。
+**当前语料基线**：romantic 场景 23（旧 4 + 首批 + 第二批 + 上游 D 批 2 + 2026-10-09 恋爱深度 6：approach / long-distance / family 各 +2，含对方视角——**8 个恋爱主题现全部 2+ 场景**）、恋爱理论 12、恋爱案例 9。验证：`lint` / `tsc` / `check-corpus` / `build` 全部通过。
+
+**2026-10-09 人际与恋爱深化**：新增向下管理 4 场景（jm-*）与家庭 5 场景（pf-/fm-/ch-*）补齐 junior/parent/child/sibling 语料空白；Theory 架构新增可选 `context`，33 条理论打标（恋爱 12 条均 romantic），`retrieveKnowledge` rank 加情境 +0.5 加权（与 Case 同口径，不破坏 loveTopic +3 断言）；arena 新增「关系对象」筛选；3 条系列场景线（junior-aze / family-care / love-trust-boundary）带双语徽标在 arena 与 /love 展示。
