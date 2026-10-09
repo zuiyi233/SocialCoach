@@ -12,8 +12,8 @@ export async function POST(req: Request) {
     checkRateLimit(req);
     const input = await readTaskBody(req, TaskInputSchemas["love-play"]);
     // 非流式：一次 chatText 得一次完整 JSON，交由 runLovePlay 校验/修复。
-    // 预算沿用 roleplay 的 [55s, 2 次调用]（一次主调用 + 一次有界修复）。
-    const output = await runLovePlay(input, taskLLM(serverLLM, "roleplay", req.signal, (event) => console.info("[model_task]", event), input.language), FAST_MODEL);
+    // 独立预算 [55s, 2 次调用]（一次主调用 + 一次有界修复），与 roleplay 解耦。
+    const output = await runLovePlay(input, taskLLM(serverLLM, "love-play", req.signal, (event) => console.info("[model_task]", event), input.language), FAST_MODEL);
     return Response.json(output);
   } catch (e) {
     return fail(e);
