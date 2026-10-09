@@ -1,0 +1,261 @@
+import { L } from "../taxonomy";
+import type { Scenario } from "./types";
+
+/**
+ * Romance-track boundary scenarios (loveTopic: "boundary"), batch 5.
+ * All scenes are original fictional practices, rewritten from practical-map
+ * situation entries (Goutoujunshi skill extraction), not transcripts.
+ * Theme: boundaries — needing to set, hold, or repair a line in intimacy.
+ */
+export const LOVE_SCENARIOS_DEEP_BOUNDARY: Scenario[] = [
+  {
+    id: "love-boundary-haha-reply",
+    title: L("聊天框里的「哈哈」", "The 'Haha' in Your Chat Box"),
+    hook: L("你发了一长段，对面回了两个字：「哈哈。」这已经是今晚第三次了。", "You send a solid paragraph. You get two characters back: 'haha.' Third time tonight."),
+    background: L(
+      "你和 Juna 暧昧了两个月，最近聊天却越来越像你单方面的直播：你开话题、你分享日常、你接梗，回你的只剩「哈哈」「嗯嗯」。今晚你又抛了一个具体话题，等来的还是两个字。你怀疑是不是自己不会聊天，又想是不是对方早已没意思却不好意思说。任务方向：这不只是「再说个什么话题」的技术问题，而是「这段连接还要不要我一个人扛」的边界问题——你可以再给一次具体的话题，更可以清楚地收线，把注意力还给自己的生活。",
+      "Two months of flirting with Juna, and lately the chat has become a one-person show: you open, you share, you keep the banter alive, and the replies come back as 'haha' and 'mm'. Tonight you served her a fresh, specific thread and got two characters again. You wonder if you've lost your touch — or whether she's gone soft on you and is too awkward to say so. The task: this isn't a technique question of 'what topic now'. It is a boundary question of whether one of you can carry this connection alone. You may offer one last concrete thread — or you may close it cleanly and give your attention back to your own life.",
+    ),
+    simulationFacts: L(
+      "「只剩哈哈嗯嗯」是已确认事实；「她是不是不想聊了」未核实——回复短不等于是冷落，你也不该就此脑补成「我不会聊天」。Juna 把「哈哈」当作完全正常的反应，累了也不会主动解释；只有你直接问「你是不是最近特别累」她才可能说漏口。你收线（说一句「我先去忙啦」）不是分手，也不等于结束这段暧昧；你最后再抛一个具体话题，也不等于她答应继续聊。",
+      "That the replies have shrunk to 'haha' and 'mm' is established; whether she has lost interest is unverified — a short reply is not desertion, nor is it a license to conclude you 'can't text'. Juna treats 'haha' as a perfectly normal response and won't volunteer that she's exhausted; only a direct 'are you completely wiped lately?' may draw it out. Your closing the chat ('I'm going to get on with my night') is not a breakup, nor an end to the flirtation; offering one last thread is not her agreeing to keep chatting.",
+    ),
+    context: "romantic",
+    contextType: L("暧昧期", "Ambiguity"),
+    competencies: ["relationship-skills", "self-awareness", "self-management"],
+    skills: ["communication", "self-efficacy", "self-discipline"],
+    relationship: ["partner"],
+    difficulty: 1,
+    minutes: 2,
+    characters: [
+      {
+        id: "juna",
+        name: L("Juna", "Juna"),
+        role: L("聊了两个月的人", "The person you've been chatting with"),
+        personality: L(
+          "打字快，内容却越来越薄，习惯用「哈哈」「嗯嗯」填话缝；你抛具体话题她偶尔会接一句，但从不主动发起；你越卖力找话题，她越习惯当听众。",
+          "Types fast but keeps the content thin, filling the gaps with 'haha' and 'mm'. Occasionally she picks up a concrete thread you throw, but she never opens one; the harder you work to entertain, the more natural it feels for her to simply listen.",
+        ),
+        stance: L("对你有好感，但这阵子真的很没电；开着聊天框，却一个话题都不想开。", "She does like you, but she's running on empty right now — keeping the window open without the energy to start a single topic."),
+        hidden: L("她这周被两个项目连着压着，睡眠不足五小时，「哈哈」是没力气聊，不是对你没意思；被直接问「你是不是最近特别累」才可能吐露一句。", "Two projects back to back this week, under five hours of sleep — 'haha' is her battery draining, not her interest in you. A direct 'are you completely wiped lately?' may get her to admit it."),
+        hue: 340,
+      },
+    ],
+    objectives: [
+      L("判断「哈哈」背后是暂时的没电，还是凉了的信号——用一两个问句核实，而不是脑补全套剧本。", "Judge whether 'haha' is temporary low battery or a cooling signal — verify with a question or two instead of scripting the whole story."),
+      L("再给一次具体话题，或清楚地收线——不无限救场。", "Offer one more concrete thread, or close it cleanly — no endless rescue attempts."),
+      L("把注意力还给自己的生活：这段对话不该由你单方面扛着。", "Take your attention back: this conversation is not a one-way job you own."),
+    ],
+    success: L("你收到一句像样的话，或你清清楚楚地收线——不管哪种，你都不再独自扛着这段对话。", "You get one real answer — or you close it cleanly. Either way, you stop carrying the conversation alone."),
+    failure: L("话题抛了一个又一个，直到「哈哈」把你从暧昧对象聊成了义务主播。", "You keep re-serving topics until 'haha' turns you from a prospect into a paid entertainer."),
+    maxTurns: 6,
+    opening: {
+      characterId: "juna",
+      text: L("哈哈。……嗯嗯。（停顿）你继续说，我在听。", "Haha. …Mm-hm. (A pause.) Keep going, I'm listening."),
+    },
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-boundary.ts#love-boundary-haha-reply",
+    keywords: ["哈哈", "冷场", "暧昧", "救场", "边界", "haha", "small talk", "ambivalence", "boundary"],
+    loveTopic: "boundary",
+    icon: "message-square",
+  },
+  {
+    id: "love-boundary-interrogation-chat",
+    title: L("查户口式的聊天", "The Background-Check Chat"),
+    hook: L("刚认识十分钟，他已经问完了住址、工资和上一段感情。下一个问题正在路上。", "Ten minutes in and he's already asked your address, your salary and your last relationship. The next question is loading."),
+    background: L(
+      "在朋友的介绍下，你和第一次见面的 Daryl 坐下来喝咖啡。他热情、像连珠炮一样问问题：做什么工作、大概收入、住在哪个区、谈过几段感情。单看每个问题，好像都只是「想了解你」，连在一起就是查户口。你不想翻脸冷场，也不希望这场「了解」变成单向问卷。任务方向：飞盘是双向的——你可以温和但清楚地把不想答的问题挡回去，同时把一个你愿意答或想问的问题抛回去，把节奏救回来。",
+      "Through a mutual friend, you're having coffee with Daryl for the first time. He's warm and machine-guns questions: what you do, roughly what you earn, which district you live in, how many people you have dated. Any single one reads as 'getting to know you'; strung together, it is a background check. You don't want to shut him down or kill the mood, and you also don't want the evening to stay a one-way questionnaire. The task: conversation is a frisbee — gently but clearly field the questions you won't answer, then sail one back, something you'd actually like to know, and take back the rhythm.",
+    ),
+    simulationFacts: L(
+      "连环追问（工作、收入、住址、感情史）是已发生事实；「他是想了解你还是单纯没边界感」未核实——问题密不等于心怀不轨，但也不等于你必须全答。Daryl 照着一张网上的问题清单在问是隐藏事实，只有你直接问「你是不是照着什么清单在问」他才可能承认；你不问，他会一直按清单念下去。你选择不答其中一问，不等于对他整个人没有兴趣；你答了一问，也绝不等于授权他继续追问其余的问题。",
+      "The rapid chain of questions — job, salary, address, dating history — is established; whether he's trying to know you or simply has no sense of boundary is unverified. Dense questions are not malice, but neither are they an obligation to answer. That he's reciting a viral checklist is hidden, surfacing only if you ask 'are you working from a checklist?'; absent that, he'll read the whole list. Not answering one question is not dismissing him as a person; answering one is in no way license for the rest.",
+    ),
+    context: "romantic",
+    contextType: L("初次认识", "First approach"),
+    competencies: ["relationship-skills", "social-awareness"],
+    skills: ["communication", "social-norms", "standing-up"],
+    relationship: ["stranger"],
+    difficulty: 2,
+    minutes: 3,
+    characters: [
+      {
+        id: "daryl",
+        name: L("Daryl", "Daryl"),
+        role: L("第一次见面的人", "The person you're meeting for the first time"),
+        personality: L(
+          "热情、不坏，但把「关心」理解成「把问题问完」，察觉不到对面在收着；你温和挡开他会愣一下，然后能接住新话题；你翻脸他会委屈地说「我就是随便聊聊」。",
+          "Warm and well-meaning, but reads 'caring' as 'finish all my questions' and can't feel you pulling back. A gentle deflection makes him blink, then he'll take a new thread; snap at him and he'll say, hurt, 'I was just making conversation.'",
+        ),
+        stance: L("真想了解你——只是「了解」对他是拿到答案。", "Genuinely wants to know you — though 'knowing you', to him, means collecting the answers."),
+        hidden: L("这是他第一次经人介绍一对一见面，出门前照着网上的「了解对方的 30 个问题」临时抱佛脚，越紧张越按清单念；被问「你是不是照着什么清单在问」才可能承认。", "It's his first one-on-one meeting set up through an introduction, and before coming he crammed a viral '30 questions to know someone' list — the more nervous he gets, the more he recites it. Asked straight out 'are you working from a checklist?', he may admit it."),
+        hue: 200,
+      },
+    ],
+    objectives: [
+      L("温和但清楚地把不想答的问题挡回去——不翻脸、不冷场。", "Gently but clearly field the questions you won't answer — no snap, no dead air."),
+      L("把一个具体问题抛回去（或挑一个你愿意答的答），把单向问卷拉回双向。", "Sail one specific question back — or answer one you're fine with — turning the questionnaire into a two-way talk."),
+      L("若他继续追问，把同一条边界平静地重复，不怒、也不勉强作答。", "If he keeps pressing, restate the same line calmly — no anger, no caving."),
+    ],
+    success: L("你守住了隐私，对话从审问变成有来有回，他还愿意聊下去。", "Your privacy stays yours, the talk shifts from interrogation to exchange, and he's still glad to be there."),
+    failure: L("为了不冷场把住址工资连同户口本都递出去，或忍到绷不住甩一句「关你什么事」。", "To dodge the awkwardness you hand over your address, salary and more — or you finally snap with 'that's none of your business'."),
+    maxTurns: 8,
+    opening: {
+      characterId: "daryl",
+      text: L("对了，你每个月租金大概多少？——不是，我就想知道这个地段合不合适。还有你上一段感情！谈多久了？随便聊聊嘛。", "So, roughly what's your rent each month? — No, it's just, I'm wondering if this area fits the budget. And your last relationship! How long was it? I'm just making conversation."),
+    },
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-boundary.ts#love-boundary-interrogation-chat",
+    keywords: ["查户口", "审问", "边界", "隐私", "陌生人", "interrogation", "boundary", "privacy", "first meeting"],
+    loveTopic: "boundary",
+    icon: "clipboard-list",
+  },
+  {
+    id: "love-boundary-fight-escalation",
+    title: L("一场带刺的指责", "An Accusation With Barbs"),
+    hook: L("「你从来都不当回事」——这句话刺过来的同时，你的火也上来了。", "'You never take it seriously' — the words land, and your temper rises with them."),
+    background: L(
+      "你和 Marco 恋爱半年。今晚一进门，他就指着玄关的快递盒发起火来：「我说过多少次了！你从来都不当回事，每次都是。」快递盒是你确实忘了收，但他的措辞全是钩子：从来不、每次、说了等于白说。你被戳中错处又挨了刺，第一反应是以牙还牙，把上周他忘倒垃圾的事翻出来。任务方向：钩子是这样咬上去的——你回击一句，他就升级一句。不接钩子有两个办法：用软启动（具体事实—我的感受—我的请求）重新开头，或提出暂停（「先冷静 20 分钟，我们再谈」）。",
+      "Six months in with Marco. Tonight he comes through the door and erupts at the cardboard boxes piled by the entrance: 'How many times! You never take it seriously, every single time.' The boxes are genuinely your oversight — but every word he chose is a hook: never, every time, like talking to a wall. Pinched on a real fault and stung in the same breath, your first instinct is to hit back and dig up last week's bins he forgot. The task: this is how the hook gets you — you bite back one jab, he escalates one step. Two ways not to bite: a soft start (concrete fact — my feeling — my request) to re-open the talk, or a pause ('let's take twenty minutes to cool off, then talk').",
+    ),
+    simulationFacts: L(
+      "快递盒在玄关确实是你没收、他上星期确实提过，这两条已确认；他说「你从来都不」「每次都是」是绝对化措辞，不等于你真的每次都如此——不接钩子不等于不认错。他今天被领导当众批评是隐藏事实，只有你直接问「你今天是不是在公司受了气」才可能吐露；不问的话，他会一直扛着那股火。你提出暂停（20 分钟）不等于回避问题，也不等于他答应了会回来谈——暂停是一条约，需要双方都回来才算数。",
+      "That the boxes are yours and that he mentioned them last week is established; 'you never…' and 'every single time' are absolutist labels, not a factual census of your habits — refusing the hook is not denying the fault. That he was dressed down in front of the team today is hidden, surfacing only if you ask directly whether something at work got to him; unasked, he'll carry the fire. Proposing a twenty-minute pause is not dodging the issue, nor is it his consent to resume — a pause is a pact that holds only if both of you come back to the table.",
+    ),
+    context: "romantic",
+    contextType: L("伴侣冲突", "Partner conflicts"),
+    competencies: ["self-management", "relationship-skills"],
+    skills: ["emotion-regulation", "impulse-control", "resolving-conflicts"],
+    relationship: ["partner"],
+    difficulty: 2,
+    minutes: 3,
+    characters: [
+      {
+        id: "marco",
+        name: L("Marco", "Marco"),
+        role: L("你的伴侣", "Your partner"),
+        personality: L(
+          "气头上话很冲，「从来都」「每次都是」张口就来；你被激到还击，他会立刻升级；你软启动或喊暂停，他能冷静下来，火消了偶尔还会先开口道歉。",
+          "Sharp when angry — 'you never', 'every time' come out on their own. Hit him back and he escalates on the spot; a soft start or a called break cools him, sometimes pulling a first apology once the fire dies.",
+        ),
+        stance: L("他认为点了火就该把架吵完，先赢下这架才叫把事说清楚。", "Believes once the fire is lit you fight it out — winning the fight is, to him, what 'getting it said' means."),
+        hidden: L("他今天在会上被领导当众数落了一顿，气是带回家的，只是到了嘴边变成了「你从来都不收拾」；被问「你今天是不是在公司受了气」才可能吐露一句。", "He was reamed out in front of the whole team today and carried it home, where it fell out as 'you never tidy up'; asked whether the office got to him today, he may admit it."),
+        hue: 15,
+      },
+    ],
+    objectives: [
+      L("认出情绪钩子，不还击、不翻旧账——即使他戳中的是真实的错。", "Spot the emotional hook: no counter-strike, no replaying old grievances — even when the fault he points at is real."),
+      L("用软启动重新开头：具体事实—我的感受—我的请求。", "Restart with a soft start: concrete fact — my feeling — my request."),
+      L("打不住就提出暂停，给一个具体的时间，并确保双方都同意回来再谈。", "If it can't be contained, call a pause with a concrete time, and make sure both of you agree to come back."),
+    ],
+    success: L("争吵没有升级成对骂，你们在情绪降温后聊到了真正的问题——快递盒，和他那天带回家的火气。", "The fight doesn't climb into an exchange of fire; once cool, you actually reach the real issue — the boxes, and the anger he carried home."),
+    failure: L("被「你从来都不」一激就开始对骂，把新账旧账全翻出来，吵到谁先摔门。", "'You never' lands, you both open fire, every old grievance gets replayed, and it ends with a door slammed."),
+    maxTurns: 8,
+    opening: {
+      characterId: "marco",
+      text: L("门口那些快递盒！我说过多少次了？你从来都不当回事——每次都是，我讲了半天跟对着墙说一样！", "Those boxes by the door! How many times? You never take it seriously — every single time, I might as well be talking to a wall!"),
+    },
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-boundary.ts#love-boundary-fight-escalation",
+    keywords: ["吵架", "指责", "情绪钩子", "软启动", "暂停", "argument", "criticism", "soft start", "pause"],
+    loveTopic: "boundary",
+    icon: "flame",
+  },
+  {
+    id: "love-boundary-privacy-slip",
+    title: L("桌上说漏的那句话", "The Secret That Slipped at Dinner"),
+    hook: L("「她那份奖金刚落地」——话一出口你就知道不该说，桌上却已经有人接起了梗。", "'Her bonus just landed' — the words are out before you can stop them, and someone at the table has already grabbed the joke."),
+    background: L(
+      "你们和几个共同朋友聚餐，聊到收入、体检这类话题时，你嘴一快，把 Zoey 还没对所有人公布的隐私（奖金、体检结果或家事）说了出来。桌上有人接话起哄，Zoey 的脸色已经不对了。现在最糟的是假装没发生，让那句话继续发酵；把锅甩回去（「那不是她上次自己说的吗」）一样糟。任务方向：当场补救不靠大场面表演——一句轻量的认下（「这事不该由我来说」）、把玩笑收住，再把话题带走，剩下的留给回家再谈。",
+      "At dinner with mutual friends, the talk drifts to income, check-ups, family business — and in the flow of it your mouth runs ahead of your brain: out slips something about Zoey she hasn't shared with everyone yet. Someone grabs it and turns it into a bit; Zoey's expression is already off. The worst move now is pretending it never happened and letting the comment keep fermenting — and throwing her under the bus ('didn't she say it herself last time?') is just as bad. The task: on-the-spot repair needs no grand gesture — one light admission ('that wasn't mine to tell'), shutting the joke down, and steering the table somewhere else. The rest keeps for home.",
+    ),
+    simulationFacts: L(
+      "你说漏了 Zoey 的隐私、桌上有人接话起哄，这两件是已发生事实。这件事是不是「大错」未定——你把它定性成「必须当场跪求」或「根本无所谓」都越界了，当场补救的目标是止住发酵，不是公开表演。「她本来想自己告诉父母」是隐藏事实，只有你私下单独问她「这事你是不是本来想自己说的」她才可能承认；在饭桌上追问，只会在错误的时刻把事情放大。你当场道歉不等于她当场原谅；她把话题接走也不等于这件事就翻篇了。",
+      "That you slipped Zoey's secret and someone at the table turned it into banter is established. How big a deal this is undecided — framing it as 'must grovel on the spot' or 'it's nothing' both overreach; the goal of the repair is to stop the bleeding, not to perform a public apology. That she'd meant to tell her parents herself is hidden, surfacing only if you ask her privately whether she wanted to be the one to share it; interrogating her at the table just amplifies the moment at the wrong time. Your apology now is not her forgiveness now; her taking the topic back is not the incident being closed.",
+    ),
+    context: "romantic",
+    contextType: L("信任与边界", "Trust & boundaries"),
+    competencies: ["relationship-skills", "social-awareness", "self-management"],
+    skills: ["communication", "social-norms", "empathy"],
+    relationship: ["partner"],
+    difficulty: 2,
+    minutes: 3,
+    characters: [
+      {
+        id: "zoey",
+        name: L("Zoey", "Zoey"),
+        role: L("你的伴侣", "Your partner"),
+        personality: L(
+          "顾大体，不愿在朋友面前发作，会把不满压到饭局后，但脸上藏不住；你当场和稀泥她会更失望，你当面认下、利落地把话题带走，她回家才愿意把这件事划到「可以谈」，而不是「这个坎过不去」。",
+          "Keeps face — won't blow up in front of friends and will hold the disappointment for after the meal, though her face gives it away. An on-the-spot cover-up disappoints her more; owning it simply and moving the conversation on is what lets her file the incident under 'something we can talk about' instead of 'a line that got crossed'.",
+        ),
+        stance: L("此刻只想让场面别更难看；真要谈补偿或道歉，等回家再谈。", "Right now she just wants the moment to stop getting worse; the real conversation about it can wait until you're home."),
+        hidden: L("那条隐私（升职加薪）本来是她打算等评估正式下来后自己先告诉父母的消息，你抢先说了，让她觉得「你不信任我能自己开口」；被私下问「这事你是不是本来想自己说的」才可能承认。", "That secret — her bonus with the promotion — was news she'd planned to tell her parents herself once the review officially landed; you saying it first lands as 'you don't trust me to speak for myself.' Asked privately whether she had wanted to share it on her own, she may admit it."),
+        hue: 300,
+      },
+    ],
+    objectives: [
+      L("不当面假装没发生，也不把锅甩回伴侣。", "Neither pretend it didn't happen nor throw the partner under the bus."),
+      L("用一句轻量的认下（「这话不该由我来说」）把玩笑收住，再把话题带走。", "Stop the bit with one light admission — 'that wasn't mine to tell' — then steer the table onward."),
+      L("不把撕扯留在桌上：道歉要说，但细节和她的感受留到回家再谈。", "Keep the rupture off the table: apologise, sure — the details and her feelings wait until you're home."),
+    ],
+    success: L("桌上的梗被止住，Zoey 没有当众难堪，也没用一顿铁青的饭局惩罚你——你们还有回家的路可以谈。", "The bit dies down, Zoey doesn't have to be humiliated in front of the table, and the dinner doesn't turn into a punishment — you still get to have the conversation on the way home."),
+    failure: L("你笑着说「哎呀一不小心说漏了」假装没事，或当场甩一句「那不是她上次自己说的吗」让场面更冷。", "You laugh it off with 'oops, it slipped out' and let it fester — or you fire back 'didn't she say it herself last time' and freeze the room colder."),
+    maxTurns: 6,
+    opening: {
+      characterId: "zoey",
+      text: L("（桌上有人接梗起哄。Zoey 微微侧过头，压低声音）……今天这顿饭还没结束。你打算就这么让它过去？", "(Someone at the table picks up the joke and runs with it. Zoey turns her head slightly, voice low.) …The night isn't over yet. You're going to let that just slide?"),
+    },
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-boundary.ts#love-boundary-privacy-slip",
+    keywords: ["说漏", "隐私", "伴侣", "补救", "聚会", "privacy", "slip", "partner", "repair", "gathering"],
+    loveTopic: "boundary",
+    icon: "megaphone",
+  },
+  {
+    id: "love-boundary-belittling-jokes",
+    title: L("「开个玩笑」的越界", "When the Joke Is the Boundary"),
+    hook: L("「你除了我谁还要你」——说完他自己先笑了：「哎，开个玩笑，你这人真开不起玩笑。」", "'Who else would want you anyway' — and he laughs first: 'Hey, just kidding, you really can't take a joke.'"),
+    background: L(
+      "和 Vic 在一起大半年，你发现「开玩笑」正在变成他单方面的调味料：你胖、你无趣、没有他你什么都不是——每句损你都跟着一句「我就开个玩笑」「你就是太敏感了」。起初你笑着略过，最近你开始半夜反复回放这些话。任务方向：玩笑的边界归双方——感到不是玩笑的那一方有权说「不」。练习把越界说具体（「这句话不是玩笑，是贬低」）、给一个明确的停，并且不给「太敏感」这个标签让路。",
+      "Half a year with Vic, and 'joking' has quietly become his one-sided condiment: your weight, your boringness, how you'd be nothing without him — every dig wearing the same tail, 'I'm just kidding' and 'don't be so sensitive'. At first you laughed it off; lately you've been replaying the lines at 3am. The task: the boundary of a joke belongs to both people — the one who doesn't find it funny gets to say no. Practise naming the crossing concretely ('that's not a joke, it's a put-down'), stating a clear stop, and refusing to yield to the 'too sensitive' label.",
+    ),
+    simulationFacts: L(
+      "那句「你除了我谁还要你」和「你太敏感了」已经发生，是已确认事实；「他是蓄意操控还是没察觉」未核实——越界的玩笑不需要对方先承认恶意，伤害是否认不掉的，你的感受也不需要他的许可才成立。他怕你离开是隐藏事实，只有你直视他、把越界说成「这是伤害」并要求他停，他才可能承认；你笑着略过，他只会把玩笑升一档。你要求「停止这类玩笑」不等于要求分手；他说「好」也不等于立刻真的改——行为改变需要观察，停下来是起点，不是终点。",
+      "That 'who else would want you anyway' and 'you're too sensitive' actually happened is established; whether he's malicious or oblivious is unverified — a boundary-crossing joke does not require him to first admit intent, the hurt is not negotiable, and your feeling does not need his permission to count. That he's afraid you'll leave is hidden, surfacing only when you hold his gaze, name the crossing as harm, and demand it stop; laughing it off just moves the joke up a notch. Asking that these jokes stop is not asking to break up; his 'okay' is not instant change — behavior change takes watching, and stopping is the starting line, not the finish.",
+    ),
+    context: "romantic",
+    contextType: L("信任与边界", "Trust & boundaries"),
+    competencies: ["relationship-skills", "self-management", "self-awareness"],
+    skills: ["communication", "emotion-regulation", "self-efficacy"],
+    relationship: ["partner"],
+    difficulty: 3,
+    minutes: 4,
+    characters: [
+      {
+        id: "vic",
+        name: L("Vic", "Vic"),
+        role: L("你的伴侣", "Your partner"),
+        personality: L(
+          "嘴甜与嘴损齐飞，信奉「朋友情侣之间就该开得起玩笑」，损完必补「你太敏感了」；你笑着略过他会变本加厉，你平静地把越界说具体、要求停，他会愣一下，然后试探你是来真的还是说着玩。",
+          "Sweet talk and sharp digs in equal measure; believes couples who can't take a joke aren't worth keeping, and always tags each dig with 'you're too sensitive'. Laughing it off earns a sharper one; calmly and specifically naming the line and demanding it stop makes him pause — then test whether you mean it.",
+        ),
+        stance: L("他认定这是情趣不是伤害，你的不舒服是「开不起玩笑」的证据。", "He's certain this is playfulness, not harm — your discomfort is, to him, proof that you can't take a joke."),
+        hidden: L("他不是想伤害你，相反，他怕你太优秀会离开——用损话把你在关系里「压住」，因为比他强的人他一个都没留住过；只有你直视他说「这不是玩笑，这是你在伤害这段关系」他才可能承认自己怕你走。", "He doesn't actually want to hurt you — he's afraid you're good enough to leave, and the digs are how he keeps you 'in your place', because anyone stronger than him has always walked away; only when you hold his gaze and say 'that's not a joke, that's you damaging this relationship' may he admit the fear that you'll go."),
+        hue: 250,
+      },
+    ],
+    objectives: [
+      L("识别越界：区分互相打趣与借玩笑贬低——以你的感受和话里的事实为准，不靠他的定义。", "Spot the crossing: tell mutual teasing from put-downs dressed as jokes — judged by your feeling and the words, not by his definition."),
+      L("把越界说具体（「这句话不是玩笑，是贬低」），给出明确的要求：停止。", "Name it concretely — 'that's not a joke, it's a put-down' — with one clear request: stop."),
+      L("不为「你太敏感了」这个标签动摇；需要的话，说清不改变会有什么后果。", "Refuse to wobble on the 'too sensitive' label; if needed, state plainly what will change if it doesn't stop."),
+    ],
+    success: L("Vic 至少听懂「这条线是认真的」并停口，或你看清了这不是亲密、为自己设下了边界。", "Vic hears that this line is real and stops — or you see clearly that this isn't intimacy, and set the boundary for yourself."),
+    failure: L("被「你太敏感了」噎住就笑着说「好好好我开不起玩笑」，把委屈咽回肚子里继续被损。", "Backed into the 'too sensitive' corner, you laugh — 'yeah sure, I can't take a joke' — swallow the sting, and let the digs keep coming."),
+    maxTurns: 8,
+    opening: {
+      characterId: "vic",
+      text: L("还敢吃？你看看自己——好了好了，开玩笑的！你这个人就是太敏感，几句玩笑都接不住。", "Still eating that? Look at yourself — hey, hey, I'm kidding! See, you're way too sensitive, can't even take a bit of teasing."),
+    },
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-boundary.ts#love-boundary-belittling-jokes",
+    keywords: ["开玩笑", "贬低", "操控", "敏感", "边界", "teasing", "put-down", "boundary", "sensitive"],
+    loveTopic: "boundary",
+    icon: "shield-alert",
+  },
+];

@@ -1,6 +1,13 @@
-<!-- Last verified: 2026-10-04 | Current stage: B -->
+<!-- Last verified: 2026-10-09 | Current stage: C -->
 
 # 踩坑记录
+
+### check-core.mjs 在 Windows 上 spawn pnpm 必炸；package.json 尾随逗号静默断掉全部 tsx（2026-10-09）
+
+- **现象：** `pnpm check` 在 test:core 阶段退出 1；单跑 `node scripts/check-core.mjs` 无任何输出即退出 1，而 `npx tsx scripts/check-corpus.ts` 等 9 个子脚本单独跑全部 PASS。另有一次 package.json 改动（在 scripts 最后一行行尾留逗号）后，所有 `tsx` 脚本报 "JSON does not support trailing commas"，与脚本内容无关地全挂。
+- **原因：** check-core.mjs 用 `spawnSync('pnpm', ['exec','tsx',...])` 顺序跑 9 个校验——Windows 上 pnpm 是 `pnpm.cmd`，node 的 spawnSync 不经 shell 无法解析 .cmd（ENOENT）→ `status=null` → `result.status ?? 1` 静默退出 1，9 个脚本一个都没执行，也不打印任何错误。tsx 对每个被导入文件都会解析最近的 package.json，非法 JSON 时所有 tsx 入口全挂。
+- **解法：** spawn 加 `{stdio:'inherit', shell: process.platform==='win32'}`（参数全部是硬编码脚本名，无注入面）；package.json 的 scripts 最后一行不要尾随逗号；改完用 `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"` 校验。
+- **教训：** Windows 上 spawn .cmd 必须带 shell；`node scripts/check-core.mjs` 无输出就退出，先怀疑 spawn 机制而不是校验逻辑本身；验证脚本本身是可以炸的，`pnpm check` 变红要先定位是哪一段，不要默认是自己改坏的。
 
 ### 判断 NPC 编造前必须核对完整情境（2026-10-08）
 

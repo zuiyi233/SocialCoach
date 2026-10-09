@@ -1,0 +1,261 @@
+import { L } from "../taxonomy";
+import type { Scenario } from "./types";
+
+/**
+ * Deep long-distance scenarios (batch 7) for the love module (context: "romantic").
+ * Original fictional practices derived from practical-map situations — milestone
+ * rituals, low-mood company, social-media mistrust, phone-fight repair, and a
+ * third-time-postponed visit (the difficulty-3 escalation of love-ld-visit-plan).
+ */
+export const LOVE_SCENARIOS_DEEP_LONG_DISTANCE: Scenario[] = [
+  {
+    id: "love-ld-milestone-remote",
+    title: L("纪念日在两个城市", "An Anniversary in Two Cities"),
+    hook: L("今天是你们的纪念日，你们在两个城市，视频里的祝福总差一口气。", "It's your anniversary today — two cities apart, and a video-call wish feels a beat short."),
+    background: L(
+      "今天是你们的三周年纪念日，撞上两边各有走不开的安排，没能凑到一块儿。你不想让这一天就这么过去，也不想只剩一句「今天好想你」的客套。任务方向：设计一个「人不在场、心意在场」的具体小仪式——固定时段的连线、一件寄到对方楼下的小东西、或那天里某个只有你俩懂的时刻；说清你想做哪一件、什么时候做、Ta 只需配合哪一步，而不是嘴上说说，或擅自替 Ta 排满这一天。",
+      "It's your third anniversary, and between commitments on both sides you couldn't get to the same city. You don't want the day to just pass, and you don't want it to boil down to a canned 'miss you so much'. The task: design one concrete ritual where you're absent but your intent is present — a fixed call window, a small thing delivered to their door, or one moment in the day only the two of you would recognize; say which one, when, and the single step they need to play along, instead of empty words or silently filling their whole day for them.",
+    ),
+    simulationFacts: L(
+      "三周年、两人在两个城市、今天没法见面，是已确认设定；「Ta 今天有没有别的安排」未核实，你单方面排满计划不等于 Ta 同意。你提议的视频时段，要等 Ta 确认才算数；你寄出的东西要等 Ta 收到才算到达。Sana 其实也偷偷备了一份小惊喜想寄给你，这是隐藏事实，只有你问「你那边今天原本打算怎么过」才可能吐露。仪式落地只是这一天被好好对待了，不等于解决了整段异地关系的议题。",
+      "That it's your third anniversary, that you're in two cities, and that meeting today is off are confirmed; whether they have other plans today is unverified, and unilaterally filling their day is not their consent. The call window you propose only counts once they confirm it; the package you send only arrives once it's in their hands. Sana has quietly prepared a small surprise to send you — hidden, and surfaced only if you ask how she meant to spend the day. A ritual landing means the day was handled well, not that the larger long-distance issues are resolved.",
+    ),
+    context: "romantic",
+    contextType: L("表达爱意", "Affection sharing"),
+    competencies: ["relationship-skills", "social-awareness", "self-management"],
+    skills: ["communication", "empathy", "initiative"],
+    relationship: ["partner"],
+    difficulty: 1,
+    minutes: 2,
+    characters: [
+      {
+        id: "sana",
+        name: L("Sana", "Sana"),
+        role: L("异地的伴侣", "Your long-distance partner"),
+        personality: L(
+          "期待这一天，又怕期待落空，所以先把话说得淡淡的；你给一个具体、留出空间的小仪式，她会真正接住并配合，空泛的「今天好想你」她会礼貌地笑一下，心里凉半截。",
+          "Looking forward to the day and bracing for disappointment, so she keeps her voice light first; a concrete ritual with room for her gets genuinely met and matched, while a hollow 'miss you' earns a polite smile and a half-frozen heart.",
+        ),
+        stance: L("想被认真地惦记，又不敢主动开口要。", "Wants to be thought of properly, and is too shy to ask for it."),
+        hidden: L("她也偷偷备了一份小惊喜想寄给你，怕显得太主动一直没说；被问「你那边今天原本打算怎么过」才可能吐露。", "She has quietly prepared a small surprise to send you, too shy to say so; only a question about how she meant to spend the day may draw it out."),
+        hue: 338,
+      },
+    ],
+    objectives: [
+      L("给一个具体、可执行的小仪式（时段、物件或只有你俩懂的时刻），而不是一句「好想你」。", "Offer one concrete, doable ritual — a window, a thing, a private moment — instead of 'miss you'."),
+      L("说清 Ta 只需配合哪一步，留出 Ta 自己今天的空间。", "State the one step they need to play along, leaving room for their own day."),
+      L("接住 Ta 可能的失望与惊喜，不用「我都安排好了」绑架 Ta 的回应。", "Meet whatever lands — disappointment or surprise — without using 'I planned it all' to corner their response."),
+    ],
+    success: L("Sana 感到这一天被认真对待，愿意配合你的仪式，或告诉你她也有准备。", "Sana feels the day was genuinely handled and plays along — or confesses she had something ready too."),
+    failure: L("用一句「今天好想你」代替安排，或单方面排满她的时间让她只能被动配合。", "You substitute 'miss you so much' for a plan, or fill her whole day unilaterally and leave her no room to respond."),
+    maxTurns: 6,
+    opening: {
+      characterId: "sana",
+      text: L("（视频接通，她那头是傍晚的阳台，风有点大。）……今天是我们三周年，对吧。本来想飞过去的，票都看好了，结果组里临时要我出差。你那边……今天过得怎么样？", "(The call connects; it's evening on her balcony and the wind is picking up.) …It's our third anniversary today, isn't it. I almost flew over — had the tickets picked — then work shipped me somewhere last minute. How's… your day going?"),
+    },
+    icon: "gift",
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-long-distance.ts#love-ld-milestone-remote",
+    keywords: ["纪念日", "异地", "仪式", "陪伴", "anniversary", "long-distance", "ritual", "thoughtful"],
+    loveTopic: "long-distance",
+  },
+  {
+    id: "love-ld-low-mood-remote",
+    title: L("隔着屏幕的低谷", "A Low Day Across the Screen"),
+    hook: L("她面试被拒的第二天，视频里眼眶红红的，还在笑着说「没事」。", "The day after her interview flopped, her eyes are red on the call and she's smiling through an 'I'm fine'."),
+    background: L(
+      "异地恋里，June 在另一个城市经历了情绪低谷：面试被拒，家里又出了事。此刻隔着屏幕，她眼眶是红的，却说「没事」。你想安慰，却发现自己只有文字和这个视频窗口。难点：先接住情绪——确认她的感受，不急着给方案；用可及的陪伴动作（固定时段的通话、具体到一件小事的关心）替代「在场」，而不是把「我给不了你拥抱」变成自责，或冷场。",
+      "In your long-distance relationship, June hit a low in her city: the interview fell through, and something came up at home. On the screen her eyes are red, and she insists she's fine. You want to comfort her and find you only have text and this window. The task: hold the feeling first — name hers, don't leap to solutions; substitute reachable company — a fixed call window, a care move that names one small concrete thing — for being there, instead of turning 'I can't hug you' into self-blame or dead air.",
+    ),
+    simulationFacts: L(
+      "「面试被拒、家里有事」是 June 说的，具体细节未核实；「没事」不等于她已经好受，也不等于她拒绝陪伴。你提议「今晚视频陪你」要等她说好才算数；她只回一个「嗯」不等于事情翻篇。隐藏事实：真正压着她的是妈妈住院而她回不去，面试只是最后一根稻草——只有你问「家里那件事还好吗」才可能吐露。你的一个关心动作不等于她必须振作，也不欠你一个「好了」的汇报。",
+      "That the interview failed and something happened at home are June's words, details unverified; 'I'm fine' neither means she feels better nor that she's refusing company. Your offer to keep her on the call tonight counts only when she says yes; a single 'mm' is not the matter closing. Hidden: what's really crushing her is her mother being in hospital while she can't get home — the interview was just the last straw — surfaced only if you ask about the family thing. One caring move doesn't obligate her to bounce back or file an 'all better' report.",
+    ),
+    context: "romantic",
+    contextType: L("表达爱意", "Affection sharing"),
+    competencies: ["social-awareness", "relationship-skills", "self-management"],
+    skills: ["empathy", "communication", "emotion-regulation"],
+    relationship: ["partner"],
+    difficulty: 2,
+    minutes: 3,
+    characters: [
+      {
+        id: "june",
+        name: L("June", "June"),
+        role: L("异地的伴侣", "Your long-distance partner"),
+        personality: L(
+          "习惯自己扛，情绪低谷时拿「没事」当盾牌；你急着给方案她会更收着，你先确认她的感受、再给一个具体可执行的陪伴动作，她会真的打开一点。",
+          "Used to carrying things alone, she wields 'I'm fine' as a shield in a low; a rush of advice makes her pull in further, while naming her feeling first and then offering one concrete, reachable act of company genuinely opens her a little.",
+        ),
+        stance: L("不想把坏情绪传染给你，所以先报喜不报忧。", "Doesn't want to drag you into her gloom, so she leads with the good news."),
+        hidden: L("真正压着她的是妈妈住院而她回不去，面试只是最后一根稻草；被问「家里那件事还好吗」才可能吐露。", "Her mother is in hospital while June can't get home — the real weight, with the interview as the last straw; she may confess only when asked directly about the family thing."),
+        hue: 200,
+      },
+    ],
+    objectives: [
+      L("先确认她的情绪，而不是跳过感受直接给方案。", "Meet the feeling first instead of skipping to fixes."),
+      L("用一个可及的陪伴动作（固定时段通话、具体的小关心）替代在场，不把没法拥抱变成自责。", "Substitute one reachable act of company — a fixed window, one concrete care move — for being there, without spiraling into 'I can't hug you' guilt."),
+      L("给她留出「不想说」的出口，不逼她振作或汇报。", "Leave an exit for 'I don't want to talk', without demanding she bounce back or file a report."),
+    ],
+    success: L("June 松口说出至少一部分真实的难受，或接住你给的陪伴时段。", "June lets some of the real weight out — or takes the company window you offered."),
+    failure: L("直接开「下次面试……」的方案清单，或反复自责「我要是在你身边就好了」然后一起沉默。", "You hand her a 'next interview…' fix list, or keep apologizing 'if only I were there' until you're both silent."),
+    maxTurns: 8,
+    opening: {
+      characterId: "june",
+      text: L("（视频里她眼眶红红的，还在笑。）……真没事，就是昨晚没睡好。你那边下雨了吗？", "(On the call her eyes are red and she's still smiling.) …I'm fine, really. Just didn't sleep well. Is it raining where you are?"),
+    },
+    icon: "moon",
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-long-distance.ts#love-ld-low-mood-remote",
+    keywords: ["异地", "低谷", "共情", "陪伴", "情绪", "long-distance", "low mood", "empathy", "companionship"],
+    loveTopic: "long-distance",
+  },
+  {
+    id: "love-ld-social-media-rumor",
+    title: L("一条动态引发的追问", "A Post, Then the Questions"),
+    hook: L("你发了一张和异性朋友的合照，没提前告诉她；当晚视频就弹了过来。", "You post a photo with a friend of the opposite sex, without telling her first; the video call pops up that very night."),
+    background: L(
+      "你异地中，最近发了一条和异性朋友聚餐的合照，没提前告诉 Tess。当晚她的视频弹过来，连珠炮一样追问：和谁、为什么没告诉她、是不是经常一起。你火气往上蹿——你明明没做什么。难点：你是被质疑的一方——区分事实与解释（「那张合照」是事实，「你在隐瞒」是她的解释，不是同一件事）；不防御、不阴阳怪气；先核实她真正担心的是什么，再给一句具体的话让不安落地，而不是用「你又查岗」把对话炸掉。",
+      "You're long-distance, and recently posted a photo from dinner with a friend of the opposite sex — no heads-up to Tess. That night the call fires up with a barrage: who is it, why didn't you tell me, is this a regular thing. Your temper climbs — you did nothing wrong. The task: you're the one being questioned — separate fact from interpretation (the photo is fact, 'you're hiding something' is her read, not the same thing); don't get defensive, don't get sarcastic; find out what she's actually afraid of, then give one concrete sentence that lets the unease land somewhere — instead of torching the conversation with 'are you checking up on me again'.",
+    ),
+    simulationFacts: L(
+      "合照存在、你没提前告诉她，是已确认事实；「你们经常单独吃饭」「你在瞒我」是 Tess 的解读，未核实。她的连珠炮不等于认定你有问题——她可能只是慌了。你说「我们只是普通朋友」不等于她立刻相信，你解释一次也不等于话题就此结束。隐藏事实：Tess 上一段感情是败在对方「不提前说、私下和异性保持联系」上，所以这条动态踩中了旧伤——只有你问「你真正怕的是不是我又有什么事瞒着你」才可能吐露。你答应「以后提前说」不等于授权她管你所有社交，边界仍然可以谈。",
+      "That the photo exists and you didn't tell her first are confirmed; that you two hang out constantly or that you're hiding something are Tess's interpretations, unverified. The barrage is not a verdict — she may simply be panicking. Your 'we're just friends' is not instant belief, and one explanation does not close the topic. Hidden: Tess's last relationship collapsed on exactly this — a partner who never said anything and quietly kept opposite-sex contacts — so the post grazes an old wound, surfaced only if you ask whether she's afraid you're hiding something again. Agreeing to 'tell you first' does not hand her the keys to all your social life; boundaries stay negotiable.",
+    ),
+    context: "romantic",
+    contextType: L("信任与边界", "Trust & boundaries"),
+    competencies: ["relationship-skills", "social-awareness", "self-management"],
+    skills: ["communication", "perspective-taking", "impulse-control"],
+    relationship: ["partner"],
+    difficulty: 2,
+    minutes: 3,
+    characters: [
+      {
+        id: "tess",
+        name: L("Tess", "Tess"),
+        role: L("异地的伴侣", "Your long-distance partner"),
+        personality: L(
+          "平时大条，碰到「没提前说」就炸毛；你回一句「你又查岗」她会直接爆，你把事实和她的担心分开讲、并核实她真正怕什么，她会慢慢平静，说出实话。",
+          "Easygoing day to day, but trips at anything 'you didn't tell me first'; a sarcastic 'checking up on me again?' detonates her, while separating the facts from her fear and asking what she's really worried about settles her into the truth.",
+        ),
+        stance: L("不是要禁你发动态，是要「别让我从别人那里知道」。", "She isn't banning your posts — she wants 'don't find out from someone else'."),
+        hidden: L("上一段感情因为对方「不提前说、私下和异性联系」烂尾，这条动态踩中旧伤；被问「你是不是怕我又瞒你什么」才可能吐露。", "Her last relationship died on a partner who never said anything and quietly stayed in touch with others, so the post grazes the old wound; a direct ask about whether she fears you hiding things may draw it out."),
+        hue: 20,
+      },
+    ],
+    objectives: [
+      L("把事实和解释分开：照片是事实，「你在隐瞒」是她的解读，不一起认领。", "Separate fact from read: the photo is fact, 'you're hiding' is her interpretation — don't own both at once."),
+      L("核实她真正担心的是什么，而不是被拖进逐条自证。", "Find out what she's actually afraid of instead of being pulled into item-by-item self-defense."),
+      L("给一句具体的话让不安落地（这类事会提前说、约好一个告知方式），不防御也不阴阳怪气。", "Give one concrete sentence that settles the unease — these things will get a heads-up, agree on a way to tell — without defensiveness or sarcasm."),
+    ],
+    success: L("Tess 从追问转到说出真实担心，你们定下一个「什么会提前说」的共识。", "Tess moves from interrogation to naming the real fear, and you land one agreement about what gets a heads-up."),
+    failure: L("一句「你又查岗」把对话炸掉，或为了灭火承诺「以后什么都不发」。", "You torch it with 'checking up on me again', or promise 'I'll post nothing' to put out the fire."),
+    maxTurns: 8,
+    opening: {
+      characterId: "tess",
+      text: L("你那条动态——靠在你肩膀上的那个是谁？你们什么关系？为什么我从没听你提过这个人？你们是不是经常一起出去？", "That post of yours — who's the one leaning on your shoulder? What are you two to each other? Why have I never once heard of this person? Do you go out together a lot?"),
+    },
+    icon: "message-square-warning",
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-long-distance.ts#love-ld-social-media-rumor",
+    keywords: ["异地", "动态", "查岗", "事实与解释", "信任", "long-distance", "social media", "facts", "trust"],
+    loveTopic: "long-distance",
+  },
+  {
+    id: "love-ld-fight-over-phone",
+    title: L("电话里吵崩之后", "The Call That Ended in a Hang-Up"),
+    hook: L("你话还没说完，那头就挂了。再打过去，只有忙音和一条冷冰冰的「睡了」。", "The line dies mid-sentence. You call back: busy tone, then one cold text — 'going to sleep.'"),
+    background: L(
+      "你们在电话里因为一件小事越吵越大——谁没体谅谁的安排，话赶话。最后 Eli 挂了电话，回了一条「睡了」。异地让「见面抱一下」这个选项不存在，修复只剩文字和下一个电话。难点：决定怎么把修复接起来——留出冷静时间（并说清大概多久）、说出刚才自己哪一句说过头、给一个具体的重新连接点（明早几点、通话说多久）；不冷战熬着，也不为哄人假装没事。",
+      "A small thing snowballs on the call — whose plans weren't respected, one line too far. Then Eli hangs up and sends 'going to sleep'. Long distance removes the 'we can just hug it out' option; repair is only text and the next call. The task: decide how to pick repair back up — take a real cool-off and say roughly how long, own the exact line you overstepped, and offer one concrete reconnection point (what time tomorrow, how long the call is); neither a cold war nor fake peace to smooth things over.",
+    ),
+    simulationFacts: L(
+      "挂电话和「睡了」是已确认事实；吵架起因的那件小事的细节，双方各执一词，未核实。Eli 说「睡了」不等于他不想谈了——他可能只是怕再吵下去更难收场。你说「我们明天再说」不等于他同意明天几点；你为某一句道歉不等于整件事翻篇。隐藏事实：Eli 挂电话前，家里那边先爆了一个让他情绪透支的消息，你们的小事只是导火索——只有你先冷静下来问「你今天是不是还有别的事压着」才可能吐露。你留出冷静时间不等于已经约好重连方式，两步都要说完。",
+      "That he hung up and sent 'going to sleep' are confirmed; the details of the small thing you fought about are contested and unverified. 'Going to sleep' is not him closing the conversation — he may be avoiding making it worse. Your 'let's talk tomorrow' is not him agreeing to a time; apologizing for one line is not the whole matter closing. Hidden: before the hang-up, news from his family left him emotionally drained — your squabble was only the trigger; he may surface it only if you first ask, calmly, whether something else is weighing on him. Taking a cool-off does not set the reconnect — say both steps.",
+    ),
+    context: "romantic",
+    contextType: L("伴侣冲突", "Partner conflicts"),
+    competencies: ["self-management", "relationship-skills"],
+    skills: ["emotion-regulation", "resolving-conflicts", "communication"],
+    relationship: ["partner"],
+    difficulty: 3,
+    minutes: 4,
+    characters: [
+      {
+        id: "eli",
+        name: L("Eli", "Eli"),
+        role: L("异地的伴侣", "Your long-distance partner"),
+        personality: L(
+          "平时温和，情绪透支时防御拉满，挂电话是短路不是冷血；你隔空示好他会软下来，你上来就「你为什么挂我电话」他会继续关机。你给冷静时间和一个具体的重连点，他会真的接住。",
+          "Gentle normally; maxed out, his defenses slam shut and hanging up is a short-circuit, not coldness. Warm overtures soften him; a lead with 'why did you hang up on me' keeps him powered off. A stated cool-off and one concrete reconnect point genuinely land.",
+        ),
+        stance: L("不是不想和好，是不想再在电话里越吵越难看。", "He's not refusing reconciliation — he just won't let the call keep degrading."),
+        hidden: L("挂电话前，他家里那边先爆了一个让他情绪透支的消息，你们的小事只是导火索；被先问「你今天是不是还有别的事压着」才可能吐露。", "Before hanging up, news from his family left him emotionally spent — your squabble was only the trigger; he may only say so after you first ask whether something else is weighing on him."),
+        hue: 310,
+      },
+    ],
+    objectives: [
+      L("先说出自己哪一句说过头，而不是隔空论证谁更有理。", "Name the exact line you overstepped instead of arguing who's right across the void."),
+      L("留出明确的冷静时间，并给一个具体的重新连接点（时间与方式）。", "Set a clear cool-off window and offer one concrete reconnection point — when and how."),
+      L("不冷战熬着，也不为哄人假装没事。", "Neither a cold war nor fake peace to keep the peace."),
+    ],
+    success: L("Eli 愿意接起下一次通话，你们先修复情绪，再谈那件小事。", "Eli picks up the next call; you repair the feelings first, the small thing after."),
+    failure: L("你整夜连环打电话，或也甩一句「那正好，都冷静」然后两个人冷战到天亮。", "You call all night in a loop — or fire back 'good, let's both cool off' and freeze each other out till dawn."),
+    maxTurns: 8,
+    opening: {
+      characterId: "eli",
+      text: L("（手机亮起，他的消息停在「睡了」两个字上。）……你还要接着说吗？我现在真的不想再吵下去。", "(Your phone lights up. His message sits on two words: 'going to sleep.') …Do you have more to say? I genuinely don't want to keep fighting right now."),
+    },
+    icon: "split",
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-long-distance.ts#love-ld-fight-over-phone",
+    keywords: ["异地", "吵架", "修复", "冷静", "重连", "long-distance", "fight", "repair", "cool-off"],
+    loveTopic: "long-distance",
+  },
+  {
+    id: "love-ld-visit-plan-hard",
+    title: L("第三次落空的见面", "The Visit That Fell Through — Again"),
+    hook: L("见面已经推迟过两次，这次又临时落空。你低声说了一句「你说了算」，空气冻住了。", "The visit already got postponed twice; this time it collapses at the last minute. You mutter 'whatever you say', and the air freezes."),
+    background: L(
+      "你们异地，见面的日期已经推迟过两次——一次你的工作，一次 Ravi 家里有事。这次他临时走不开，第三次落空。「总是你的时间重要」已经在你们中间盘旋，旧怨开始压过排期本身。难点：先接住已经累积的情绪，再把「谁迁就谁」的零和争论变成「把两边的硬约束摊开找交集」——承认各自的限制、核实对方真实可动的时间、提出可验证的备选（换周、拆段、先定一段）。这不是第一次排期僵持：这次的对手是失望和旧怨，其次才是日历。",
+      "You're long-distance, and the visit already slipped twice — once your work, once something at Ravi's home. This time he can't make it at the last minute: a third fall-through. 'It's always your time that matters' has been orbiting between you, and old resentment is now crowding out the calendar. The task: absorb the accumulated feeling first, then turn the zero-sum 'who yields to whom' into 'lay both hard constraints out and find the overlap' — own your limit, verify what time he can genuinely move, propose checkable alternatives (swap the week, split the trip, lock one stretch first). This is not a first scheduling standoff: the opponent here is disappointment and old resentment, and only after that the calendar.",
+    ),
+    simulationFacts: L(
+      "前两次推迟、这次又落空，是已确认事实；「总是你的时间重要」是目前盘旋的不满，不是结论。Ravi 说「走不开」的具体原因未核实；他到底哪几天真能动，只有摊开日历问「你这周哪几天能排开」才可能核实。隐藏事实：这次走不开是因为他爸临时住院手术，他觉得说出来像在装惨，一直没说——只有你先接住失望、不再把他当「又爽约的人」、问他这次具体卡在哪，才可能吐露。提出一个交集日期不等于双方都已答应那几天；先定下一段，也不等于整次见面都谈妥了。",
+      "Two postponements and this last-minute fall-through are confirmed; 'it's always your time that matters' is a grievance circling between you, not a verdict. Ravi's stated reason for being unavailable is unverified; which days he can actually move only becomes checkable once both calendars are on the table and you ask which days of this week he could free. Hidden: this time he can't make it because his father was hospitalized for surgery — saying it feels like playing the victim, so he hasn't; only when you hold the disappointment, stop treating him as the chronic no-show, and ask what exactly is pinning him down may he say it. Proposing an overlapping window is not both agreeing to those nights; locking one stretch is not the whole trip being settled.",
+    ),
+    context: "romantic",
+    contextType: L("伴侣冲突", "Partner conflicts"),
+    competencies: ["relationship-skills", "responsible-decision-making", "social-awareness"],
+    skills: ["communication", "problem-solving", "perspective-taking"],
+    relationship: ["partner"],
+    difficulty: 3,
+    minutes: 4,
+    characters: [
+      {
+        id: "ravi",
+        name: L("Ravi", "Ravi"),
+        role: L("异地的伴侣", "Your long-distance partner"),
+        personality: L(
+          "平时守约，前两次推迟让他自己也很内疚；你一句「你说了算」他会又内疚又委屈地硬扛；你把失望接住、再摊开日历谈，他会说出实话，也真的去核实可动的时间。",
+          "Keeps his word normally, and the two postponements already sit heavy on him; a 'whatever you say' makes him swallow guilt and grievance at once. When you hold the disappointment first, then lay the calendars out, he tells the truth and actually verifies what time he can free.",
+        ),
+        stance: L("想见你，但家里和工作两座山压着，怕再承诺又落空。", "Wants to see you, but family and work have him boxed in, and he dreads promising another fall-through."),
+        hidden: L("这次走不开是因为他爸临时住院手术，他觉得说出来像在装惨博同情，一直没说；只有你先接住失望、问清楚他这次到底卡在哪，才可能吐露。", "His father was suddenly hospitalized for surgery — the real reason he can't make it, kept quiet because it would sound like fishing for sympathy; surfaced only when you hold the disappointment and ask what exactly is pinning him down."),
+        hue: 90,
+      },
+    ],
+    objectives: [
+      L("先接住累积的失望与旧怨，不让「总是你的时间重要」压垮对话。", "Hold the accumulated disappointment and old resentment so 'it's always your time' doesn't sink the conversation."),
+      L("把两边的硬约束摊开：说清自己的限制，核实对方真实可动的时间。", "Put both hard constraints on the table: state your own limit, verify what he can genuinely move."),
+      L("提出可验证的备选（换周、拆段、先定一段），并确认双方都已同意的是哪几天。", "Propose checkable alternatives — swap a week, split the trip, lock one stretch — and confirm which nights are actually agreed."),
+    ],
+    success: L("Ravi 说出这次走不开的真实原因，或至少两边的限制摊开，定下一个可验证的下一步。", "Ravi names the real reason — or at least both constraints land and one checkable next step is set."),
+    failure: L("用「你说了算」把失望变成冷处理，或逼他当场保证一个他自己都没把握的日期。", "You convert the disappointment into coldness with 'whatever you say', or force him to promise a date he can't be sure of on the spot."),
+    maxTurns: 8,
+    opening: {
+      characterId: "ravi",
+      text: L("……我知道，这是第三次了。你刚才那句「你说了算」，比骂我还难受。你就没有什么想当面问我的吗？", "…I know. Third time. That 'whatever you say' just now cut deeper than being yelled at. Isn't there anything you actually want to ask me, face to face?"),
+    },
+    icon: "calendar-x",
+    source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-long-distance.ts#love-ld-visit-plan-hard",
+    keywords: ["异地", "见面", "落空", "旧怨", "硬约束", "long-distance", "visit", "postponed", "constraints"],
+    loveTopic: "long-distance",
+  },
+];

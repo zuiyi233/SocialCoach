@@ -9,12 +9,22 @@ import { SCENARIOS_FAMILY } from "./scenarios-family";
 import { CASES_C } from "./cases-c";
 import { CASES as CASES_BASE } from "./cases";
 import { LOVE_SCENARIOS } from "./love-scenarios";
+import { LOVE_SCENARIOS_DEEP_APPROACH } from "./love-scenarios-deep-approach";
+import { LOVE_SCENARIOS_DEEP_DEFINE } from "./love-scenarios-deep-define";
+import { LOVE_SCENARIOS_DEEP_REJECTION } from "./love-scenarios-deep-rejection";
+import { LOVE_SCENARIOS_DEEP_BREAKUP } from "./love-scenarios-deep-breakup";
+import { LOVE_SCENARIOS_DEEP_BOUNDARY } from "./love-scenarios-deep-boundary";
+import { LOVE_SCENARIOS_DEEP_TRUST } from "./love-scenarios-deep-trust";
+import { LOVE_SCENARIOS_DEEP_LONG_DISTANCE } from "./love-scenarios-deep-long-distance";
+import { LOVE_SCENARIOS_DEEP_FAMILY } from "./love-scenarios-deep-family";
 import { LOVE_THEORIES } from "./love-theories";
 import { LOVE_CASES } from "./love-cases";
 import { THEORIES_DEEP_FAMILY } from "./love-theories-deep-family";
 import { THEORIES_DEEP_BREAKUP_TRUST } from "./love-theories-deep-breakup-trust";
 import { THEORIES_DEEP_BOUNDARY } from "./love-theories-deep-boundary";
 import { THEORIES_DEEP_APPROACH } from "./love-theories-deep-approach";
+import { THEORIES_DEEP_REJECTION } from "./love-theories-deep-rejection";
+import { THEORIES_DEEP_LONG_DISTANCE } from "./love-theories-deep-long-distance";
 import type { Case, Character, Scenario, Theory } from "./types";
 import { L } from "../taxonomy";
 
@@ -97,6 +107,44 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "love-family-holiday": L("商量春节去谁家的伴侣", "The partner deciding whose family for the holiday"),
   "love-approach-gym": L("在健身房被搭话的人", "The one approached at the gym"),
   "love-approach-followup": L("加了微信还没发消息的人", "The one who added a contact but hasn't messaged"),
+  // love module deep-dive scenarios (2026-10-09, practical 场景化批次)
+  "love-approach-hobby-event": L("摄影活动里的人", "Photo-walk participant"),
+  "love-approach-date-followup": L("约第二次见面的人", "The one asking for a second date"),
+  "love-approach-soft-decline-reinvite": L("被婉拒后二次邀约的人", "The one re-inviting after a soft no"),
+  "love-approach-received-interest": L("被表达兴趣的人", "The one receiving the approach"),
+  "love-approach-unclear-body-language": L("第一次约会的另一方", "One half of the first date"),
+  "love-define-vague-investment": L("主动邀约的一方", "The one who keeps inviting"),
+  "love-define-online-only": L("想让关系落地的人", "The one who wants things offline"),
+  "love-define-cooling-after-progress": L("忽冷忽热里的另一方", "The one in the hot-cold loop"),
+  "love-define-one-sided-benefits": L("付出更多的一方", "The one giving more"),
+  "love-define-wants-slow": L("还没准备好定下的人", "The one not ready to commit"),
+  "love-reject-age-marriage-probe": L("饭局上被追问的人", "The one probed across the table"),
+  "love-reject-persistent-close": L("明确拒绝过的人", "The one who already said no"),
+  "love-reject-hold-the-no": L("拒绝过一次的人", "The one who declined once"),
+  "love-reject-shared-circle": L("表白被婉拒的人", "The one whose confession was declined"),
+  "love-breakup-early-stop": L("想清楚不继续的人", "The one who decided to stop"),
+  "love-breakup-cancel-repeatedly": L("反复被失约的人", "The one being cancelled on"),
+  "love-breakup-last-minute-cancel": L("约定被取消的人", "The one whose plan was cancelled"),
+  "love-breakup-solemn-no-theater": L("决定分手的人", "The one ending the relationship"),
+  "love-breakup-receive-decision": L("被提分手的人", "The one receiving the breakup"),
+  "love-boundary-haha-reply": L("被敷衍的一方", "The one being shrugged off"),
+  "love-boundary-interrogation-chat": L("被连环追问的人", "The one being interrogated"),
+  "love-boundary-fight-escalation": L("被情绪指责的人", "The one on the receiving end of blame"),
+  "love-boundary-privacy-slip": L("说漏嘴的人", "The one who slipped"),
+  "love-boundary-belittling-jokes": L("被贬损玩笑的人", "The one targeted by belittling jokes"),
+  "love-trust-small-broken-promise": L("失约的人", "The one who broke a small promise"),
+  "love-trust-ld-actions-not-replies": L("用消息速度度量爱的伴侣", "The partner measuring love by reply speed"),
+  "love-trust-overtime-neglect": L("加班的人", "The one working overtime"),
+  "love-trust-after-concealment": L("被隐瞒的一方", "The one who was kept in the dark"),
+  "love-ld-milestone-remote": L("异地过纪念日的人", "The one celebrating remotely"),
+  "love-ld-low-mood-remote": L("异地陪伴低谷的人", "The one supporting from afar"),
+  "love-ld-social-media-rumor": L("被异地质疑的一方", "The one questioned from afar"),
+  "love-ld-fight-over-phone": L("电话吵架的一方", "One half of the phone fight"),
+  "love-ld-visit-plan-hard": L("见面一再推迟的一方", "The one whose visit keeps slipping"),
+  "love-family-old-grievances": L("圆场的人", "The one smoothing the table"),
+  "love-family-marriage-pressure": L("被催婚伴侣的另一半", "The partner of someone under marriage pressure"),
+  "love-family-expectation-clash": L("夹在两家人之间的人", "The one caught between two families"),
+  "love-family-decision-pressure": L("被家长拍板的人", "The one whose family decided for them"),
   // power & family relations (2026-10-09)
   "jm-feedback-deflected": L("带新人三个月的组长", "Lead coaching a new hire"),
   "jm-misread-request": L("把需求交给下属对接的负责人", "Lead who handed the requirement to a junior"),
@@ -125,8 +173,8 @@ export function withLearner(s: Scenario): Scenario {
   return { ...s, characters: [you, ...s.characters] };
 }
 
-export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_JUNIOR, ...SCENARIOS_FAMILY, ...LOVE_SCENARIOS].map(withLearner);
-export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C, ...LOVE_THEORIES, ...THEORIES_DEEP_FAMILY, ...THEORIES_DEEP_BREAKUP_TRUST, ...THEORIES_DEEP_BOUNDARY, ...THEORIES_DEEP_APPROACH];
+export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_JUNIOR, ...SCENARIOS_FAMILY, ...LOVE_SCENARIOS, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY].map(withLearner);
+export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C, ...LOVE_THEORIES, ...THEORIES_DEEP_FAMILY, ...THEORIES_DEEP_BREAKUP_TRUST, ...THEORIES_DEEP_BOUNDARY, ...THEORIES_DEEP_APPROACH, ...THEORIES_DEEP_REJECTION, ...THEORIES_DEEP_LONG_DISTANCE];
 export const CASES: Case[] = [...CASES_BASE, ...CASES_C, ...LOVE_CASES];
 export type { Case, Scenario, Theory };
 

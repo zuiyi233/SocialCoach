@@ -8,6 +8,14 @@ import { SCENARIOS_D } from "../src/data/corpus/scenarios-d";
 import { THEORIES_C } from "../src/data/corpus/theories-c";
 import { CASES_C } from "../src/data/corpus/cases-c";
 import { LOVE_SCENARIOS } from "../src/data/corpus/love-scenarios";
+import { LOVE_SCENARIOS_DEEP_APPROACH } from "../src/data/corpus/love-scenarios-deep-approach";
+import { LOVE_SCENARIOS_DEEP_DEFINE } from "../src/data/corpus/love-scenarios-deep-define";
+import { LOVE_SCENARIOS_DEEP_REJECTION } from "../src/data/corpus/love-scenarios-deep-rejection";
+import { LOVE_SCENARIOS_DEEP_BREAKUP } from "../src/data/corpus/love-scenarios-deep-breakup";
+import { LOVE_SCENARIOS_DEEP_BOUNDARY } from "../src/data/corpus/love-scenarios-deep-boundary";
+import { LOVE_SCENARIOS_DEEP_TRUST } from "../src/data/corpus/love-scenarios-deep-trust";
+import { LOVE_SCENARIOS_DEEP_LONG_DISTANCE } from "../src/data/corpus/love-scenarios-deep-long-distance";
+import { LOVE_SCENARIOS_DEEP_FAMILY } from "../src/data/corpus/love-scenarios-deep-family";
 import { LOVE_THEORIES } from "../src/data/corpus/love-theories";
 import { LOVE_CASES } from "../src/data/corpus/love-cases";
 import { SKILLS, COMPETENCIES, CONTEXTS, RELATIONSHIPS } from "../src/data/taxonomy";
@@ -49,7 +57,7 @@ for (const s of SCENARIOS) {
   for (const relationship of s.relationship) assert(relationship in RELATIONSHIPS, `${s.id}: relationship`);
   for (const skill of s.relatedSkills ?? []) assert(skills.has(skill), `${s.id}: related skill`);
 }
-for (const item of [...SCENARIOS_C, ...SCENARIOS_D, ...THEORIES_C, ...CASES_C, ...LOVE_SCENARIOS, ...LOVE_THEORIES, ...LOVE_CASES]) {
+for (const item of [...SCENARIOS_C, ...SCENARIOS_D, ...THEORIES_C, ...CASES_C, ...LOVE_SCENARIOS, ...LOVE_THEORIES, ...LOVE_CASES, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY]) {
   bilingual(item, item.id);
   for (const skill of item.skills) assert(item.competencies.includes(skills.get(skill)!), `${item.id}: missing competency for ${skill}`);
   assert(
@@ -63,6 +71,18 @@ for (const item of [...SCENARIOS_C, ...SCENARIOS_D, ...THEORIES_C, ...CASES_C, .
 }
 for (const s of [...SCENARIOS_C, ...SCENARIOS_D]) {
   assert(s.icon && s.icon in SCENARIO_ICONS, `${s.id}: unknown icon`);
+  assert(
+    s.characters.every((c) => c.hidden && c.stance.en && c.personality.en),
+    `${s.id}: missing resistance`,
+  );
+  assert(s.source.includes("Original fictional practice"), `${s.id}: missing provenance label`);
+}
+// Deep love-module scenarios (practical 场景化批次): original fictional
+// practices with an authored facts/unknowns brief, visible NPC resistance and
+// their own icon — the same bar as the C/D batches.
+for (const s of [...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY]) {
+  assert(s.icon && s.icon in SCENARIO_ICONS, `${s.id}: unknown icon`);
+  assert(s.simulationFacts?.zh && s.simulationFacts.en, `${s.id}: missing simulationFacts`);
   assert(
     s.characters.every((c) => c.hidden && c.stance.en && c.personality.en),
     `${s.id}: missing resistance`,
