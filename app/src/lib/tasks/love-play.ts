@@ -87,27 +87,41 @@ function leadingNpc(s: Scenario, learnerCharacterId: string) {
 }
 
 /**
- * 把简化历史组装成非流式对话序列：
- * learner 消息原文、event 消息转沉默标注、npc 消息转 JSON（roleplay 22-52 行同口径）。
+ * 把简化历史组装成本轮的唯一 user 消息（剧本块 + 收束提示）。
+ *
+ * NPC 台词不放进 assistant 槽：前端只回传 role/characterId/text，字段凑不齐本契约，
+ * 而 assistant 历史是模型最强的格式范例——一旦放进出过缺字段的 JSON（或「id: 台词」），
+ * 它会从第 2 回合起照抄那个缺字段的形状，有界修复也重复同样的非法输出，对话就地死掉。
+ * roleplay.ts:21-28 能让 assistant 历史巩固契约，是因为它回传完整 meta+utterances；
+ * 本模式的简化历史没有这个条件，所以把台词降级为纯记录，让契约模板成为唯一范例。
  */
-function buildTurns(messages: LovePlayMessage[], learnerName: string): { turns: ChatOpts["messages"]; learnerTurns: number } {
-  const turns: ChatOpts["messages"] = [];
+function buildTurns(
+  messages: LovePlayMessage[],
+  learnerName: string,
+  npcId: string,
+): { turns: ChatOpts["messages"]; learnerTurns: number } {
+  const lines: string[] = [];
   let learnerTurns = 0;
   for (const m of messages) {
     if (m.role === "learner") {
       learnerTurns++;
-      turns.push({ role: "user", content: m.text });
+      lines.push(`${learnerName}: ${m.text}`);
     } else if (m.role === "npc") {
-      turns.push({ role: "assistant", content: JSON.stringify({ characterId: m.characterId, text: m.text }) });
+      lines.push(`${m.characterId ?? npcId}: ${m.text}`);
     } else {
-      turns.push({ role: "user", content: m.text.trim() ? m.text : `(${learnerName} says nothing.)` });
+      lines.push(`(${m.text.trim() || `${learnerName} says nothing.`})`);
     }
   }
-  // 开场若是助手回合，补一个起始 user 轮，满足消息序列必须以 user 开头的 API 约定。
-  if (turns[0]?.role === "assistant") turns.unshift({ role: "user", content: "(The scene begins.)" });
-  // 收尾保持 user 轮，让模型知道现在轮到学习者。
-  if (turns[turns.length - 1]?.role !== "user") turns.push({ role: "user", content: "(…)" });
-  return { turns, learnerTurns };
+  const script = lines.length ? lines.join("\n") : "(The scene begins.)";
+  return {
+    turns: [
+      {
+        role: "user",
+        content: `SCRIPT SO FAR（已发生的记录，只用于剧情连续性；行首是说话者，不是你的输出格式）\n${script}\n\n现在轮到你配音 ${npcId}：回应学习者最后一句，按 LOVE-PLAY 契约返回本轮完整 JSON。`,
+      },
+    ],
+    learnerTurns,
+  };
 }
 
 /** Galgame 每回合的 system prompt：复用 roleplaySystem，追加本模式的输出契约覆盖。 */
@@ -134,7 +148,7 @@ LOVE-PLAY GALGAME 输出契约（优先于上面的 OUTPUT FORMAT 一节，本�
 - terminal 对照场景 success/failure：learner 达成全部 objectives → "success"；明显搞砸 → "failure"；两者之间 → "partial"；对话仍开放 → null。
 - ended 只有在会话真的收束时才为 true：双方达成一致并收尾、边界被确认并收尾、双方明确暂停、或 NPC 明确退出。仍在对话或只是部分进展则为 false，问答与邀请继续让对方有开口机会。
 - 回合：已用 ${learnerTurns} / ${limit}。${nearEnd}
-- 历史里的 NPC 回合是简写（只有 characterId 和 text），不是可照抄的输出格式。本轮必须返回下面契约的完整 JSON，不要遗漏任何字段。
+- 上面的 SCRIPT SO FAR 是已发生剧情的文字记录（行首是说话者 id 或学习者名字），它只是记录谁说过什么，绝不是你的输出格式。本轮必须返回下面契约的完整 JSON：line、options、emotion、stance、revealed、terminal、ended 七个键一个都不能少，哪怕对话已经很长。line 只写 ${npc.id} 这一句台词本身，不要把「${npc.id}:」这样的行首前缀写进台词。
 Return ONLY one JSON object（no markdown, no prose）:
 {"line":{"zh":"…","en":"…"},"options":[{"zh":"…","en":"…"},{"zh":"…","en":"…"}],"emotion":"neutral","stance":20,"revealed":false,"terminal":null,"ended":false}`;
 }
@@ -182,7 +196,7 @@ function isRepairable(error: unknown): boolean {
 export async function runLovePlay(input: LovePlayInput, llm: LLM, fastModel: string): Promise<LovePlayOutput> {
   const { scenario, learnerCharacterId, messages, language } = input;
   const learnerName = input.learnerName || pick(scenario.characters.find((c) => c.id === learnerCharacterId)!.name, language);
-  const { turns, learnerTurns } = buildTurns(messages, learnerName);
+  const { turns, learnerTurns } = buildTurns(messages, learnerName, leadingNpc(scenario, learnerCharacterId).id);
   const limit = LOVE_PLAY_TURN_LIMIT({ scenario, turnLimit: input.turnLimit });
   const options: ChatOpts = {
     model: fastModel,

@@ -78,12 +78,18 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           controller.signal,
         );
         if (controller.signal.aborted) return;
-        historyRef.current = history;
         cmdRef.current = null;
         let lineKey: string | null = null;
+        const speaker = speakerOf(s, defaultLearnerId(s));
         if (showLine) {
           lineKey = uid();
-          putLine({ key: lineKey, characterId: speakerOf(s, defaultLearnerId(s)).id, text: turn.line[lang] });
+          const npcText = turn.line[lang];
+          putLine({ key: lineKey, characterId: speaker.id, text: npcText });
+          // 模型这一句要带回下一回合：只送开场白 + 学习者台词时，它接不住自己上一句，
+          // 剧情无法在自身上累积。开场白已经在 history 里，这里只追加本轮这句。
+          historyRef.current = [...history, { id: lineKey, role: "npc", characterId: speaker.id, text: npcText, ts: Date.now() }];
+        } else {
+          historyRef.current = history;
         }
         setEmotion(turn.emotion);
         setStance(turn.stance);
