@@ -64,6 +64,7 @@
 
 | A35 | 视频观摩与同场景练习 | ✅ 双平台已发布，真机待验 | 用户提供的职场饭局与 HR 电梯两条动画；原生播放 / 双语字幕 / 时间戳拆解 / 统一检索与收藏 / 游客入口 / 3D 确认；8 种浏览器组合和真实播放、重试与跳转已验证；2026-10-08 发布与国内公开播放复核 → [发布记录](../docs/reviews/video-release-2026-10-08/README.md)； [方案](./specs/spec-video-learning.md)、[验收](../docs/reviews/video-learning-2026-10-07/README.md) |
 | A36 | NPC 自然语音与等待上限 | ✅ 双平台已发布，真机待验 | MiMo PCM 实时播放；3.5 秒首样本截止 / 一分钟降级冷却；文字先显示、开麦 / 发言 / 切页取消、设备选择与个人模型零共享请求；真实网页约 3.26 秒调度首声、国内首段音频约 2.08 秒，314 项检查 → [方案](./archive/specs/spec-natural-npc-speech.md)、[实测与发布](../docs/reviews/mimo-speech-2026-10-08/README.md) |
+| A37 | 恋爱 Galgame 游戏模式 | ✅ 实现 / 254 项检查全绿，立绘 200 张通过 | 可选游戏模式（不替代教练主链）：`/api/love-play` AI 剧情引擎（非流式 JSON，复用 roleplay 契约与守卫）、`/love/play/[scenarioId]` 界面（背景 / 立绘 / 打字台词 / 选项 / 自由输入）、`completeLovePlay` 统计写入（不伪造能力评估）、千问 IMAGE 2.1 原生透明底立绘管线（50 角色 × 4 表情，2026-10-10 噪点修复后全量重出并通过内容级体检）、series 剧情线「初见与心动」+ 设备端进度；P3 打字机 / 揭示动画 / 好感度条。剩余人工项：立绘在场景渐变上的合成效果人眼复核 → [spec-love-visual-novel](./specs/spec-love-visual-novel.md) |
 
 ### Stage B — 定位与对外物料
 
