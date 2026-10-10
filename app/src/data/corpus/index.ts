@@ -4,6 +4,8 @@ import { THEORIES as THEORIES_BASE } from "./theories";
 import { THEORIES_C } from "./theories-c";
 import { SCENARIOS_C } from "./scenarios-c";
 import { SCENARIOS_D } from "./scenarios-d";
+import { SCENARIOS_WF } from "./scenarios-wf";
+import { SCENARIOS_FRIENDSHIP } from "./scenarios-friendship";
 import { SCENARIOS_JUNIOR } from "./scenarios-junior";
 import { SCENARIOS_FAMILY } from "./scenarios-family";
 import { CASES_C } from "./cases-c";
@@ -118,6 +120,7 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "love-define-cooling-after-progress": L("忽冷忽热里的另一方", "The one in the hot-cold loop"),
   "love-define-one-sided-benefits": L("付出更多的一方", "The one giving more"),
   "love-define-wants-slow": L("还没准备好定下的人", "The one not ready to commit"),
+  "love-define-rio-pace-talk": L("想要一个明确答案的人", "The one who wants an answer"),
   "love-reject-age-marriage-probe": L("饭局上被追问的人", "The one probed across the table"),
   "love-reject-persistent-close": L("明确拒绝过的人", "The one who already said no"),
   "love-reject-hold-the-no": L("拒绝过一次的人", "The one who declined once"),
@@ -132,10 +135,12 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "love-boundary-fight-escalation": L("被情绪指责的人", "The one on the receiving end of blame"),
   "love-boundary-privacy-slip": L("说漏嘴的人", "The one who slipped"),
   "love-boundary-belittling-jokes": L("被贬损玩笑的人", "The one targeted by belittling jokes"),
+  "love-boundary-eve-contact-rhythm": L("被婉拒后还在每天联系的人", "The one still messaging daily after being declined"),
   "love-trust-small-broken-promise": L("失约的人", "The one who broke a small promise"),
   "love-trust-ld-actions-not-replies": L("用消息速度度量爱的伴侣", "The partner measuring love by reply speed"),
   "love-trust-overtime-neglect": L("加班的人", "The one working overtime"),
   "love-trust-after-concealment": L("被隐瞒的一方", "The one who was kept in the dark"),
+  "love-trust-eve-what-you-told": L("替她把话说给别人听的人", "The one who explained her to others"),
   "love-ld-milestone-remote": L("异地过纪念日的人", "The one celebrating remotely"),
   "love-ld-low-mood-remote": L("异地陪伴低谷的人", "The one supporting from afar"),
   "love-ld-social-media-rumor": L("被异地质疑的一方", "The one questioned from afar"),
@@ -155,6 +160,25 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "fm-share-cost": L("参与分摊手术费的子女", "Child splitting the surgery cost"),
   "fm-brother-loan": L("被弟弟借钱的哥哥", "Older sibling asked for a loan"),
   "ch-missed-promise": L("工作很忙的单亲家长", "Busy single parent"),
+  // practical 分桶场景化批次（2026-10-10，职场 6 + 通用/friendship 12）
+  "verbal-scope-rewrite": L("口头分工被说成自己范围的人", "The one whose verbal split became their scope"),
+  "team-dinner-entry": L("加入团队三周的新人", "The three-week newcomer at the table"),
+  "long-term-extra-role": L("被要求兼任评审负责的成员", "The member offered the extra review role"),
+  "presentation-data-challenge": L("汇报到一半被质疑数据的人", "The presenter whose data is challenged"),
+  "proposal-rebutted-live": L("方案当场被反驳的提案人", "The proposer rebutted in the room"),
+  "cross-team-favor-ask": L("跨组开口求人的人", "The one asking another team for a favour"),
+  "friend-offhand-opinion": L("下周入学、被随口否定的人", "The one about to enrol, told it's pointless"),
+  "skeptic-activity-invite": L("被付定金留了名额的人", "The one a deposit was paid for"),
+  "praise-that-won-land": L("想认真夸一句的朋友", "The friend trying to praise properly"),
+  "elder-thanks-lands": L("上门道谢的晚辈", "The younger person there to thank her"),
+  "dinner-table-goes-cold": L("被要求当众站队的同桌朋友", "The tablemate asked to pick a side"),
+  "rambling-trip-story": L("把提醒讲成流水账的朋友", "The friend losing their own story"),
+  "three-minute-conclusion": L("被催三分钟内给结论的人", "The one with three minutes to answer"),
+  "first-message-after-event": L("刚加上对方微信的人", "The one who just got the contact"),
+  "reconnect-after-silence": L("两年没联系后重新开口的人", "The one returning after two years"),
+  "newcomer-unclaimed": L("搬来三个月、没人约的新人", "The newcomer three months in the city"),
+  "rumor-clarify-no-blame": L("话被加工过的人", "The one whose words got reworked"),
+  "pattern-not-one-meal": L("半年被落下三次的人", "The one left out three times in six months"),
 };
 
 /** Every corpus scenario gets an explicit, playable "you" character so scheduling, role-play and reports share one id. */
@@ -173,7 +197,7 @@ export function withLearner(s: Scenario): Scenario {
   return { ...s, characters: [you, ...s.characters] };
 }
 
-export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_JUNIOR, ...SCENARIOS_FAMILY, ...LOVE_SCENARIOS, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY].map(withLearner);
+export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_WF, ...SCENARIOS_FRIENDSHIP, ...SCENARIOS_JUNIOR, ...SCENARIOS_FAMILY, ...LOVE_SCENARIOS, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY].map(withLearner);
 export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C, ...LOVE_THEORIES, ...THEORIES_DEEP_FAMILY, ...THEORIES_DEEP_BREAKUP_TRUST, ...THEORIES_DEEP_BOUNDARY, ...THEORIES_DEEP_APPROACH, ...THEORIES_DEEP_REJECTION, ...THEORIES_DEEP_LONG_DISTANCE];
 export const CASES: Case[] = [...CASES_BASE, ...CASES_C, ...LOVE_CASES];
 export type { Case, Scenario, Theory };

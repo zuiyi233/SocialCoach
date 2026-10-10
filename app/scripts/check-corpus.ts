@@ -5,6 +5,8 @@ import { buildSession } from "../src/lib/session-utils";
 import { SCENARIOS, THEORIES, CASES } from "../src/data/corpus";
 import { SCENARIOS_C } from "../src/data/corpus/scenarios-c";
 import { SCENARIOS_D } from "../src/data/corpus/scenarios-d";
+import { SCENARIOS_WF } from "../src/data/corpus/scenarios-wf";
+import { SCENARIOS_FRIENDSHIP } from "../src/data/corpus/scenarios-friendship";
 import { THEORIES_C } from "../src/data/corpus/theories-c";
 import { CASES_C } from "../src/data/corpus/cases-c";
 import { LOVE_SCENARIOS } from "../src/data/corpus/love-scenarios";
@@ -57,7 +59,7 @@ for (const s of SCENARIOS) {
   for (const relationship of s.relationship) assert(relationship in RELATIONSHIPS, `${s.id}: relationship`);
   for (const skill of s.relatedSkills ?? []) assert(skills.has(skill), `${s.id}: related skill`);
 }
-for (const item of [...SCENARIOS_C, ...SCENARIOS_D, ...THEORIES_C, ...CASES_C, ...LOVE_SCENARIOS, ...LOVE_THEORIES, ...LOVE_CASES, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY]) {
+for (const item of [...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_WF, ...SCENARIOS_FRIENDSHIP, ...THEORIES_C, ...CASES_C, ...LOVE_SCENARIOS, ...LOVE_THEORIES, ...LOVE_CASES, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY]) {
   bilingual(item, item.id);
   for (const skill of item.skills) assert(item.competencies.includes(skills.get(skill)!), `${item.id}: missing competency for ${skill}`);
   assert(
@@ -69,7 +71,9 @@ for (const item of [...SCENARIOS_C, ...SCENARIOS_D, ...THEORIES_C, ...CASES_C, .
     else assert(item.source.book && item.source.author, `${item.id}: source without url needs book + author`);
   }
 }
-for (const s of [...SCENARIOS_C, ...SCENARIOS_D]) {
+// C/D 与 2026-10-10 的两个 practical 分桶批次共用同一条验收线：自己的图标、
+// 每个 NPC 都有 hidden/stance/personality 的阻力，以及原创练习出处标签。
+for (const s of [...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_WF, ...SCENARIOS_FRIENDSHIP]) {
   assert(s.icon && s.icon in SCENARIO_ICONS, `${s.id}: unknown icon`);
   assert(
     s.characters.every((c) => c.hidden && c.stance.en && c.personality.en),
@@ -96,6 +100,10 @@ for (const s of LOVE_SCENARIOS) {
 // the love page, the arena topic filter and the love proficiency track.
 for (const s of SCENARIOS) {
   if (s.context === "romantic") assert(s.loveTopic, `${s.id}: romantic scene missing loveTopic`);
+  // 学习者身份必须在 LEARNER_ROLE 登记：漏登记会静默退化成「你自己」，而 arena、
+  // 自定义排练与报告共用同一份角色文本。
+  const you = s.characters.find((c) => c.id === "you");
+  assert(you && you.role.zh !== "你自己" && you.role.en !== "Yourself", `${s.id}: learner role not registered`);
 }
 for (const t of THEORIES) {
   // Every theory on the romance track must be pinned to the romantic context,
@@ -123,6 +131,21 @@ for (const s of SCENARIOS_D) {
     const session = buildSession(SCENARIOS.find((item) => item.id === s.id)!, "arena", lang);
     assert.equal(session.learnerCharacterId, "you");
     assert.notEqual(session.scenario.characters[0].role[lang], lang === "zh" ? "你自己" : "Yourself");
+  }
+}
+// 2026-10-10 的两个 practical 分桶批次：除 C/D 那条通用验收线之外，还锁两件事——
+// 处境不得跨桶（职场线不许写成 friendship 场景，反之亦然），以及每条都要有自己的
+// 事实/未知清单。
+for (const [batch, file, context, count] of [
+  [SCENARIOS_WF, "scenarios-wf.ts", "workplace", 6],
+  [SCENARIOS_FRIENDSHIP, "scenarios-friendship.ts", "friendship", 12],
+] as const) {
+  assert.equal(batch.length, count, `${file}: scenario count`);
+  for (const s of batch) {
+    assert.equal(s.context, context, `${s.id}: must stay in its own bucket`);
+    assert(!s.loveTopic, `${s.id}: non-romantic scene must not carry a loveTopic`);
+    assert(s.source.endsWith(`${file}#${s.id}`), `${s.id}: original source must point to its authored record`);
+    assert(s.simulationFacts?.zh && s.simulationFacts.en, `${s.id}: missing simulationFacts`);
   }
 }
 assert.equal(THEORIES_C.length, 8);
