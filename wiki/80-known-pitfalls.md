@@ -2,12 +2,20 @@
 
 # 踩坑记录
 
+### 立绘出噪点的真因：模型组合 + 采样轨迹 + autogrow 输入被静默丢弃（2026-10-10）
+
+- **现象：** 恋爱立绘首批 113 张全是彩色噪点（人眼确认），但 PNG 结构合法、可解码、尺寸正确——所有"文件层"检查全绿。修好后发现另一类静默失败：编辑路径约 10-20% 的出图背景完全不透明（透明像素 0.0%），而参考图传进去后有时也整个失效。
+- **原因：** 四个独立缺陷叠加，①②是噪点主因。① **模型组合错**：`qwen_image_2.1_int8_convrot` + `qwen3.5_9b_..._pe_t2i/pe_i2i` 不是可出图的组合，实测可用的是 `qwen_image_2.1_turbo_bf16` + `CLIPLoader(qwen3vl_8b_int8_convrot, type=qwen_image)`。② **采样轨迹错**：Turbo 是蒸馏 flow 模型，只在官方 8 步 sigma 表上有效；`KSampler(steps=30, scheduler=simple)` 直接出噪点，必须 `KSamplerSelect(euler)` + `ManualSigmas("1, 0.978453, …, 0.414568, 0")` + `SamplerCustom(cfg=1, add_noise=true)`。③ **Autogrow 输入格式**：API 里写 `images: { image_1: [node, 0] }` 会被**静默丢弃**——不报错、不警告，参考图完全不生效，退化成文生图（判据：`TextEncodeQwenImage21` 的 latent 输出回到 1024 正方形而非参考图画幅）；必须写点号键 `"images.image_1"`。④ 校验只查文件层，没有一条内容级判据，所以前三条能一路通过。
+- **解法：** 按 ①② 改 `app/scripts/gen-love-portraits.mjs`，并补内容体检（无需人眼）：解 PNG 后统计 alpha 分布与相邻像素梯度 `edgeEnergy`，`edgeEnergy>6` 判噪点、`透明像素<5%` 判背景没抠出来、`不透明<20%` 判没有主体，不合格**换种子**重试（稳定种子会让同一缺陷无限复现）。阈值由 113 张坏图标定（坏图 edgeEnergy 8-35，正常立绘约 3）。
+- **教训：** "文件能解码"不等于"产物是对的"——生成类管线必须有一条**内容级**验收，否则错误配置会安静地产出垃圾并占满缓存；API 格式的工作流不能从 UI 工作流 JSON 直译就完事，链接是否真被接上要用可观测的副作用去验（这里输出尺寸就是参考图是否生效的探针）；蒸馏模型的 sampler/scheduler/cfg 不是风格选择，换错轨迹不是"质量差"而是"完全不可用"。→ [完整复盘](./81-postmortem-love-portrait-pipeline.md)
+
 ### ComfyUI 改动：启动假象 / Qwen 分层 latent 崩 / 抠图模型权限门（2026-10-10）
 
 - **现象：** ① `ComfyUI启动器-CLI.cmd start` 返回 `ready:false`，status 说未运行，但日志继续增长——后台 `python main.py` 确实在启动，只是 custom nodes 很多（1-2 分钟）超过启动器 60s 探测窗口，且 Bash 后台包装让进程"看似消失"。② 千问立绘用 `EmptyQwenImageLayeredLatentImage`（分层透明 latent）时 KSampler 报 `too many values to unpack (expected 4)`。③ 抠图 `imageRemBg` 用 RMBG 系列全部 401 gated。
 - **原因：** ① 启动探测窗口太短 + 输出管道截断的错觉，不是启动失败。② `qwen_image_2.1_int8` unet 只吃 4D batch，分层 latent 是 5D `[B,16,layers+1,H,W]`，需要未安装的 `qwen_image_layered` 模型。③ briaai RMBG-2.0 等需 huggingface token，本机未配。
 - **解法：** ① 排障用 `python main.py > 日志 &` 前台直跑 + 轮询端口，不信启动器的 ready 字段。② 改 4D `EmptyLatentImage` + 生成后 `easy imageRemBg` 的 **BEN2**（PramaLLC 公开，首次自动下载）。③ 同上——RMBG 系全跳过，直接用 BEN2；另外 `QwenLoader` 名字像千问 loader 实为 WanVideoWrapper 的，千问 Image 编码器用 `CLIPLoader(type=qwen_image)`。
 - **教训：** 服务"看起来没起来"先轮询端口/日志再判断；ComfyUI 节点名以 object_info 实际签名为准（`curl /object_info/<Node>`），不信文件名/常见名；生成管线的模型选择要实测权限门（401 就是 gated）。
+- **后续修正（同日，见上一条）：** 本条 ②③ 的结论已被推翻。**透明底根本不需要抠图**——`qwen_image_2.1_vae_bf16` 是 Wan 2.2 布局的 4 通道 RGBA VAE（`comfy/sd.py:840`，encoder 吃 4 通道、decoder 出 4 通道），alpha 由模型原生生成，BEN2 那条路整条作废。4D `EmptyLatentImage` 本身没问题（实测 832×1248 正常出图），当时真正坏的是模型组合与采样轨迹，不是 latent 维度。分层 latent 5D 会崩这点仍然成立，只是与透明底无关。
 
 ### pnpm 的 Next standalone 输出是符号链接农场；Tauri 的 frontendDist 不支持 false（2026-10-09）
 

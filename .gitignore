@@ -37,3 +37,6 @@ docs/screenshots/raw/
 .blender-work/
 __pycache__/
 _portrait-dump/
+
+# 恋爱立绘 832×1248 原图（可由 scripts/gen-love-portraits.mjs 重出）；入库的是 512×768 交付图
+app/.portrait-masters/

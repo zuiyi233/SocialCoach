@@ -6,7 +6,9 @@
 
 用户提议恋爱模块加**可选**的 Galgame 游戏模式（有画面/剧情/选项，不替代教练主链）。方案见 [spec-love-visual-novel.md](./specs/spec-love-visual-novel.md)：双入口（教练模式 / 游戏模式）共用语料；`AvatarFigure` 扩展半身立绘；`Scenario.series` 承载多场景剧情线；游戏模式不写能力评估；验收沿用让步/拒绝/反问/玩笑/修复/续聊六项。P1 单场景试玩 → P2 剧情线，共 3-4.5 天。
 
-**2026-10-10 实施完毕（P1-P3 全做，提交）**：`/api/love-play` AI 剧情引擎（复用 roleplay 契约与守卫）、`/love/play/[scenarioId]` Galgame 界面（背景/立绘/打字台词/选项/自由输入）、`completeLovePlay` 统计写入、千问 IMAGE 2.1 立绘管线（Tess 4 表情已产）、series 剧情线「初见与心动」+ 线式入口 + 设备端进度、P3 打字机流/揭示动画/好感度条。验证 254 项全绿。遗留见 spec 第九节：全量 50 角色出图待跑、立绘人眼验收待用户。
+**2026-10-10 实施完毕（P1-P3 全做，提交）**：`/api/love-play` AI 剧情引擎（复用 roleplay 契约与守卫）、`/love/play/[scenarioId]` Galgame 界面（背景/立绘/打字台词/选项/自由输入）、`completeLovePlay` 统计写入、千问 IMAGE 2.1 立绘管线、series 剧情线「初见与心动」+ 线式入口 + 设备端进度、P3 打字机流/揭示动画/好感度条。验证 254 项全绿。
+
+**2026-10-10 立绘管线返工完成**：首批 113 张全是彩色噪点（只有文件层校验，没拦住）。真因是模型组合 + 采样轨迹 + Autogrow 输入被 API 静默丢弃三件事叠加，顺带确认透明底是 2.1 VAE 原生 RGBA、不需要抠图。修复后全量重出 **50 角色 × 4 表情 = 200 张**（832×1248 RGBA），并补了内容级体检（噪点梯度 / 透明占比 / 主体占比 / 半透明蒙版），200/200 通过。根因、阈值标定与遗留见 [立绘管线复盘](./81-postmortem-love-portrait-pipeline.md)，节点与模型细节见 [ComfyUI + Qwen 2.1 出图参考](./refs/comfyui-qwen-image-21.md)。剩余人工项：立绘叠在场景渐变上的合成效果需人眼过一遍。
 
 ## 恋爱 practical 场景化：通用/职场分桶（2026-10-09）
 

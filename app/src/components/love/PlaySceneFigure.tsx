@@ -121,7 +121,7 @@ export function AvatarStand({ character, lang, emotion, active, emphasize = fals
       transition={{ type: "spring", stiffness: 220, damping: 26 }}
     >
       {portraitSrc ? (
-        // PNG 立绘模式：竖版画布（832×1216 约 2:3），透明底直接叠在场景渐变上。
+        // PNG 立绘模式：竖版画布（832×1248，2:3），透明底由模型原生生成，直接叠在场景渐变上。
         // 表情已由生成管线内置，不再叠加 EmotionOverlay；覆盖层只留给回退模式。
         <div
           className="relative overflow-hidden"

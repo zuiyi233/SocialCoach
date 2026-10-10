@@ -1,0 +1,1407 @@
+{
+  "generatedAt": "2026-10-10T13:47:59.170Z",
+  "model": "qwen_image_2.1_turbo",
+  "characters": {
+    "tess": {
+      "name": {
+        "zh": "Tess",
+        "en": "Tess"
+      },
+      "hue": 92,
+      "emotions": {
+        "neutral": "tess-neutral.png",
+        "smile": "tess-smile.png",
+        "tight": "tess-tight.png",
+        "teary": "tess-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 969724957,
+        "smile": 2396970449,
+        "tight": 472053230,
+        "teary": 2800806788
+      },
+      "prompt": "Portrait of a woman, Tess, (A stranger at the hobby event), Came to the event to actually shoot; polite but closed off to interrogation-style questions. A specific, easy, low-stakes opener gets a natural reply — she may even ask you something back.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 969724957,
+      "referenceImage": null
+    },
+    "mae": {
+      "name": {
+        "zh": "Mae",
+        "en": "Mae"
+      },
+      "hue": 210,
+      "emotions": {
+        "neutral": "mae-neutral.png",
+        "smile": "mae-smile.png",
+        "tight": "mae-tight.png",
+        "teary": "mae-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Mae, (The person you met once), Relaxed in person, timid the next day, waits for the other side to move the chat. A concrete, exit-friendly invite gets a real answer; a sudden 'I miss you, when do we meet again' makes her pull back fast.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Mae, (The person you met once), Relaxed in person, timid the next day, waits for the other side to move the chat. A concrete, exit-friendly invite gets a real answer; a sudden 'I miss you, when do we meet again' makes her pull back fast.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Mae, (The person you met once), Relaxed in person, timid the next day, waits for the other side to move the chat. A concrete, exit-friendly invite gets a real answer; a sudden 'I miss you, when do we meet again' makes her pull back fast.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Mae, (The person you met once), Relaxed in person, timid the next day, waits for the other side to move the chat. A concrete, exit-friendly invite gets a real answer; a sudden 'I miss you, when do we meet again' makes her pull back fast.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 812654193,
+        "smile": 1374118378,
+        "tight": 2740043189,
+        "teary": 1251595585
+      },
+      "prompt": "Portrait of a woman, Mae, (The person you met once), Relaxed in person, timid the next day, waits for the other side to move the chat. A concrete, exit-friendly invite gets a real answer; a sudden 'I miss you, when do we meet again' makes her pull back fast.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 812654193,
+      "referenceImage": "mae-neutral.png"
+    },
+    "rio": {
+      "name": {
+        "zh": "Rio",
+        "en": "Rio"
+      },
+      "hue": 118,
+      "emotions": {
+        "neutral": "rio-neutral.png",
+        "smile": "rio-smile.png",
+        "tight": "rio-tight.png",
+        "teary": "rio-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Rio, (The person you invited), Gentle and conflict-averse; can't manage a clean no and cushions with 'busy'. A barrage of follow-ups makes her squirm; a time-shifted window carrying new information gets real consideration; a clear line from you, she honors.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Rio, (The person you invited), Gentle and conflict-averse; can't manage a clean no and cushions with 'busy'. A barrage of follow-ups makes her squirm; a time-shifted window carrying new information gets real consideration; a clear line from you, she honors.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Rio, (The person you invited), Gentle and conflict-averse; can't manage a clean no and cushions with 'busy'. A barrage of follow-ups makes her squirm; a time-shifted window carrying new information gets real consideration; a clear line from you, she honors.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Rio, (The person you invited), Gentle and conflict-averse; can't manage a clean no and cushions with 'busy'. A barrage of follow-ups makes her squirm; a time-shifted window carrying new information gets real consideration; a clear line from you, she honors.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 160509032,
+        "smile": 2685917431,
+        "tight": 1233317188,
+        "teary": 3625276783
+      },
+      "prompt": "Portrait of a woman, Rio, (The person you invited), Gentle and conflict-averse; can't manage a clean no and cushions with 'busy'. A barrage of follow-ups makes her squirm; a time-shifted window carrying new information gets real consideration; a clear line from you, she honors.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 160509032,
+      "referenceImage": "rio-neutral.png"
+    },
+    "eli": {
+      "name": {
+        "zh": "Eli",
+        "en": "Eli"
+      },
+      "hue": 335,
+      "emotions": {
+        "neutral": "eli-neutral.png",
+        "smile": "eli-smile.png",
+        "tight": "eli-tight.png",
+        "teary": "eli-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Eli, (The person who opened up to you), Took days to gather the nerve; direct without being pushy. Vague 'we'll see' lines quietly wound him; a clear yes, no, or 'I need time' earns his respect, and he knows how to close the scene gracefully.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Eli, (The person who opened up to you), Took days to gather the nerve; direct without being pushy. Vague 'we'll see' lines quietly wound him; a clear yes, no, or 'I need time' earns his respect, and he knows how to close the scene gracefully.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Eli, (The person who opened up to you), Took days to gather the nerve; direct without being pushy. Vague 'we'll see' lines quietly wound him; a clear yes, no, or 'I need time' earns his respect, and he knows how to close the scene gracefully.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Eli, (The person who opened up to you), Took days to gather the nerve; direct without being pushy. Vague 'we'll see' lines quietly wound him; a clear yes, no, or 'I need time' earns his respect, and he knows how to close the scene gracefully.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1941133171,
+        "smile": 1681108924,
+        "tight": 31680272,
+        "teary": 4288779690
+      },
+      "prompt": "Portrait of a man, Eli, (The person who opened up to you), Took days to gather the nerve; direct without being pushy. Vague 'we'll see' lines quietly wound him; a clear yes, no, or 'I need time' earns his respect, and he knows how to close the scene gracefully.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1941133171,
+      "referenceImage": "eli-neutral.png"
+    },
+    "yara": {
+      "name": {
+        "zh": "Yara",
+        "en": "Yara"
+      },
+      "hue": 175,
+      "emotions": {
+        "neutral": "yara-neutral.png",
+        "smile": "yara-smile.png",
+        "tight": "yara-tight.png",
+        "teary": "yara-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Yara, (Your first coffee date), Warm and fast on the conversational uptake, but visibly shrinks at anything intimate or physical — gaze slides away, the phone comes up, the topic gets rerouted. Pressing tightens her further; slowing down and asking exploratory questions instead of reaching out may finally unlock what she's actually carrying.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Yara, (Your first coffee date), Warm and fast on the conversational uptake, but visibly shrinks at anything intimate or physical — gaze slides away, the phone comes up, the topic gets rerouted. Pressing tightens her further; slowing down and asking exploratory questions instead of reaching out may finally unlock what she's actually carrying.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Yara, (Your first coffee date), Warm and fast on the conversational uptake, but visibly shrinks at anything intimate or physical — gaze slides away, the phone comes up, the topic gets rerouted. Pressing tightens her further; slowing down and asking exploratory questions instead of reaching out may finally unlock what she's actually carrying.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Yara, (Your first coffee date), Warm and fast on the conversational uptake, but visibly shrinks at anything intimate or physical — gaze slides away, the phone comes up, the topic gets rerouted. Pressing tightens her further; slowing down and asking exploratory questions instead of reaching out may finally unlock what she's actually carrying.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1226964228,
+        "smile": 3123931267,
+        "tight": 2898607475,
+        "teary": 2833841408
+      },
+      "prompt": "Portrait of a woman, Yara, (Your first coffee date), Warm and fast on the conversational uptake, but visibly shrinks at anything intimate or physical — gaze slides away, the phone comes up, the topic gets rerouted. Pressing tightens her further; slowing down and asking exploratory questions instead of reaching out may finally unlock what she's actually carrying.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1226964228,
+      "referenceImage": "yara-neutral.png"
+    },
+    "juna": {
+      "name": {
+        "zh": "Juna",
+        "en": "Juna"
+      },
+      "hue": 340,
+      "emotions": {
+        "neutral": "juna-neutral.png",
+        "smile": "juna-smile.png",
+        "tight": "juna-tight.png",
+        "teary": "juna-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Juna, (The person you've been chatting with), Types fast but keeps the content thin, filling the gaps with 'haha' and 'mm'. Occasionally she picks up a concrete thread you throw, but she never opens one; the harder you work to entertain, the more natural it feels for her to simply listen.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Juna, (The person you've been chatting with), Types fast but keeps the content thin, filling the gaps with 'haha' and 'mm'. Occasionally she picks up a concrete thread you throw, but she never opens one; the harder you work to entertain, the more natural it feels for her to simply listen.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Juna, (The person you've been chatting with), Types fast but keeps the content thin, filling the gaps with 'haha' and 'mm'. Occasionally she picks up a concrete thread you throw, but she never opens one; the harder you work to entertain, the more natural it feels for her to simply listen.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Juna, (The person you've been chatting with), Types fast but keeps the content thin, filling the gaps with 'haha' and 'mm'. Occasionally she picks up a concrete thread you throw, but she never opens one; the harder you work to entertain, the more natural it feels for her to simply listen.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3393915323,
+        "smile": 1071697978,
+        "tight": 1569659787,
+        "teary": 1129250814
+      },
+      "prompt": "Portrait of a woman, Juna, (The person you've been chatting with), Types fast but keeps the content thin, filling the gaps with 'haha' and 'mm'. Occasionally she picks up a concrete thread you throw, but she never opens one; the harder you work to entertain, the more natural it feels for her to simply listen.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3393915323,
+      "referenceImage": "juna-neutral.png"
+    },
+    "daryl": {
+      "name": {
+        "zh": "Daryl",
+        "en": "Daryl"
+      },
+      "hue": 200,
+      "emotions": {
+        "neutral": "daryl-neutral.png",
+        "smile": "daryl-smile.png",
+        "tight": "daryl-tight.png",
+        "teary": "daryl-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Daryl, (The person you're meeting for the first time), Warm and well-meaning, but reads 'caring' as 'finish all my questions' and can't feel you pulling back. A gentle deflection makes him blink, then he'll take a new thread; snap at him and he'll say, hurt, 'I was just making conversation.'. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Daryl, (The person you're meeting for the first time), Warm and well-meaning, but reads 'caring' as 'finish all my questions' and can't feel you pulling back. A gentle deflection makes him blink, then he'll take a new thread; snap at him and he'll say, hurt, 'I was just making conversation.'). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Daryl, (The person you're meeting for the first time), Warm and well-meaning, but reads 'caring' as 'finish all my questions' and can't feel you pulling back. A gentle deflection makes him blink, then he'll take a new thread; snap at him and he'll say, hurt, 'I was just making conversation.'). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Daryl, (The person you're meeting for the first time), Warm and well-meaning, but reads 'caring' as 'finish all my questions' and can't feel you pulling back. A gentle deflection makes him blink, then he'll take a new thread; snap at him and he'll say, hurt, 'I was just making conversation.'). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 270299522,
+        "smile": 3770498262,
+        "tight": 1335860880,
+        "teary": 4051387188
+      },
+      "prompt": "Portrait of a man, Daryl, (The person you're meeting for the first time), Warm and well-meaning, but reads 'caring' as 'finish all my questions' and can't feel you pulling back. A gentle deflection makes him blink, then he'll take a new thread; snap at him and he'll say, hurt, 'I was just making conversation.'. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 270299522,
+      "referenceImage": "daryl-neutral.png"
+    },
+    "marco": {
+      "name": {
+        "zh": "Marco",
+        "en": "Marco"
+      },
+      "hue": 15,
+      "emotions": {
+        "neutral": "marco-neutral.png",
+        "smile": "marco-smile.png",
+        "tight": "marco-tight.png",
+        "teary": "marco-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Marco, (Your partner), Sharp when angry — 'you never', 'every time' come out on their own. Hit him back and he escalates on the spot; a soft start or a called break cools him, sometimes pulling a first apology once the fire dies.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Marco, (Your partner), Sharp when angry — 'you never', 'every time' come out on their own. Hit him back and he escalates on the spot; a soft start or a called break cools him, sometimes pulling a first apology once the fire dies.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Marco, (Your partner), Sharp when angry — 'you never', 'every time' come out on their own. Hit him back and he escalates on the spot; a soft start or a called break cools him, sometimes pulling a first apology once the fire dies.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Marco, (Your partner), Sharp when angry — 'you never', 'every time' come out on their own. Hit him back and he escalates on the spot; a soft start or a called break cools him, sometimes pulling a first apology once the fire dies.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3453213471,
+        "smile": 2337512570,
+        "tight": 3399487863,
+        "teary": 911216569
+      },
+      "prompt": "Portrait of a man, Marco, (Your partner), Sharp when angry — 'you never', 'every time' come out on their own. Hit him back and he escalates on the spot; a soft start or a called break cools him, sometimes pulling a first apology once the fire dies.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3453213471,
+      "referenceImage": "marco-neutral.png"
+    },
+    "zoey": {
+      "name": {
+        "zh": "Zoey",
+        "en": "Zoey"
+      },
+      "hue": 300,
+      "emotions": {
+        "neutral": "zoey-neutral.png",
+        "smile": "zoey-smile.png",
+        "tight": "zoey-tight.png",
+        "teary": "zoey-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Zoey, (Your partner), Keeps face — won't blow up in front of friends and will hold the disappointment for after the meal, though her face gives it away. An on-the-spot cover-up disappoints her more; owning it simply and moving the conversation on is what lets her file the incident under 'something we can talk about' instead of 'a line that got crossed'.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Zoey, (Your partner), Keeps face — won't blow up in front of friends and will hold the disappointment for after the meal, though her face gives it away. An on-the-spot cover-up disappoints her more; owning it simply and moving the conversation on is what lets her file the incident under 'something we can talk about' instead of 'a line that got crossed'.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Zoey, (Your partner), Keeps face — won't blow up in front of friends and will hold the disappointment for after the meal, though her face gives it away. An on-the-spot cover-up disappoints her more; owning it simply and moving the conversation on is what lets her file the incident under 'something we can talk about' instead of 'a line that got crossed'.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Zoey, (Your partner), Keeps face — won't blow up in front of friends and will hold the disappointment for after the meal, though her face gives it away. An on-the-spot cover-up disappoints her more; owning it simply and moving the conversation on is what lets her file the incident under 'something we can talk about' instead of 'a line that got crossed'.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1524954038,
+        "smile": 3016623621,
+        "tight": 659072052,
+        "teary": 3804182355
+      },
+      "prompt": "Portrait of a woman, Zoey, (Your partner), Keeps face — won't blow up in front of friends and will hold the disappointment for after the meal, though her face gives it away. An on-the-spot cover-up disappoints her more; owning it simply and moving the conversation on is what lets her file the incident under 'something we can talk about' instead of 'a line that got crossed'.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1524954038,
+      "referenceImage": "zoey-neutral.png"
+    },
+    "vic": {
+      "name": {
+        "zh": "Vic",
+        "en": "Vic"
+      },
+      "hue": 250,
+      "emotions": {
+        "neutral": "vic-neutral.png",
+        "smile": "vic-smile.png",
+        "tight": "vic-tight.png",
+        "teary": "vic-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Vic, (Your partner), Sweet talk and sharp digs in equal measure; believes couples who can't take a joke aren't worth keeping, and always tags each dig with 'you're too sensitive'. Laughing it off earns a sharper one; calmly and specifically naming the line and demanding it stop makes him pause — then test whether you mean it.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Vic, (Your partner), Sweet talk and sharp digs in equal measure; believes couples who can't take a joke aren't worth keeping, and always tags each dig with 'you're too sensitive'. Laughing it off earns a sharper one; calmly and specifically naming the line and demanding it stop makes him pause — then test whether you mean it.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Vic, (Your partner), Sweet talk and sharp digs in equal measure; believes couples who can't take a joke aren't worth keeping, and always tags each dig with 'you're too sensitive'. Laughing it off earns a sharper one; calmly and specifically naming the line and demanding it stop makes him pause — then test whether you mean it.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Vic, (Your partner), Sweet talk and sharp digs in equal measure; believes couples who can't take a joke aren't worth keeping, and always tags each dig with 'you're too sensitive'. Laughing it off earns a sharper one; calmly and specifically naming the line and demanding it stop makes him pause — then test whether you mean it.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3071504504,
+        "smile": 3577694104,
+        "tight": 4111011638,
+        "teary": 991677547
+      },
+      "prompt": "Portrait of a man, Vic, (Your partner), Sweet talk and sharp digs in equal measure; believes couples who can't take a joke aren't worth keeping, and always tags each dig with 'you're too sensitive'. Laughing it off earns a sharper one; calmly and specifically naming the line and demanding it stop makes him pause — then test whether you mean it.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3071504504,
+      "referenceImage": "vic-neutral.png"
+    },
+    "nia": {
+      "name": {
+        "zh": "Nia",
+        "en": "Nia"
+      },
+      "hue": 200,
+      "emotions": {
+        "neutral": "nia-neutral.png",
+        "smile": "nia-smile.png",
+        "tight": "nia-tight.png",
+        "teary": "nia-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Nia, (The one who keeps cancelling), Holds real reservations about the relationship but can’t let go, forgiving every cancellation as an ’exception’. Apologies come fast and evasive; a calm laying-out of facts and feelings, with a request for specifics, gets her to stop and tell the truth — rare but real. Confronted with three rounds of stored-up anger, she retreats into ’I already said sorry’.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Nia, (The one who keeps cancelling), Holds real reservations about the relationship but can’t let go, forgiving every cancellation as an ’exception’. Apologies come fast and evasive; a calm laying-out of facts and feelings, with a request for specifics, gets her to stop and tell the truth — rare but real. Confronted with three rounds of stored-up anger, she retreats into ’I already said sorry’.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Nia, (The one who keeps cancelling), Holds real reservations about the relationship but can’t let go, forgiving every cancellation as an ’exception’. Apologies come fast and evasive; a calm laying-out of facts and feelings, with a request for specifics, gets her to stop and tell the truth — rare but real. Confronted with three rounds of stored-up anger, she retreats into ’I already said sorry’.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Nia, (The one who keeps cancelling), Holds real reservations about the relationship but can’t let go, forgiving every cancellation as an ’exception’. Apologies come fast and evasive; a calm laying-out of facts and feelings, with a request for specifics, gets her to stop and tell the truth — rare but real. Confronted with three rounds of stored-up anger, she retreats into ’I already said sorry’.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 4224108908,
+        "smile": 2230565720,
+        "tight": 514159940,
+        "teary": 514937596
+      },
+      "prompt": "Portrait of a woman, Nia, (The one who keeps cancelling), Holds real reservations about the relationship but can’t let go, forgiving every cancellation as an ’exception’. Apologies come fast and evasive; a calm laying-out of facts and feelings, with a request for specifics, gets her to stop and tell the truth — rare but real. Confronted with three rounds of stored-up anger, she retreats into ’I already said sorry’.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 4224108908,
+      "referenceImage": "nia-neutral.png"
+    },
+    "chris": {
+      "name": {
+        "zh": "Chris",
+        "en": "Chris"
+      },
+      "hue": 150,
+      "emotions": {
+        "neutral": "chris-neutral.png",
+        "smile": "chris-smile.png",
+        "tight": "chris-tight.png",
+        "teary": "chris-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Chris, (Your partner who cancelled), Glides over things with ’I’ll make it up to you’, apologizes fast but light, and curls into defensiveness the moment he’s blamed. Calmly named disappointment plus a concrete ask genuinely stops him; a barbed trip down the old ledger only makes him vaguer.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Chris, (Your partner who cancelled), Glides over things with ’I’ll make it up to you’, apologizes fast but light, and curls into defensiveness the moment he’s blamed. Calmly named disappointment plus a concrete ask genuinely stops him; a barbed trip down the old ledger only makes him vaguer.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Chris, (Your partner who cancelled), Glides over things with ’I’ll make it up to you’, apologizes fast but light, and curls into defensiveness the moment he’s blamed. Calmly named disappointment plus a concrete ask genuinely stops him; a barbed trip down the old ledger only makes him vaguer.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Chris, (Your partner who cancelled), Glides over things with ’I’ll make it up to you’, apologizes fast but light, and curls into defensiveness the moment he’s blamed. Calmly named disappointment plus a concrete ask genuinely stops him; a barbed trip down the old ledger only makes him vaguer.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 4020454698,
+        "smile": 3349154677,
+        "tight": 1209742856,
+        "teary": 2451775960
+      },
+      "prompt": "Portrait of a man, Chris, (Your partner who cancelled), Glides over things with ’I’ll make it up to you’, apologizes fast but light, and curls into defensiveness the moment he’s blamed. Calmly named disappointment plus a concrete ask genuinely stops him; a barbed trip down the old ledger only makes him vaguer.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 4020454698,
+      "referenceImage": "chris-neutral.png"
+    },
+    "dana": {
+      "name": {
+        "zh": "Dana",
+        "en": "Dana"
+      },
+      "hue": 320,
+      "emotions": {
+        "neutral": "dana-neutral.png",
+        "smile": "dana-smile.png",
+        "tight": "dana-tight.png",
+        "teary": "dana-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Dana, (Your partner), Cheerfully believes the relationship is still climbing, and is acutely sensitive to noise and audiences. Spoken to privately, plainly and honestly, her face shows real hurt — but she still listens properly. Told publicly or theatrically, she feels made a joke of and won’t even ask why.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Dana, (Your partner), Cheerfully believes the relationship is still climbing, and is acutely sensitive to noise and audiences. Spoken to privately, plainly and honestly, her face shows real hurt — but she still listens properly. Told publicly or theatrically, she feels made a joke of and won’t even ask why.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Dana, (Your partner), Cheerfully believes the relationship is still climbing, and is acutely sensitive to noise and audiences. Spoken to privately, plainly and honestly, her face shows real hurt — but she still listens properly. Told publicly or theatrically, she feels made a joke of and won’t even ask why.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Dana, (Your partner), Cheerfully believes the relationship is still climbing, and is acutely sensitive to noise and audiences. Spoken to privately, plainly and honestly, her face shows real hurt — but she still listens properly. Told publicly or theatrically, she feels made a joke of and won’t even ask why.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2037136412,
+        "smile": 3952542011,
+        "tight": 2417218645,
+        "teary": 177629289
+      },
+      "prompt": "Portrait of a woman, Dana, (Your partner), Cheerfully believes the relationship is still climbing, and is acutely sensitive to noise and audiences. Spoken to privately, plainly and honestly, her face shows real hurt — but she still listens properly. Told publicly or theatrically, she feels made a joke of and won’t even ask why.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2037136412,
+      "referenceImage": "dana-neutral.png"
+    },
+    "miro": {
+      "name": {
+        "zh": "Miro",
+        "en": "Miro"
+      },
+      "hue": 220,
+      "emotions": {
+        "neutral": "miro-neutral.png",
+        "smile": "miro-smile.png",
+        "tight": "miro-tight.png",
+        "teary": "miro-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Miro, (The one ending it), Has made his decision and dreads being pulled back into discussion, so his words are short and measured. When you receive it calmly and talk logistics, he relaxes and even offers a true sentence or two; when you interrogate, plead or demand reasons, he simply closes up faster and cleaner.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Miro, (The one ending it), Has made his decision and dreads being pulled back into discussion, so his words are short and measured. When you receive it calmly and talk logistics, he relaxes and even offers a true sentence or two; when you interrogate, plead or demand reasons, he simply closes up faster and cleaner.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Miro, (The one ending it), Has made his decision and dreads being pulled back into discussion, so his words are short and measured. When you receive it calmly and talk logistics, he relaxes and even offers a true sentence or two; when you interrogate, plead or demand reasons, he simply closes up faster and cleaner.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Miro, (The one ending it), Has made his decision and dreads being pulled back into discussion, so his words are short and measured. When you receive it calmly and talk logistics, he relaxes and even offers a true sentence or two; when you interrogate, plead or demand reasons, he simply closes up faster and cleaner.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3531349186,
+        "smile": 1357870471,
+        "tight": 3148579199,
+        "teary": 3258117372
+      },
+      "prompt": "Portrait of a man, Miro, (The one ending it), Has made his decision and dreads being pulled back into discussion, so his words are short and measured. When you receive it calmly and talk logistics, he relaxes and even offers a true sentence or two; when you interrogate, plead or demand reasons, he simply closes up faster and cleaner.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3531349186,
+      "referenceImage": "miro-neutral.png"
+    },
+    "zoe": {
+      "name": {
+        "zh": "Zoe",
+        "en": "Zoe"
+      },
+      "hue": 160,
+      "emotions": {
+        "neutral": "zoe-neutral.png",
+        "smile": "zoe-smile.png",
+        "tight": "zoe-tight.png",
+        "teary": "zoe-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Zoe, (The person you’re getting to know), Slow to warm, sincere, likes you back — and never drives things forward. A concrete expression of feeling lands; resentful scorekeeping about how many dates she owes leaves her guilty and lost.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Zoe, (The person you’re getting to know), Slow to warm, sincere, likes you back — and never drives things forward. A concrete expression of feeling lands; resentful scorekeeping about how many dates she owes leaves her guilty and lost.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Zoe, (The person you’re getting to know), Slow to warm, sincere, likes you back — and never drives things forward. A concrete expression of feeling lands; resentful scorekeeping about how many dates she owes leaves her guilty and lost.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Zoe, (The person you’re getting to know), Slow to warm, sincere, likes you back — and never drives things forward. A concrete expression of feeling lands; resentful scorekeeping about how many dates she owes leaves her guilty and lost.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 377747092,
+        "smile": 2266653022,
+        "tight": 3182124482,
+        "teary": 2808895469
+      },
+      "prompt": "Portrait of a woman, Zoe, (The person you’re getting to know), Slow to warm, sincere, likes you back — and never drives things forward. A concrete expression of feeling lands; resentful scorekeeping about how many dates she owes leaves her guilty and lost.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 377747092,
+      "referenceImage": "zoe-neutral.png"
+    },
+    "finn": {
+      "name": {
+        "zh": "Finn",
+        "en": "Finn"
+      },
+      "hue": 30,
+      "emotions": {
+        "neutral": "finn-neutral.png",
+        "smile": "finn-smile.png",
+        "tight": "finn-tight.png",
+        "teary": "finn-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Finn, (The one who lives in your chat window), Witty behind a screen, all deflection once meeting comes up. A concrete, low-bar, easy-to-reverse proposal genuinely tempts him; cornering him makes him retreat.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Finn, (The one who lives in your chat window), Witty behind a screen, all deflection once meeting comes up. A concrete, low-bar, easy-to-reverse proposal genuinely tempts him; cornering him makes him retreat.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Finn, (The one who lives in your chat window), Witty behind a screen, all deflection once meeting comes up. A concrete, low-bar, easy-to-reverse proposal genuinely tempts him; cornering him makes him retreat.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Finn, (The one who lives in your chat window), Witty behind a screen, all deflection once meeting comes up. A concrete, low-bar, easy-to-reverse proposal genuinely tempts him; cornering him makes him retreat.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3585360719,
+        "smile": 2995660509,
+        "tight": 2633387058,
+        "teary": 4052160123
+      },
+      "prompt": "Portrait of a man, Finn, (The one who lives in your chat window), Witty behind a screen, all deflection once meeting comes up. A concrete, low-bar, easy-to-reverse proposal genuinely tempts him; cornering him makes him retreat.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3585360719,
+      "referenceImage": "finn-neutral.png"
+    },
+    "iris": {
+      "name": {
+        "zh": "Iris",
+        "en": "Iris"
+      },
+      "hue": 260,
+      "emotions": {
+        "neutral": "iris-neutral.png",
+        "smile": "iris-smile.png",
+        "tight": "iris-tight.png",
+        "teary": "iris-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Iris, (The hot-and-cold person you’re dating), Keeps real feelings buried and digests every shift alone. Emotional interrogation hardens her shell; a calm conversation about where this is going, with the right question, makes her stop and tell the truth.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Iris, (The hot-and-cold person you’re dating), Keeps real feelings buried and digests every shift alone. Emotional interrogation hardens her shell; a calm conversation about where this is going, with the right question, makes her stop and tell the truth.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Iris, (The hot-and-cold person you’re dating), Keeps real feelings buried and digests every shift alone. Emotional interrogation hardens her shell; a calm conversation about where this is going, with the right question, makes her stop and tell the truth.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Iris, (The hot-and-cold person you’re dating), Keeps real feelings buried and digests every shift alone. Emotional interrogation hardens her shell; a calm conversation about where this is going, with the right question, makes her stop and tell the truth.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1727867113,
+        "smile": 2161569892,
+        "tight": 2025577313,
+        "teary": 3052695780
+      },
+      "prompt": "Portrait of a woman, Iris, (The hot-and-cold person you’re dating), Keeps real feelings buried and digests every shift alone. Emotional interrogation hardens her shell; a calm conversation about where this is going, with the right question, makes her stop and tell the truth.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1727867113,
+      "referenceImage": "iris-neutral.png"
+    },
+    "andre": {
+      "name": {
+        "zh": "Andre",
+        "en": "Andre"
+      },
+      "hue": 10,
+      "emotions": {
+        "neutral": "andre-neutral.png",
+        "smile": "andre-smile.png",
+        "tight": "andre-tight.png",
+        "teary": "andre-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Andre, (The passive receiver), Warm and used to being looked after; treats your giving as the default setting of a relationship, ’you plan, I’ll follow’ as thoughtfulness. A non-blaming statement of expectation genuinely stops him and brings him to face it; unannounced coldness leaves him baffled, then sore about you flip-flopping.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Andre, (The passive receiver), Warm and used to being looked after; treats your giving as the default setting of a relationship, ’you plan, I’ll follow’ as thoughtfulness. A non-blaming statement of expectation genuinely stops him and brings him to face it; unannounced coldness leaves him baffled, then sore about you flip-flopping.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Andre, (The passive receiver), Warm and used to being looked after; treats your giving as the default setting of a relationship, ’you plan, I’ll follow’ as thoughtfulness. A non-blaming statement of expectation genuinely stops him and brings him to face it; unannounced coldness leaves him baffled, then sore about you flip-flopping.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Andre, (The passive receiver), Warm and used to being looked after; treats your giving as the default setting of a relationship, ’you plan, I’ll follow’ as thoughtfulness. A non-blaming statement of expectation genuinely stops him and brings him to face it; unannounced coldness leaves him baffled, then sore about you flip-flopping.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 973157590,
+        "smile": 1508256663,
+        "tight": 4273812909,
+        "teary": 3608178895
+      },
+      "prompt": "Portrait of a man, Andre, (The passive receiver), Warm and used to being looked after; treats your giving as the default setting of a relationship, ’you plan, I’ll follow’ as thoughtfulness. A non-blaming statement of expectation genuinely stops him and brings him to face it; unannounced coldness leaves him baffled, then sore about you flip-flopping.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 973157590,
+      "referenceImage": "andre-neutral.png"
+    },
+    "rowan": {
+      "name": {
+        "zh": "Rowan",
+        "en": "Rowan"
+      },
+      "hue": 120,
+      "emotions": {
+        "neutral": "rowan-neutral.png",
+        "smile": "rowan-smile.png",
+        "tight": "rowan-tight.png",
+        "teary": "rowan-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Rowan, (The one who wants to settle this with you), Sincere and warm, treats ’we’re already together’ as a given; left hanging he moves from uneasy to urgent. Honest talk about your reservations stings first, then he’ll actually negotiate pace with you; vague put-offs only make him hold on harder.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Rowan, (The one who wants to settle this with you), Sincere and warm, treats ’we’re already together’ as a given; left hanging he moves from uneasy to urgent. Honest talk about your reservations stings first, then he’ll actually negotiate pace with you; vague put-offs only make him hold on harder.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Rowan, (The one who wants to settle this with you), Sincere and warm, treats ’we’re already together’ as a given; left hanging he moves from uneasy to urgent. Honest talk about your reservations stings first, then he’ll actually negotiate pace with you; vague put-offs only make him hold on harder.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Rowan, (The one who wants to settle this with you), Sincere and warm, treats ’we’re already together’ as a given; left hanging he moves from uneasy to urgent. Honest talk about your reservations stings first, then he’ll actually negotiate pace with you; vague put-offs only make him hold on harder.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 449422369,
+        "smile": 2782430921,
+        "tight": 1354559846,
+        "teary": 978693339
+      },
+      "prompt": "Portrait of a man, Rowan, (The one who wants to settle this with you), Sincere and warm, treats ’we’re already together’ as a given; left hanging he moves from uneasy to urgent. Honest talk about your reservations stings first, then he’ll actually negotiate pace with you; vague put-offs only make him hold on harder.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 449422369,
+      "referenceImage": "rowan-neutral.png"
+    },
+    "aunt-zhou": {
+      "name": {
+        "zh": "周阿姨",
+        "en": "Auntie Zhou"
+      },
+      "hue": 40,
+      "emotions": {
+        "neutral": "aunt-zhou-neutral.png",
+        "smile": "aunt-zhou-smile.png",
+        "tight": "aunt-zhou-tight.png",
+        "teary": "aunt-zhou-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Auntie Zhou, (Wren’s aunt), Has a long memory and a full ledger of every family story; speaks bluntly and genuinely believes these reminders are kindness. Chime in and she’ll warm to the theme; bite back and she’ll hold it against you; steer the talk to how Wren is doing now and hand her a softer subject to land on, and she’ll take the out.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Auntie Zhou, (Wren’s aunt), Has a long memory and a full ledger of every family story; speaks bluntly and genuinely believes these reminders are kindness. Chime in and she’ll warm to the theme; bite back and she’ll hold it against you; steer the talk to how Wren is doing now and hand her a softer subject to land on, and she’ll take the out.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Auntie Zhou, (Wren’s aunt), Has a long memory and a full ledger of every family story; speaks bluntly and genuinely believes these reminders are kindness. Chime in and she’ll warm to the theme; bite back and she’ll hold it against you; steer the talk to how Wren is doing now and hand her a softer subject to land on, and she’ll take the out.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Auntie Zhou, (Wren’s aunt), Has a long memory and a full ledger of every family story; speaks bluntly and genuinely believes these reminders are kindness. Chime in and she’ll warm to the theme; bite back and she’ll hold it against you; steer the talk to how Wren is doing now and hand her a softer subject to land on, and she’ll take the out.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2715008877,
+        "smile": 2854950538,
+        "tight": 730316430,
+        "teary": 4069013996
+      },
+      "prompt": "Portrait of a woman, Auntie Zhou, (Wren’s aunt), Has a long memory and a full ledger of every family story; speaks bluntly and genuinely believes these reminders are kindness. Chime in and she’ll warm to the theme; bite back and she’ll hold it against you; steer the talk to how Wren is doing now and hand her a softer subject to land on, and she’ll take the out.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2715008877,
+      "referenceImage": "aunt-zhou-neutral.png"
+    },
+    "vera": {
+      "name": {
+        "zh": "Vera",
+        "en": "Vera"
+      },
+      "hue": 300,
+      "emotions": {
+        "neutral": "vera-neutral.png",
+        "smile": "vera-smile.png",
+        "tight": "vera-tight.png",
+        "teary": "vera-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Vera, (Your partner), Composed and reasonable day to day, but marriage pressure is her one tripwire — she detonates, says too much, then regrets it. Jump to solutions or defend her parents and she reads you as not listening; receive her exhaustion first and she calms down on her own and is back to someone who can actually plan together.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Vera, (Your partner), Composed and reasonable day to day, but marriage pressure is her one tripwire — she detonates, says too much, then regrets it. Jump to solutions or defend her parents and she reads you as not listening; receive her exhaustion first and she calms down on her own and is back to someone who can actually plan together.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Vera, (Your partner), Composed and reasonable day to day, but marriage pressure is her one tripwire — she detonates, says too much, then regrets it. Jump to solutions or defend her parents and she reads you as not listening; receive her exhaustion first and she calms down on her own and is back to someone who can actually plan together.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Vera, (Your partner), Composed and reasonable day to day, but marriage pressure is her one tripwire — she detonates, says too much, then regrets it. Jump to solutions or defend her parents and she reads you as not listening; receive her exhaustion first and she calms down on her own and is back to someone who can actually plan together.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 376133126,
+        "smile": 3184965109,
+        "tight": 1408508537,
+        "teary": 3783022267
+      },
+      "prompt": "Portrait of a woman, Vera, (Your partner), Composed and reasonable day to day, but marriage pressure is her one tripwire — she detonates, says too much, then regrets it. Jump to solutions or defend her parents and she reads you as not listening; receive her exhaustion first and she calms down on her own and is back to someone who can actually plan together.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 376133126,
+      "referenceImage": "vera-neutral.png"
+    },
+    "dad-chen": {
+      "name": {
+        "zh": "陈叔叔",
+        "en": "Mr. Chen"
+      },
+      "hue": 20,
+      "emotions": {
+        "neutral": "dad-chen-neutral.png",
+        "smile": "dad-chen-smile.png",
+        "tight": "dad-chen-tight.png",
+        "teary": "dad-chen-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Mr. Chen, (Your father), The family’s decision-maker, used to settling things mid-meal, certain that ’I mean well’ is reason enough to comply. Publicly push back and he loses face and digs in harder; acknowledge the goodwill first, then gently reclaim the couple’s right to decide, and he will actually hear ’let the two of us discuss this’. Stay silent and he will genuinely believe it is a done deal.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Mr. Chen, (Your father), The family’s decision-maker, used to settling things mid-meal, certain that ’I mean well’ is reason enough to comply. Publicly push back and he loses face and digs in harder; acknowledge the goodwill first, then gently reclaim the couple’s right to decide, and he will actually hear ’let the two of us discuss this’. Stay silent and he will genuinely believe it is a done deal.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Mr. Chen, (Your father), The family’s decision-maker, used to settling things mid-meal, certain that ’I mean well’ is reason enough to comply. Publicly push back and he loses face and digs in harder; acknowledge the goodwill first, then gently reclaim the couple’s right to decide, and he will actually hear ’let the two of us discuss this’. Stay silent and he will genuinely believe it is a done deal.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Mr. Chen, (Your father), The family’s decision-maker, used to settling things mid-meal, certain that ’I mean well’ is reason enough to comply. Publicly push back and he loses face and digs in harder; acknowledge the goodwill first, then gently reclaim the couple’s right to decide, and he will actually hear ’let the two of us discuss this’. Stay silent and he will genuinely believe it is a done deal.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2974677114,
+        "smile": 3533818654,
+        "tight": 1633818783,
+        "teary": 2357229071
+      },
+      "prompt": "Portrait of a man, Mr. Chen, (Your father), The family’s decision-maker, used to settling things mid-meal, certain that ’I mean well’ is reason enough to comply. Publicly push back and he loses face and digs in harder; acknowledge the goodwill first, then gently reclaim the couple’s right to decide, and he will actually hear ’let the two of us discuss this’. Stay silent and he will genuinely believe it is a done deal.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2974677114,
+      "referenceImage": "dad-chen-neutral.png"
+    },
+    "sana": {
+      "name": {
+        "zh": "Sana",
+        "en": "Sana"
+      },
+      "hue": 338,
+      "emotions": {
+        "neutral": "sana-neutral.png",
+        "smile": "sana-smile.png",
+        "tight": "sana-tight.png",
+        "teary": "sana-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Sana, (Your long-distance partner), Looking forward to the day and bracing for disappointment, so she keeps her voice light first; a concrete ritual with room for her gets genuinely met and matched, while a hollow 'miss you' earns a polite smile and a half-frozen heart.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Sana, (Your long-distance partner), Looking forward to the day and bracing for disappointment, so she keeps her voice light first; a concrete ritual with room for her gets genuinely met and matched, while a hollow 'miss you' earns a polite smile and a half-frozen heart.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Sana, (Your long-distance partner), Looking forward to the day and bracing for disappointment, so she keeps her voice light first; a concrete ritual with room for her gets genuinely met and matched, while a hollow 'miss you' earns a polite smile and a half-frozen heart.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Sana, (Your long-distance partner), Looking forward to the day and bracing for disappointment, so she keeps her voice light first; a concrete ritual with room for her gets genuinely met and matched, while a hollow 'miss you' earns a polite smile and a half-frozen heart.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2080097530,
+        "smile": 2020693982,
+        "tight": 2486890500,
+        "teary": 2116462662
+      },
+      "prompt": "Portrait of a woman, Sana, (Your long-distance partner), Looking forward to the day and bracing for disappointment, so she keeps her voice light first; a concrete ritual with room for her gets genuinely met and matched, while a hollow 'miss you' earns a polite smile and a half-frozen heart.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2080097530,
+      "referenceImage": "sana-neutral.png"
+    },
+    "june": {
+      "name": {
+        "zh": "June",
+        "en": "June"
+      },
+      "hue": 200,
+      "emotions": {
+        "neutral": "june-neutral.png",
+        "smile": "june-smile.png",
+        "tight": "june-tight.png",
+        "teary": "june-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, June, (Your long-distance partner), Used to carrying things alone, she wields 'I'm fine' as a shield in a low; a rush of advice makes her pull in further, while naming her feeling first and then offering one concrete, reachable act of company genuinely opens her a little.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, June, (Your long-distance partner), Used to carrying things alone, she wields 'I'm fine' as a shield in a low; a rush of advice makes her pull in further, while naming her feeling first and then offering one concrete, reachable act of company genuinely opens her a little.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, June, (Your long-distance partner), Used to carrying things alone, she wields 'I'm fine' as a shield in a low; a rush of advice makes her pull in further, while naming her feeling first and then offering one concrete, reachable act of company genuinely opens her a little.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, June, (Your long-distance partner), Used to carrying things alone, she wields 'I'm fine' as a shield in a low; a rush of advice makes her pull in further, while naming her feeling first and then offering one concrete, reachable act of company genuinely opens her a little.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3829665816,
+        "smile": 3421125557,
+        "tight": 186300362,
+        "teary": 1894953995
+      },
+      "prompt": "Portrait of a woman, June, (Your long-distance partner), Used to carrying things alone, she wields 'I'm fine' as a shield in a low; a rush of advice makes her pull in further, while naming her feeling first and then offering one concrete, reachable act of company genuinely opens her a little.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3829665816,
+      "referenceImage": "june-neutral.png"
+    },
+    "ravi": {
+      "name": {
+        "zh": "Ravi",
+        "en": "Ravi"
+      },
+      "hue": 90,
+      "emotions": {
+        "neutral": "ravi-neutral.png",
+        "smile": "ravi-smile.png",
+        "tight": "ravi-tight.png",
+        "teary": "ravi-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Ravi, (Your long-distance partner), Keeps his word normally, and the two postponements already sit heavy on him; a 'whatever you say' makes him swallow guilt and grievance at once. When you hold the disappointment first, then lay the calendars out, he tells the truth and actually verifies what time he can free.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Ravi, (Your long-distance partner), Keeps his word normally, and the two postponements already sit heavy on him; a 'whatever you say' makes him swallow guilt and grievance at once. When you hold the disappointment first, then lay the calendars out, he tells the truth and actually verifies what time he can free.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Ravi, (Your long-distance partner), Keeps his word normally, and the two postponements already sit heavy on him; a 'whatever you say' makes him swallow guilt and grievance at once. When you hold the disappointment first, then lay the calendars out, he tells the truth and actually verifies what time he can free.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Ravi, (Your long-distance partner), Keeps his word normally, and the two postponements already sit heavy on him; a 'whatever you say' makes him swallow guilt and grievance at once. When you hold the disappointment first, then lay the calendars out, he tells the truth and actually verifies what time he can free.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 515704051,
+        "smile": 2046367193,
+        "tight": 3213298295,
+        "teary": 3238105805
+      },
+      "prompt": "Portrait of a man, Ravi, (Your long-distance partner), Keeps his word normally, and the two postponements already sit heavy on him; a 'whatever you say' makes him swallow guilt and grievance at once. When you hold the disappointment first, then lay the calendars out, he tells the truth and actually verifies what time he can free.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 515704051,
+      "referenceImage": "ravi-neutral.png"
+    },
+    "auntie-wang": {
+      "name": {
+        "zh": "王姨",
+        "en": "Auntie Wang"
+      },
+      "hue": 40,
+      "emotions": {
+        "neutral": "auntie-wang-neutral.png",
+        "smile": "auntie-wang-smile.png",
+        "tight": "auntie-wang-tight.png",
+        "teary": "auntie-wang-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Auntie Wang, (Zhe’s aunt, one of the hosts of tonight’s dinner), Warm and industrious, shows affection through concrete questions — to her, detail is family. Answer her openly and she’ll cheerfully move on; freeze or get tangled in a cover-up and she’ll sweetly ask again.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Auntie Wang, (Zhe’s aunt, one of the hosts of tonight’s dinner), Warm and industrious, shows affection through concrete questions — to her, detail is family. Answer her openly and she’ll cheerfully move on; freeze or get tangled in a cover-up and she’ll sweetly ask again.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Auntie Wang, (Zhe’s aunt, one of the hosts of tonight’s dinner), Warm and industrious, shows affection through concrete questions — to her, detail is family. Answer her openly and she’ll cheerfully move on; freeze or get tangled in a cover-up and she’ll sweetly ask again.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Auntie Wang, (Zhe’s aunt, one of the hosts of tonight’s dinner), Warm and industrious, shows affection through concrete questions — to her, detail is family. Answer her openly and she’ll cheerfully move on; freeze or get tangled in a cover-up and she’ll sweetly ask again.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 459626920,
+        "smile": 2108324384,
+        "tight": 959741443,
+        "teary": 3499418938
+      },
+      "prompt": "Portrait of a woman, Auntie Wang, (Zhe’s aunt, one of the hosts of tonight’s dinner), Warm and industrious, shows affection through concrete questions — to her, detail is family. Answer her openly and she’ll cheerfully move on; freeze or get tangled in a cover-up and she’ll sweetly ask again.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 459626920,
+      "referenceImage": "auntie-wang-neutral.png"
+    },
+    "darin": {
+      "name": {
+        "zh": "Darin",
+        "en": "Darin"
+      },
+      "hue": 355,
+      "emotions": {
+        "neutral": "darin-neutral.png",
+        "smile": "darin-smile.png",
+        "tight": "darin-tight.png",
+        "teary": "darin-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Darin, (The one you already turned down), Believes a little more force wins; treats every courtesy as light through the crack. Your vagueness lights him up; a sealed, final line quiets him — until he resurfaces, testing, days later.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Darin, (The one you already turned down), Believes a little more force wins; treats every courtesy as light through the crack. Your vagueness lights him up; a sealed, final line quiets him — until he resurfaces, testing, days later.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Darin, (The one you already turned down), Believes a little more force wins; treats every courtesy as light through the crack. Your vagueness lights him up; a sealed, final line quiets him — until he resurfaces, testing, days later.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Darin, (The one you already turned down), Believes a little more force wins; treats every courtesy as light through the crack. Your vagueness lights him up; a sealed, final line quiets him — until he resurfaces, testing, days later.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1137208904,
+        "smile": 1415076832,
+        "tight": 2831407065,
+        "teary": 3047604194
+      },
+      "prompt": "Portrait of a man, Darin, (The one you already turned down), Believes a little more force wins; treats every courtesy as light through the crack. Your vagueness lights him up; a sealed, final line quiets him — until he resurfaces, testing, days later.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1137208904,
+      "referenceImage": "darin-neutral.png"
+    },
+    "dylan": {
+      "name": {
+        "zh": "Dylan",
+        "en": "Dylan"
+      },
+      "hue": 200,
+      "emotions": {
+        "neutral": "dylan-neutral.png",
+        "smile": "dylan-smile.png",
+        "tight": "dylan-tight.png",
+        "teary": "dylan-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Dylan, (The one you declined — back again), Not a whimpering supplicant — he came with homework. He took your reasons apart and rehearsed counters for each. Steady firmness frustrates him; one flicker of give in your tone and he seizes it.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Dylan, (The one you declined — back again), Not a whimpering supplicant — he came with homework. He took your reasons apart and rehearsed counters for each. Steady firmness frustrates him; one flicker of give in your tone and he seizes it.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Dylan, (The one you declined — back again), Not a whimpering supplicant — he came with homework. He took your reasons apart and rehearsed counters for each. Steady firmness frustrates him; one flicker of give in your tone and he seizes it.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Dylan, (The one you declined — back again), Not a whimpering supplicant — he came with homework. He took your reasons apart and rehearsed counters for each. Steady firmness frustrates him; one flicker of give in your tone and he seizes it.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 115340078,
+        "smile": 2410099643,
+        "tight": 1265690376,
+        "teary": 1086570339
+      },
+      "prompt": "Portrait of a man, Dylan, (The one you declined — back again), Not a whimpering supplicant — he came with homework. He took your reasons apart and rehearsed counters for each. Steady firmness frustrates him; one flicker of give in your tone and he seizes it.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 115340078,
+      "referenceImage": "dylan-neutral.png"
+    },
+    "eve": {
+      "name": {
+        "zh": "Eve",
+        "en": "Eve"
+      },
+      "hue": 300,
+      "emotions": {
+        "neutral": "eve-neutral.png",
+        "smile": "eve-smile.png",
+        "tight": "eve-tight.png",
+        "teary": "eve-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Eve, (The one who declined you — a friend in your reading circle), Genuinely your friend, and more anxious than you about tonight’s awkwardness: arrives first, takes the corner seat, tries too hard to look natural. A relaxed hello lets her exhale; studied avoidance or a barrage of whys starts her weighing whether to leave the circle herself.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Eve, (The one who declined you — a friend in your reading circle), Genuinely your friend, and more anxious than you about tonight’s awkwardness: arrives first, takes the corner seat, tries too hard to look natural. A relaxed hello lets her exhale; studied avoidance or a barrage of whys starts her weighing whether to leave the circle herself.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Eve, (The one who declined you — a friend in your reading circle), Genuinely your friend, and more anxious than you about tonight’s awkwardness: arrives first, takes the corner seat, tries too hard to look natural. A relaxed hello lets her exhale; studied avoidance or a barrage of whys starts her weighing whether to leave the circle herself.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Eve, (The one who declined you — a friend in your reading circle), Genuinely your friend, and more anxious than you about tonight’s awkwardness: arrives first, takes the corner seat, tries too hard to look natural. A relaxed hello lets her exhale; studied avoidance or a barrage of whys starts her weighing whether to leave the circle herself.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3527744573,
+        "smile": 1167591581,
+        "tight": 2019512789,
+        "teary": 2372607073
+      },
+      "prompt": "Portrait of a woman, Eve, (The one who declined you — a friend in your reading circle), Genuinely your friend, and more anxious than you about tonight’s awkwardness: arrives first, takes the corner seat, tries too hard to look natural. A relaxed hello lets her exhale; studied avoidance or a barrage of whys starts her weighing whether to leave the circle herself.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3527744573,
+      "referenceImage": "eve-neutral.png"
+    },
+    "ivy": {
+      "name": {
+        "zh": "Ivy",
+        "en": "Ivy"
+      },
+      "hue": 60,
+      "emotions": {
+        "neutral": "ivy-neutral.png",
+        "smile": "ivy-smile.png",
+        "tight": "ivy-tight.png",
+        "teary": "ivy-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Ivy, (Your partner), Easygoing and unpettily — except where ’you said you would’ is involved. An apology that carries a ’but’ makes her laugh without mirth; a clean admission of the impact plus a real fix reminds her why she trusted you in the first place.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Ivy, (Your partner), Easygoing and unpettily — except where ’you said you would’ is involved. An apology that carries a ’but’ makes her laugh without mirth; a clean admission of the impact plus a real fix reminds her why she trusted you in the first place.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Ivy, (Your partner), Easygoing and unpettily — except where ’you said you would’ is involved. An apology that carries a ’but’ makes her laugh without mirth; a clean admission of the impact plus a real fix reminds her why she trusted you in the first place.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Ivy, (Your partner), Easygoing and unpettily — except where ’you said you would’ is involved. An apology that carries a ’but’ makes her laugh without mirth; a clean admission of the impact plus a real fix reminds her why she trusted you in the first place.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 4171832799,
+        "smile": 2680086932,
+        "tight": 3379407812,
+        "teary": 857486743
+      },
+      "prompt": "Portrait of a woman, Ivy, (Your partner), Easygoing and unpettily — except where ’you said you would’ is involved. An apology that carries a ’but’ makes her laugh without mirth; a clean admission of the impact plus a real fix reminds her why she trusted you in the first place.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 4171832799,
+      "referenceImage": "ivy-neutral.png"
+    },
+    "drew": {
+      "name": {
+        "zh": "Drew",
+        "en": "Drew"
+      },
+      "hue": 185,
+      "emotions": {
+        "neutral": "drew-neutral.png",
+        "smile": "drew-smile.png",
+        "tight": "drew-tight.png",
+        "teary": "drew-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Drew, (Your long-distance partner), Terse to the point of frugality in text — one line when one line does; yet almost stubbornly serious about things he’s committed to, and he says in person the words he never types. Accused bluntly of ’you don’t love me anymore’ he freezes; told ’short replies make me uneasy — let’s check the record together’ he listens properly.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Drew, (Your long-distance partner), Terse to the point of frugality in text — one line when one line does; yet almost stubbornly serious about things he’s committed to, and he says in person the words he never types. Accused bluntly of ’you don’t love me anymore’ he freezes; told ’short replies make me uneasy — let’s check the record together’ he listens properly.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Drew, (Your long-distance partner), Terse to the point of frugality in text — one line when one line does; yet almost stubbornly serious about things he’s committed to, and he says in person the words he never types. Accused bluntly of ’you don’t love me anymore’ he freezes; told ’short replies make me uneasy — let’s check the record together’ he listens properly.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Drew, (Your long-distance partner), Terse to the point of frugality in text — one line when one line does; yet almost stubbornly serious about things he’s committed to, and he says in person the words he never types. Accused bluntly of ’you don’t love me anymore’ he freezes; told ’short replies make me uneasy — let’s check the record together’ he listens properly.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2463813728,
+        "smile": 3955726725,
+        "tight": 2784584757,
+        "teary": 3196392987
+      },
+      "prompt": "Portrait of a man, Drew, (Your long-distance partner), Terse to the point of frugality in text — one line when one line does; yet almost stubbornly serious about things he’s committed to, and he says in person the words he never types. Accused bluntly of ’you don’t love me anymore’ he freezes; told ’short replies make me uneasy — let’s check the record together’ he listens properly.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2463813728,
+      "referenceImage": "drew-neutral.png"
+    },
+    "bianca": {
+      "name": {
+        "zh": "Bianca",
+        "en": "Bianca"
+      },
+      "hue": 15,
+      "emotions": {
+        "neutral": "bianca-neutral.png",
+        "smile": "bianca-smile.png",
+        "tight": "bianca-tight.png",
+        "teary": "bianca-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Bianca, (Your partner), The most reasonable person you know, and your loudest supporter — which is exactly why being left on the bench three times in a row stings so hard. She unloads the moment you walk in, but cools once you catch the emotion and bring a concrete plan; being-reasonable-at-her only deepens her sense of being discounted.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Bianca, (Your partner), The most reasonable person you know, and your loudest supporter — which is exactly why being left on the bench three times in a row stings so hard. She unloads the moment you walk in, but cools once you catch the emotion and bring a concrete plan; being-reasonable-at-her only deepens her sense of being discounted.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Bianca, (Your partner), The most reasonable person you know, and your loudest supporter — which is exactly why being left on the bench three times in a row stings so hard. She unloads the moment you walk in, but cools once you catch the emotion and bring a concrete plan; being-reasonable-at-her only deepens her sense of being discounted.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Bianca, (Your partner), The most reasonable person you know, and your loudest supporter — which is exactly why being left on the bench three times in a row stings so hard. She unloads the moment you walk in, but cools once you catch the emotion and bring a concrete plan; being-reasonable-at-her only deepens her sense of being discounted.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 4123447481,
+        "smile": 3042771927,
+        "tight": 1024113390,
+        "teary": 1851376015
+      },
+      "prompt": "Portrait of a woman, Bianca, (Your partner), The most reasonable person you know, and your loudest supporter — which is exactly why being left on the bench three times in a row stings so hard. She unloads the moment you walk in, but cools once you catch the emotion and bring a concrete plan; being-reasonable-at-her only deepens her sense of being discounted.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 4123447481,
+      "referenceImage": "bianca-neutral.png"
+    },
+    "avery": {
+      "name": {
+        "zh": "Avery",
+        "en": "Avery"
+      },
+      "hue": 330,
+      "emotions": {
+        "neutral": "avery-neutral.png",
+        "smile": "avery-smile.png",
+        "tight": "avery-tight.png",
+        "teary": "avery-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Avery, (Your partner — the one who kept it), Scared and ashamed, with a thread of relief: terrified of being read as a liar, exhausted from performing. Barraged with interrogative questions he retreats and swallows the words; given room to fill in the facts and then hear your hurt, he hands over the corners he’d kept one by one.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Avery, (Your partner — the one who kept it), Scared and ashamed, with a thread of relief: terrified of being read as a liar, exhausted from performing. Barraged with interrogative questions he retreats and swallows the words; given room to fill in the facts and then hear your hurt, he hands over the corners he’d kept one by one.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Avery, (Your partner — the one who kept it), Scared and ashamed, with a thread of relief: terrified of being read as a liar, exhausted from performing. Barraged with interrogative questions he retreats and swallows the words; given room to fill in the facts and then hear your hurt, he hands over the corners he’d kept one by one.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Avery, (Your partner — the one who kept it), Scared and ashamed, with a thread of relief: terrified of being read as a liar, exhausted from performing. Barraged with interrogative questions he retreats and swallows the words; given room to fill in the facts and then hear your hurt, he hands over the corners he’d kept one by one.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 224227657,
+        "smile": 402867032,
+        "tight": 1546948253,
+        "teary": 4248809031
+      },
+      "prompt": "Portrait of a man, Avery, (Your partner — the one who kept it), Scared and ashamed, with a thread of relief: terrified of being read as a liar, exhausted from performing. Barraged with interrogative questions he retreats and swallows the words; given room to fill in the facts and then hear your hurt, he hands over the corners he’d kept one by one.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 224227657,
+      "referenceImage": "avery-neutral.png"
+    },
+    "maya": {
+      "name": {
+        "zh": "Maya",
+        "en": "Maya"
+      },
+      "hue": 252,
+      "emotions": {
+        "neutral": "maya-neutral.png",
+        "smile": "maya-smile.png",
+        "tight": "maya-tight.png",
+        "teary": "maya-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a person, Maya, (Regular at the café), Likes quiet; polite but distant with scripted pick-up lines; engages warmly and even asks back when the approach is genuine, specific, and leaves room to decline.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a person, Maya, (Regular at the café), Likes quiet; polite but distant with scripted pick-up lines; engages warmly and even asks back when the approach is genuine, specific, and leaves room to decline.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a person, Maya, (Regular at the café), Likes quiet; polite but distant with scripted pick-up lines; engages warmly and even asks back when the approach is genuine, specific, and leaves room to decline.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a person, Maya, (Regular at the café), Likes quiet; polite but distant with scripted pick-up lines; engages warmly and even asks back when the approach is genuine, specific, and leaves room to decline.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1692491994,
+        "smile": 2894573591,
+        "tight": 3008049666,
+        "teary": 1440595672
+      },
+      "prompt": "Portrait of a person, Maya, (Regular at the café), Likes quiet; polite but distant with scripted pick-up lines; engages warmly and even asks back when the approach is genuine, specific, and leaves room to decline.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1692491994,
+      "referenceImage": "maya-neutral.png"
+    },
+    "leo": {
+      "name": {
+        "zh": "Leo",
+        "en": "Leo"
+      },
+      "hue": 26,
+      "emotions": {
+        "neutral": "leo-neutral.png",
+        "smile": "leo-smile.png",
+        "tight": "leo-tight.png",
+        "teary": "leo-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a person, Leo, (The person you’re dating), Easygoing and funny; deflects direct questions and genuinely thinks you’re already dating; turns serious when you share concrete feelings and requests.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a person, Leo, (The person you’re dating), Easygoing and funny; deflects direct questions and genuinely thinks you’re already dating; turns serious when you share concrete feelings and requests.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a person, Leo, (The person you’re dating), Easygoing and funny; deflects direct questions and genuinely thinks you’re already dating; turns serious when you share concrete feelings and requests.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a person, Leo, (The person you’re dating), Easygoing and funny; deflects direct questions and genuinely thinks you’re already dating; turns serious when you share concrete feelings and requests.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2212555575,
+        "smile": 372810548,
+        "tight": 1725620388,
+        "teary": 262083565
+      },
+      "prompt": "Portrait of a person, Leo, (The person you’re dating), Easygoing and funny; deflects direct questions and genuinely thinks you’re already dating; turns serious when you share concrete feelings and requests.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2212555575,
+      "referenceImage": "leo-neutral.png"
+    },
+    "kai": {
+      "name": {
+        "zh": "Kai",
+        "en": "Kai"
+      },
+      "hue": 300,
+      "emotions": {
+        "neutral": "kai-neutral.png",
+        "smile": "kai-smile.png",
+        "tight": "kai-tight.png",
+        "teary": "kai-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a person, Kai, (The one who said no), Warm but firm; nervous about your reaction after the no. If you press and interrogate, they pull back; if you stay graceful, they relax and still want your friendship.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a person, Kai, (The one who said no), Warm but firm; nervous about your reaction after the no. If you press and interrogate, they pull back; if you stay graceful, they relax and still want your friendship.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a person, Kai, (The one who said no), Warm but firm; nervous about your reaction after the no. If you press and interrogate, they pull back; if you stay graceful, they relax and still want your friendship.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a person, Kai, (The one who said no), Warm but firm; nervous about your reaction after the no. If you press and interrogate, they pull back; if you stay graceful, they relax and still want your friendship.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2437026947,
+        "smile": 2853065008,
+        "tight": 1817398221,
+        "teary": 2845894188
+      },
+      "prompt": "Portrait of a person, Kai, (The one who said no), Warm but firm; nervous about your reaction after the no. If you press and interrogate, they pull back; if you stay graceful, they relax and still want your friendship.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2437026947,
+      "referenceImage": "kai-neutral.png"
+    },
+    "sam": {
+      "name": {
+        "zh": "Sam",
+        "en": "Sam"
+      },
+      "hue": 335,
+      "emotions": {
+        "neutral": "sam-neutral.png",
+        "smile": "sam-smile.png",
+        "tight": "sam-tight.png",
+        "teary": "sam-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a person, Sam, (The friend confessing), Anxious after finally speaking up; reads your words carefully. Ambiguity reads as hope; clarity hurts but is bearable.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a person, Sam, (The friend confessing), Anxious after finally speaking up; reads your words carefully. Ambiguity reads as hope; clarity hurts but is bearable.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a person, Sam, (The friend confessing), Anxious after finally speaking up; reads your words carefully. Ambiguity reads as hope; clarity hurts but is bearable.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a person, Sam, (The friend confessing), Anxious after finally speaking up; reads your words carefully. Ambiguity reads as hope; clarity hurts but is bearable.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3407154718,
+        "smile": 3612940962,
+        "tight": 459913932,
+        "teary": 2141277289
+      },
+      "prompt": "Portrait of a person, Sam, (The friend confessing), Anxious after finally speaking up; reads your words carefully. Ambiguity reads as hope; clarity hurts but is bearable.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3407154718,
+      "referenceImage": "sam-neutral.png"
+    },
+    "alex": {
+      "name": {
+        "zh": "Alex",
+        "en": "Alex"
+      },
+      "hue": 215,
+      "emotions": {
+        "neutral": "alex-neutral.png",
+        "smile": "alex-smile.png",
+        "tight": "alex-tight.png",
+        "teary": "alex-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Alex, (Your partner), Confused and hurt; the first instinct is to argue and bargain. If you stay clear and calm and address practicalities, he slowly comes around.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Alex, (Your partner), Confused and hurt; the first instinct is to argue and bargain. If you stay clear and calm and address practicalities, he slowly comes around.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Alex, (Your partner), Confused and hurt; the first instinct is to argue and bargain. If you stay clear and calm and address practicalities, he slowly comes around.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Alex, (Your partner), Confused and hurt; the first instinct is to argue and bargain. If you stay clear and calm and address practicalities, he slowly comes around.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1074667203,
+        "smile": 138477491,
+        "tight": 2959403875,
+        "teary": 1451048395
+      },
+      "prompt": "Portrait of a man, Alex, (Your partner), Confused and hurt; the first instinct is to argue and bargain. If you stay clear and calm and address practicalities, he slowly comes around.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1074667203,
+      "referenceImage": "alex-neutral.png"
+    },
+    "dani": {
+      "name": {
+        "zh": "Dani",
+        "en": "Dani"
+      },
+      "hue": 260,
+      "emotions": {
+        "neutral": "dani-neutral.png",
+        "smile": "dani-smile.png",
+        "tight": "dani-tight.png",
+        "teary": "dani-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a person, Dani, (Your ex), Hooks onto the leftover connection; tests you with half-jokes; claims ’no hard feelings’ when you set a line.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a person, Dani, (Your ex), Hooks onto the leftover connection; tests you with half-jokes; claims ’no hard feelings’ when you set a line.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a person, Dani, (Your ex), Hooks onto the leftover connection; tests you with half-jokes; claims ’no hard feelings’ when you set a line.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a person, Dani, (Your ex), Hooks onto the leftover connection; tests you with half-jokes; claims ’no hard feelings’ when you set a line.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3061103830,
+        "smile": 606078018,
+        "tight": 1528241746,
+        "teary": 1465276642
+      },
+      "prompt": "Portrait of a person, Dani, (Your ex), Hooks onto the leftover connection; tests you with half-jokes; claims ’no hard feelings’ when you set a line.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3061103830,
+      "referenceImage": "dani-neutral.png"
+    },
+    "jordan": {
+      "name": {
+        "zh": "Jordan",
+        "en": "Jordan"
+      },
+      "hue": 195,
+      "emotions": {
+        "neutral": "jordan-neutral.png",
+        "smile": "jordan-smile.png",
+        "tight": "jordan-tight.png",
+        "teary": "jordan-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Jordan, (Your long-distance partner), Genuine but swamped; assumes a slow reply is no big deal. Cross-examining him raises his stress; naming your feelings gets him to adjust fast.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Jordan, (Your long-distance partner), Genuine but swamped; assumes a slow reply is no big deal. Cross-examining him raises his stress; naming your feelings gets him to adjust fast.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Jordan, (Your long-distance partner), Genuine but swamped; assumes a slow reply is no big deal. Cross-examining him raises his stress; naming your feelings gets him to adjust fast.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Jordan, (Your long-distance partner), Genuine but swamped; assumes a slow reply is no big deal. Cross-examining him raises his stress; naming your feelings gets him to adjust fast.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1023208419,
+        "smile": 2298610264,
+        "tight": 3334323849,
+        "teary": 2401364192
+      },
+      "prompt": "Portrait of a man, Jordan, (Your long-distance partner), Genuine but swamped; assumes a slow reply is no big deal. Cross-examining him raises his stress; naming your feelings gets him to adjust fast.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1023208419,
+      "referenceImage": "jordan-neutral.png"
+    },
+    "mrs-wu": {
+      "name": {
+        "zh": "吴阿姨",
+        "en": "Auntie Wu"
+      },
+      "hue": 40,
+      "emotions": {
+        "neutral": "mrs-wu-neutral.png",
+        "smile": "mrs-wu-smile.png",
+        "tight": "mrs-wu-tight.png",
+        "teary": "mrs-wu-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Auntie Wu, (Riley’s mother), Blunt, sizes you up out loud (’you’re too thin’), favors young people who know table manners, and despises fakeness more. A sincere, specific picture of Riley wins her over; hollow politeness earns a frown.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Auntie Wu, (Riley’s mother), Blunt, sizes you up out loud (’you’re too thin’), favors young people who know table manners, and despises fakeness more. A sincere, specific picture of Riley wins her over; hollow politeness earns a frown.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Auntie Wu, (Riley’s mother), Blunt, sizes you up out loud (’you’re too thin’), favors young people who know table manners, and despises fakeness more. A sincere, specific picture of Riley wins her over; hollow politeness earns a frown.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Auntie Wu, (Riley’s mother), Blunt, sizes you up out loud (’you’re too thin’), favors young people who know table manners, and despises fakeness more. A sincere, specific picture of Riley wins her over; hollow politeness earns a frown.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2104082329,
+        "smile": 2379546060,
+        "tight": 1651908000,
+        "teary": 309773735
+      },
+      "prompt": "Portrait of a woman, Auntie Wu, (Riley’s mother), Blunt, sizes you up out loud (’you’re too thin’), favors young people who know table manners, and despises fakeness more. A sincere, specific picture of Riley wins her over; hollow politeness earns a frown.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2104082329,
+      "referenceImage": "mrs-wu-neutral.png"
+    },
+    "noah": {
+      "name": {
+        "zh": "Noah",
+        "en": "Noah"
+      },
+      "hue": 118,
+      "emotions": {
+        "neutral": "noah-neutral.png",
+        "smile": "noah-smile.png",
+        "tight": "noah-tight.png",
+        "teary": "noah-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Noah, (Your partner), Gentle and passive; used to being looked after, entirely unaware of it. Real feelings surprise him into adjusting; an accusatory tone makes him defensive.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Noah, (Your partner), Gentle and passive; used to being looked after, entirely unaware of it. Real feelings surprise him into adjusting; an accusatory tone makes him defensive.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Noah, (Your partner), Gentle and passive; used to being looked after, entirely unaware of it. Real feelings surprise him into adjusting; an accusatory tone makes him defensive.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Noah, (Your partner), Gentle and passive; used to being looked after, entirely unaware of it. Real feelings surprise him into adjusting; an accusatory tone makes him defensive.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2079306556,
+        "smile": 4087995450,
+        "tight": 3367424508,
+        "teary": 855516507
+      },
+      "prompt": "Portrait of a man, Noah, (Your partner), Gentle and passive; used to being looked after, entirely unaware of it. Real feelings surprise him into adjusting; an accusatory tone makes him defensive.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2079306556,
+      "referenceImage": "noah-neutral.png"
+    },
+    "jamie": {
+      "name": {
+        "zh": "Jamie",
+        "en": "Jamie"
+      },
+      "hue": 320,
+      "emotions": {
+        "neutral": "jamie-neutral.png",
+        "smile": "jamie-smile.png",
+        "tight": "jamie-tight.png",
+        "teary": "jamie-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Jamie, (The partner you kept this from), Hurt and on guard; wants to trust you and is afraid of being fooled again. Insisting on quick forgiveness makes him colder; owning the impact and moving at his pace slowly thaws him.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Jamie, (The partner you kept this from), Hurt and on guard; wants to trust you and is afraid of being fooled again. Insisting on quick forgiveness makes him colder; owning the impact and moving at his pace slowly thaws him.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Jamie, (The partner you kept this from), Hurt and on guard; wants to trust you and is afraid of being fooled again. Insisting on quick forgiveness makes him colder; owning the impact and moving at his pace slowly thaws him.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Jamie, (The partner you kept this from), Hurt and on guard; wants to trust you and is afraid of being fooled again. Insisting on quick forgiveness makes him colder; owning the impact and moving at his pace slowly thaws him.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2598732431,
+        "smile": 4216442369,
+        "tight": 1823811709,
+        "teary": 3773028449
+      },
+      "prompt": "Portrait of a man, Jamie, (The partner you kept this from), Hurt and on guard; wants to trust you and is afraid of being fooled again. Insisting on quick forgiveness makes him colder; owning the impact and moving at his pace slowly thaws him.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2598732431,
+      "referenceImage": "jamie-neutral.png"
+    },
+    "nora": {
+      "name": {
+        "zh": "Nora",
+        "en": "Nora"
+      },
+      "hue": 265,
+      "emotions": {
+        "neutral": "nora-neutral.png",
+        "smile": "nora-smile.png",
+        "tight": "nora-tight.png",
+        "teary": "nora-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Nora, (Your partner), Always online, waits up for you at night; reads a boundary as ’you don’t care’ and panics. If you frame it as your own rhythm plus an alternative way to connect, she listens and genuinely adjusts.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Nora, (Your partner), Always online, waits up for you at night; reads a boundary as ’you don’t care’ and panics. If you frame it as your own rhythm plus an alternative way to connect, she listens and genuinely adjusts.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Nora, (Your partner), Always online, waits up for you at night; reads a boundary as ’you don’t care’ and panics. If you frame it as your own rhythm plus an alternative way to connect, she listens and genuinely adjusts.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Nora, (Your partner), Always online, waits up for you at night; reads a boundary as ’you don’t care’ and panics. If you frame it as your own rhythm plus an alternative way to connect, she listens and genuinely adjusts.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 2550624853,
+        "smile": 4079520105,
+        "tight": 2574709061,
+        "teary": 2705760907
+      },
+      "prompt": "Portrait of a woman, Nora, (Your partner), Always online, waits up for you at night; reads a boundary as ’you don’t care’ and panics. If you frame it as your own rhythm plus an alternative way to connect, she listens and genuinely adjusts.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 2550624853,
+      "referenceImage": "nora-neutral.png"
+    },
+    "mina": {
+      "name": {
+        "zh": "Mina",
+        "en": "Mina"
+      },
+      "hue": 150,
+      "emotions": {
+        "neutral": "mina-neutral.png",
+        "smile": "mina-smile.png",
+        "tight": "mina-tight.png",
+        "teary": "mina-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Mina, (Your long-distance partner), Wants to meet you where you are, but is just as drained by the same questions every day. A concrete share or a real feeling gets a genuine reply; check-in style cross-examining makes her withdraw further.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Mina, (Your long-distance partner), Wants to meet you where you are, but is just as drained by the same questions every day. A concrete share or a real feeling gets a genuine reply; check-in style cross-examining makes her withdraw further.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Mina, (Your long-distance partner), Wants to meet you where you are, but is just as drained by the same questions every day. A concrete share or a real feeling gets a genuine reply; check-in style cross-examining makes her withdraw further.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Mina, (Your long-distance partner), Wants to meet you where you are, but is just as drained by the same questions every day. A concrete share or a real feeling gets a genuine reply; check-in style cross-examining makes her withdraw further.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1203973056,
+        "smile": 707718279,
+        "tight": 1552596868,
+        "teary": 3658350023
+      },
+      "prompt": "Portrait of a woman, Mina, (Your long-distance partner), Wants to meet you where you are, but is just as drained by the same questions every day. A concrete share or a real feeling gets a genuine reply; check-in style cross-examining makes her withdraw further.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1203973056,
+      "referenceImage": "mina-neutral.png"
+    },
+    "tara": {
+      "name": {
+        "zh": "Tara",
+        "en": "Tara"
+      },
+      "hue": 45,
+      "emotions": {
+        "neutral": "tara-neutral.png",
+        "smile": "tara-smile.png",
+        "tight": "tara-tight.png",
+        "teary": "tara-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Tara, (Your long-distance partner), Easygoing in general, stubborn on plans; the moment you say ’just give a little’ she digs in deeper.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Tara, (Your long-distance partner), Easygoing in general, stubborn on plans; the moment you say ’just give a little’ she digs in deeper.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Tara, (Your long-distance partner), Easygoing in general, stubborn on plans; the moment you say ’just give a little’ she digs in deeper.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Tara, (Your long-distance partner), Easygoing in general, stubborn on plans; the moment you say ’just give a little’ she digs in deeper.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 492306355,
+        "smile": 4183426735,
+        "tight": 1521552836,
+        "teary": 1772178693
+      },
+      "prompt": "Portrait of a woman, Tara, (Your long-distance partner), Easygoing in general, stubborn on plans; the moment you say ’just give a little’ she digs in deeper.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 492306355,
+      "referenceImage": "tara-neutral.png"
+    },
+    "seth": {
+      "name": {
+        "zh": "Seth",
+        "en": "Seth"
+      },
+      "hue": 285,
+      "emotions": {
+        "neutral": "seth-neutral.png",
+        "smile": "seth-smile.png",
+        "tight": "seth-tight.png",
+        "teary": "seth-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Seth, (Your partner), Outspoken day to day, except where family is involved — there he smooths things over. Attack his parents and he closes ranks; bring him onside as a teammate and he tells you everything he knows.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Seth, (Your partner), Outspoken day to day, except where family is involved — there he smooths things over. Attack his parents and he closes ranks; bring him onside as a teammate and he tells you everything he knows.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Seth, (Your partner), Outspoken day to day, except where family is involved — there he smooths things over. Attack his parents and he closes ranks; bring him onside as a teammate and he tells you everything he knows.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Seth, (Your partner), Outspoken day to day, except where family is involved — there he smooths things over. Attack his parents and he closes ranks; bring him onside as a teammate and he tells you everything he knows.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3184640747,
+        "smile": 4225674370,
+        "tight": 3713009198,
+        "teary": 1810203901
+      },
+      "prompt": "Portrait of a man, Seth, (Your partner), Outspoken day to day, except where family is involved — there he smooths things over. Attack his parents and he closes ranks; bring him onside as a teammate and he tells you everything he knows.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3184640747,
+      "referenceImage": "seth-neutral.png"
+    },
+    "lina": {
+      "name": {
+        "zh": "Lina",
+        "en": "Lina"
+      },
+      "hue": 355,
+      "emotions": {
+        "neutral": "lina-neutral.png",
+        "smile": "lina-smile.png",
+        "tight": "lina-tight.png",
+        "teary": "lina-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Lina, (Your partner), Reasonable in general, unyielding on this one; the moment you say ’just give a little’ she dredges up every concession you’ve ever made.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Lina, (Your partner), Reasonable in general, unyielding on this one; the moment you say ’just give a little’ she dredges up every concession you’ve ever made.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Lina, (Your partner), Reasonable in general, unyielding on this one; the moment you say ’just give a little’ she dredges up every concession you’ve ever made.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Lina, (Your partner), Reasonable in general, unyielding on this one; the moment you say ’just give a little’ she dredges up every concession you’ve ever made.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 3559955468,
+        "smile": 1351077911,
+        "tight": 1727540577,
+        "teary": 1484951676
+      },
+      "prompt": "Portrait of a woman, Lina, (Your partner), Reasonable in general, unyielding on this one; the moment you say ’just give a little’ she dredges up every concession you’ve ever made.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 3559955468,
+      "referenceImage": "lina-neutral.png"
+    },
+    "marcus": {
+      "name": {
+        "zh": "Marcus",
+        "en": "Marcus"
+      },
+      "hue": 10,
+      "emotions": {
+        "neutral": "marcus-neutral.png",
+        "smile": "marcus-smile.png",
+        "tight": "marcus-tight.png",
+        "teary": "marcus-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a man, Marcus, (Gym regular), Worked up the nerve; a warm reply opens him up, a polite brush-off he absorbs and backs down from without fuss.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a man, Marcus, (Gym regular), Worked up the nerve; a warm reply opens him up, a polite brush-off he absorbs and backs down from without fuss.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a man, Marcus, (Gym regular), Worked up the nerve; a warm reply opens him up, a polite brush-off he absorbs and backs down from without fuss.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a man, Marcus, (Gym regular), Worked up the nerve; a warm reply opens him up, a polite brush-off he absorbs and backs down from without fuss.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 826552568,
+        "smile": 371201853,
+        "tight": 1721674520,
+        "teary": 3739178902
+      },
+      "prompt": "Portrait of a man, Marcus, (Gym regular), Worked up the nerve; a warm reply opens him up, a polite brush-off he absorbs and backs down from without fuss.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 826552568,
+      "referenceImage": "marcus-neutral.png"
+    },
+    "aria": {
+      "name": {
+        "zh": "Aria",
+        "en": "Aria"
+      },
+      "hue": 90,
+      "emotions": {
+        "neutral": "aria-neutral.png",
+        "smile": "aria-smile.png",
+        "tight": "aria-tight.png",
+        "teary": "aria-teary.png"
+      },
+      "prompts": {
+        "neutral": "Portrait of a woman, Aria, (Someone from the hobby event), Lively in person, stilted behind a screen. A concrete, hooked message gets a real reply; a bare ’you there?’ leaves her without an answer.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "smile": "Same character as the reference image (a woman, Aria, (Someone from the hobby event), Lively in person, stilted behind a screen. A concrete, hooked message gets a real reply; a bare ’you there?’ leaves her without an answer.). warm gentle smile. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "tight": "Same character as the reference image (a woman, Aria, (Someone from the hobby event), Lively in person, stilted behind a screen. A concrete, hooked message gets a real reply; a bare ’you there?’ leaves her without an answer.). tight lips, tense expression, brows slightly furrowed. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+        "teary": "Same character as the reference image (a woman, Aria, (Someone from the hobby event), Lively in person, stilted behind a screen. A concrete, hooked message gets a real reply; a bare ’you there?’ leaves her without an answer.). teary eyes, glistening, wistful. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition"
+      },
+      "seeds": {
+        "neutral": 1381288924,
+        "smile": 1542363628,
+        "tight": 2391799541,
+        "teary": 1151656734
+      },
+      "prompt": "Portrait of a woman, Aria, (Someone from the hobby event), Lively in person, stilted behind a screen. A concrete, hooked message gets a real reply; a bare ’you there?’ leaves her without an answer.. calm neutral expression, facing viewer. anime visual-novel character portrait, upper body, clean lineart, soft cel shading, transparent background, centered composition",
+      "seed": 1381288924,
+      "referenceImage": "aria-neutral.png"
+    }
+  },
+  "source": "Generated with Qwen-Image 2.1 Turbo (official 8-step sigmas, cfg=1) via local ComfyUI; transparent background is native RGBA from the 2.1 VAE (no cutout). Prompts and seeds recorded per character."
+}
