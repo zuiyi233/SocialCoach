@@ -139,6 +139,30 @@ HTTP / 流式错误的 `modelIssue:null` 明确表示任务自身错误，例如
 
 场景可带私有双语 `simulationDirection?: L`，供条件式剧情模拟使用；适配 / 提示 / 评价不读取。旧请求缺字段兼容，公有文本协议不变。本轮双人物多写姓名的捕获格式只在准确 ID / 姓名匹配时机械修正，不改原台词；未知人物仍报错。
 
+### `POST /api/love-play`（2026-10-10）
+
+恋爱 Galgame 游戏模式：每回合生成台词 + 选项 + 情绪。**非流式 JSON**。复用 roleplay 的 LLM 契约（守卫 / 一次有界修复 / `roleplaySpeechGuard` / `hasQuote`），独立任务预算 `TASK_LIMITS['love-play'] = [55s, 2次调用]`。
+
+**请求：** `{ scenario, learnerCharacterId, language: "zh"|"en", learnerName?, messages: ChatMessage[], turnLimit? }`
+
+注意字段名是 **`language`**（不是 roleplay 的 `lang`）。`messages` 只支持 `{role, characterId?, text, ts}` 简化形态（learner / npc / event）。
+
+**响应：** `application/json`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `line` | `{ zh, en }` | NPC 台词，双语 |
+| `options` | `{ zh, en }[]` | 2-4 个选项（用户可点选代替自由输入） |
+| `emotion` | `"neutral"\|"smile"\|"tight"\|"teary"` | 驱动立绘表情 |
+| `stance` | `number` 0–100 | 对方当前开放程度（**不是用户分数**，同 roleplay 口径） |
+| `revealed` | `boolean` | 本回合是否明确说出 `hidden`（只标当句，满足揭示条件才 true） |
+| `terminal` | `"success"\|"partial"\|"failure"\|null` | 场景收束判定（对照场景 success/failure） |
+| `ended` | `boolean` | 会话结束，前端显示收束界面 |
+
+**统计口径**：游戏模式完成场景由前端 `completeLovePlay()` 记入 sessions（`origin: "love-play"`、`status: "ended"`、无 report）+ practiceDays + loveProficiency 微增益（success +0.3 / partial +0.15 / failure +0.05，clamp 1-5）。**不触发证据式 assess**（点选项 ≠ 用户真实表达，不伪造能力评估）。→ [spec-love-visual-novel.md](./specs/spec-love-visual-novel.md)
+
+**错误**：无模型 key → `503 {"modelIssue":"setup"}`；body 非法 → `400`（`taskInput` 口径）；LLM 拒绝 → `422`。
+
 ### `POST /api/track`
 
 匿名使用统计入口。**客户端先 `GET` 询问 `{ available }`，未配置的部署不会收到 POST。**
