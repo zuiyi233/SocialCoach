@@ -246,6 +246,13 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **解决方案：** 校验改成「主句是否出现在每一处」。规则原文也补了一句说明同源指主句，避免下一个人重复误读。
 - **教训：** 报告「既有违规」之前先读规则的意图，并用 `git log -S` 确认它是否真的曾被遵守。一个写得含糊的约束，加上一个想当然的校验，会凭空造出一个不存在的 bug。
 
+### 长时间运行的 dev server 会把动态路由整体打成 500（2026-10-10）
+
+- **现象：** 改语料时短暂引入一个语法错误，修好之后 `pnpm check` 全绿、`/`、`/love`、`/arena` 都 200，但 `/love/play/*` 与 `/practice/*`（后者本轮根本没动过）持续 500，日志只有 `Failed to generate static paths for /love/play/[scenarioId]` 和 `Jest worker encountered 2 child process exceptions, exceeding retry limit`，看不到任何应用层报错。
+- **原因：** 那次解析错误把 dev 的编译子进程打崩，worker 池进入超限状态；500 是 Next 自己的堆栈解析/预渲染 worker 失败，不是路由代码的问题。`allowedDevOrigins` 拦截 `__nextjs_original-stack-frames` 又把真实错误盖掉了。
+- **解法：** 同目录的 dev server 单实例保护会拒绝第二个 `next dev`（提示 `Another next dev server is already running`），所以用 `pnpm build` + `next start -p <自己拥有的端口>` 复验：同一批路由在生产构建下全部 200，立绘 `eve-neutral.png` 正常加载。不要为了复验去重启别人的 dev 进程。
+- **教训：** 动态路由集体 500 而静态路由正常时，先怀疑 dev server 状态而不是改动本身；判据是拿一条**没改过**的同类型路由做对照。冒烟结论要写清是 dev 还是 build 环境，dev 的 500 不能直接当成功能坏了。
+
 ## 协作
 
 ### 有并发编辑者时，验证「工作区」等于没验证

@@ -14,9 +14,16 @@
 
 practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（来源 `恋爱军师-skill/goutoujunshi-main/extraction-map/practical-map.md`）：
 
-- [ ] 通用/friendship ~12 条：巧妙接话（倾诉/意见分歧/新活动）、万能夸人（同事/朋友/长辈）、化解尴尬（观点对立冷场）、提升表达逻辑性（流水账/PREP）、有效拓展人脉（加微信/唤醒久未联系）、被孤立破局（新环境/误解澄清/排挤）、托人办事（说清需求+给拒绝空间）。→ 后续按 friendship/通用批次场景化，source 标原创。
-- [ ] 职场 ~6 条：被同事甩锅、新同事聚餐插不上话、领导加派任务/拒绝加班、公开发言被质疑、会议发言接住再驳、托人办事职场向。→ 后续按 workplace 批次场景化。
+- [x] 通用/friendship ~12 条：巧妙接话（倾诉/意见分歧/新活动）、万能夸人（同事/朋友/长辈）、化解尴尬（观点对立冷场）、提升表达逻辑性（流水账/PREP）、有效拓展人脉（加微信/唤醒久未联系）、被孤立破局（新环境/误解澄清/排挤）、托人办事（说清需求+给拒绝空间）。→ 2026-10-10 落地 `scenarios-friendship.ts` 12 条（巧妙接话 ×2、万能夸人 ×2、化解尴尬 ×1、表达逻辑 ×2、拓展人脉 ×2、被孤立破局 ×3）。「朋友倾诉沉重的事」未入库（与 `friend-advice-repair` / `friend-going-through-breakup` 处境重叠）；「夸同事的活儿」未入库（舞台在职场）。
+- [x] 职场 ~6 条：被同事甩锅、新同事聚餐插不上话、领导加派任务/拒绝加班、公开发言被质疑、会议发言接住再驳、托人办事职场向。→ 2026-10-10 落地 `scenarios-wf.ts` 6 条。两批共用 C/D 的验收线（图标 / 每个 NPC 有 hidden / 原创出处 / simulationFacts / 不跨桶），并在 `check-corpus.ts` 把「学习者身份已登记」改成全量把关；方案 [spec-series-expand-practical-bucket](./archive/specs/spec-series-expand-practical-bucket.md) 已归档。
 - [ ] 话术素材去向（本轮已默认执行）：126 条话术只作场景化时的 NPC 台词素材库，不新增独立条目。可选增强（/learn 页「参考说法」区块）待 A 批次验收后由用户拍板。
+
+## 语料与剧情线遗留（2026-10-10）
+
+- [ ] 官网与 README 的场景数仍是 58（`site/content.mjs` 的 `description` + stats、`README.md` 覆盖说明），语料实际 142。不涉及主句四处同源，但对外数字已经失真。
+- [ ] `Model connection: {issue}.`（`src/lib/llm.ts:204`、`src/lib/llm-client.ts:80`）在未接模型时直出中文界面，是内部诊断串而不是面向用户的文案；需要决定翻成 `L` 文案还是收敛成通用提示。
+- [ ] 旧的两条恋爱剧情线人物不连续：「信任与边界」是 ning / jamie / nora 三个不同 NPC，「初见与心动」是 tess / mae / zoe。新加的 rio、eve 两条是同一人物贯穿，两种线在同一列表里并列会让人误判剧情连续性。要么把旧线改成主题合集口径，要么按新口径补人物连续的场景。
+- [ ] `love-define-rio-pace-talk`、`love-boundary-eve-contact-rhythm`、`love-trust-eve-what-you-told` 三个新场景只做了结构与渲染冒烟，让步 / 拒绝 / 反问 / 玩笑 / 修复 / 续聊六项需要真实模型跑一遍才算验收。
 
 ## 官网构建检查（2026-10-08）
 
