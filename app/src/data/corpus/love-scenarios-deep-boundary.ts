@@ -258,4 +258,58 @@ export const LOVE_SCENARIOS_DEEP_BOUNDARY: Scenario[] = [
     loveTopic: "boundary",
     icon: "shield-alert",
   },
+  {
+    id: "love-boundary-eve-contact-rhythm",
+    title: L("她说「我们还是朋友」，然后开始限你", "“We're Still Friends” — Then She Sets the Terms"),
+    hook: L("她主动提出以后只在读书会见面。你听出来，这是在给你划线。", "She proposes you now only meet at the book club. That is a line, not an invitation."),
+    background: L(
+      "被婉拒之后一个月，你一直按「朋友」的方式保持联系：早安、晚安、看到她喜欢的书就转发。Eve 没有不回，但回得越来越慢。今天她主动把话挑明：她珍惜这个朋友，但她希望把联系收回到读书会见面和偶尔一两条消息——不是因为你做错了什么，而是因为她不想让你每天准点等她的回复。任务：接受或谈成一个你真正做得到的联系频率，而不是口头答应、回头继续；也不要把这次谈话变成再一次试探她会不会改口。",
+      "A month after she turned you down, you have been keeping up what you call friendship: good morning, good night, forwarding every book she might like. Eve never stops replying — she just replies slower. Today she names it: she values you as a friend, but she wants contact pulled back to the book club and the occasional message — not because you did anything wrong, but because she does not want you waiting on her reply at the same hour every day. The task: accept or negotiate a rhythm you can actually keep, rather than agreeing out loud and resuming tomorrow — and do not turn this conversation into another probe for whether she has changed her mind.",
+    ),
+    simulationFacts: L(
+      "已确认：Eve 婉拒过你，态度没有变过；这一个月的早安与转发都是你主动发起的，她没有要求过；她今天提的是「频率」，不是「断联」，也没有说你不许跟她说话。未知：她是否察觉你还在等一个机会——这一点谁都没说破；她的咨询与上一段感情的时间线她从未完整讲过，不要替她补。不要把「她回得慢」读成欲擒故纵，也不要把「她愿意见你」读成还有戏。隐藏事实：Eve 已经从共同朋友那里听说你还在等她改主意，她一直没有点破，是怕说了你会难堪；只有你直接问她「你是不是觉得我还在等你改主意」，她才会承认自己一直在留意你的意图。她承认这一点，不等于她改变了拒绝的决定。",
+      "Established: Eve declined you and has not moved; every good-morning and forwarded link this month came from you, not from a request of hers; what she proposes today is frequency, not silence, and she never said you may not speak to her. Unverified: whether she senses you are still waiting — nobody has said it out loud; her therapy and the timeline of her last relationship are things she has never fully told you, so do not fill them in. Do not read slow replies as a game, and do not read her willingness to meet as remaining odds. Hidden: a mutual friend already told her you are still hoping, and she has not raised it because she fears embarrassing you. Only asking directly whether she thinks you are still waiting will make her admit she has been watching for it. That admission is not her changing her decision.",
+    ),
+    context: "romantic",
+    contextType: L("边界与独处", "Boundaries"),
+    competencies: ["self-management", "relationship-skills", "responsible-decision-making"],
+    skills: ["emotion-regulation", "communication", "analyzing-consequences"],
+    relationship: ["friend", "peer"],
+    difficulty: 3,
+    minutes: 5,
+    maxTurns: 10,
+    characters: [
+      {
+        id: "eve",
+        name: L("Eve", "Eve"),
+        role: L("婉拒过你、现在来划线的朋友", "The friend who declined you and is now setting the line"),
+        personality: L(
+          "说话前会先想怎么不伤人，但一旦把线说出来就不挪；你跟她谈条件她会退一步听，你试图让她为这条线内疚，她会变得更短、更清楚，而不是更软。她不会为了让你好受而把「不行」说成「再看看」。",
+          "She chooses her words carefully so as not to hurt you, but once a line is spoken it does not move. Bargaining makes her listen one step back; making her feel guilty about the line makes her shorter and clearer, never softer. She will not turn 'no' into 'let's see' just to spare you.",
+        ),
+        stance: L("想保住这个朋友，也想把自己的空间拿回来；她宁愿现在谈得难看一点，也不要你以后攒着委屈。", "Wants to keep the friend and take back her space; she would rather this be awkward now than have you banking resentment later."),
+        hidden: L("她已经从别人那里听说你还在等她改主意，一直没点破，是怕你难堪；只有你不带辩解地问她「你是不是觉得我还在等」，她才会承认自己一直在留意这件事。她说出来之后仍然维持原来的频率。", "A mutual friend already told her you are still waiting, and she has not raised it to spare you the embarrassment. Only a defensive-free 'do you think I'm still waiting for you?' makes her admit she has been watching it. Even then she keeps the same rhythm."),
+        hue: 300,
+      },
+    ],
+    objectives: [
+      L("听清她提的具体频率，并只承诺你做得到的那部分。", "Hear the specific rhythm she proposes and commit only to the part you can actually keep."),
+      L("不借这次谈话再确认一次她会不会改口。", "Do not use this conversation to re-test whether she will change her mind."),
+      L("如果你需要过渡期，直接说出来，而不是用减少联系来暗中施压。", "If you need time before you can be just a friend, say it plainly instead of going quiet to apply pressure."),
+    ],
+    success: L("你们定下一个双方都做得到的联系频率，或者你诚实地说明你需要拉开距离缓一缓——她没有因此收回友谊，也没有改口。你答应的部分你确实做得到。", "You settle on a rhythm both of you can keep, or you honestly say you need distance to adjust — she neither withdraws the friendship nor changes her answer, and what you agreed to is something you can actually do."),
+    failure: L("你嘴上答应、回头照旧天天发消息；或者你把她的界限说成她绝情，逼她为了自证而收回友谊。", "You agree and then resume the daily messages, or you frame her boundary as cruelty until she drops the friendship to prove a point."),
+    opening: {
+      characterId: "eve",
+      text: L(
+        "我先说，免得我说不出口——以后我们能不能只在读书会见面，平时消息不用每天发。你没有做错什么，是我这边……我需要这个。你要是觉得这样太狠，我们可以商量，但「照旧」不行。",
+        "Let me say it first, or I won't manage it — can we just meet at the book club, and you don't need to message me every day? You didn't do anything wrong. This is me needing space. If it feels harsh we can talk about it, but 'back to normal' isn't an option.",
+      ),
+    },
+    source: "Original fictional practice — SocialCoach, 2026-10-10, app/src/data/corpus/love-scenarios-deep-boundary.ts#love-boundary-eve-contact-rhythm",
+    keywords: ["联系频率", "婉拒之后", "朋友", "空间", "contact rhythm", "space", "after rejection"],
+    loveTopic: "boundary",
+    series: { id: "love-arc-eve-after-no", name: L("被拒之后", "After the No") },
+    icon: "message-square",
+  },
 ];

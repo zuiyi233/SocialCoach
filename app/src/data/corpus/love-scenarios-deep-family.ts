@@ -116,8 +116,8 @@ export const LOVE_SCENARIOS_DEEP_FAMILY: Scenario[] = [
       "Your families have handed you their expectations in the same breath: yours insists on the traditional route — a formal parents meeting, an engagement ceremony, everything by the old rules; Rio’s side wants it lean — travel wedding, each family covering its own. Both are pushing, and you two have already fought one round over whose family ’deserves more understanding’. The task: get aligned with Rio into one shared position first, then each of you talks to your own family — don’t commit for Rio and don’t let Rio commit for you; translate both families’ words into a plan you two actually own.",
     ),
     simulationFacts: L(
-      "两种家庭期待是两家分别亮出的立场，「哪条老规矩」「预算多少」等具体内容未核实，不要替两家编细节。Rio 转述他家的态度可能夹着他的加工；你们对齐的口径是各自要拿回家谈的草案，不代表两家已经接受。你说「我爸妈那边我来谈」不等于你爸妈已经同意，也不等于他家已经松口。隐藏事实：Rio 已经背着你先答应了他妈「婚礼先按他们家的意思攒着」，怕你生气一直不敢说——只有你单独、用不指责的口吻直接问他「你是不是已经先答应了你妈什么」，他才可能坦白这句越界的话；他不说破，不等于你们俩的立场已经替他应承了什么。你的一个动作永远不等于对方已经同意什么。",
-      "The two families’ expectations are positions each side has stated, but the specifics — which old custom, what budget — are unverified; don’t invent details for either household. Rio’s relay of his family’s stance may carry his own editing; the position you two align on is a draft each of you will take home, not an acceptance either family has given. Rio has not committed you to anything, and your ’I’ll handle my parents’ is not their consent, nor Rio’s family relenting. One person’s move is never the other side’s agreement.",
+      "两种家庭期待是两家分别亮出的立场，「哪条老规矩」「预算多少」等具体内容未核实，不要替两家编细节。Rio 转述她家的态度可能夹着她的加工；你们对齐的口径是各自要拿回家谈的草案，不代表两家已经接受。你说「我爸妈那边我来谈」不等于你爸妈已经同意，也不等于她家已经松口。隐藏事实：Rio 已经背着你先答应了她妈「婚礼先按她们的意思攒着」，怕你生气一直不敢说——只有你单独、用不指责的口吻直接问她「你是不是已经先答应了你妈什么」，她才可能坦白这句越界的话；她不说破，不等于你们俩的立场已经替她应承了什么。你的一个动作永远不等于对方已经同意什么。",
+      "The two families’ expectations are positions each side has stated, but the specifics — which old custom, what budget — are unverified; don’t invent details for either household. Rio’s relay of her family’s stance may carry her own editing; the position you two align on is a draft each of you will take home, not an acceptance either family has given. Rio has not committed you to anything, and your ’I’ll handle my parents’ is not their consent, nor her family relenting. One person’s move is never the other side’s agreement.",
     ),
     context: "romantic",
     contextType: L("见家长", "Meeting the family"),
@@ -132,12 +132,12 @@ export const LOVE_SCENARIOS_DEEP_FAMILY: Scenario[] = [
         name: L("Rio", "Rio"),
         role: L("你的伴侣", "Your partner"),
         personality: L(
-          "两边压力下容易摇摆，一会儿想顾全你家的面子、一会儿想让他家高兴；你摆出「我家规矩不能破」他会跟着你顶在他爸妈那边，你说「我们先对齐我们自己要什么」他会安静下来，跟你一起把话说清楚。",
-          "Under twin pressures he sways — one moment honoring your family’s face, the next his own parents’ wishes. A ’my family’s customs can’t bend’ from you makes him brace against his own parents; a ’let’s first agree on what we two actually want’ makes him settle and line up beside you.",
+          "两边压力下容易摇摆，一会儿想顾全你家的面子、一会儿想让她家高兴；你摆出「我家规矩不能破」她会跟着你顶在她爸妈那边，你说「我们先对齐我们自己要什么」她会安静下来，跟你一起把话说清楚。",
+          "Under twin pressures she sways — one moment honoring your family’s face, the next her own parents’ wishes. A ’my family’s customs can’t bend’ from you makes her brace against her own parents; a ’let’s first agree on what we two actually want’ makes her settle and line up beside you.",
         ),
-        stance: L("想两头都交差——既不想让你家失望，也不想跟他家起冲突。", "Wants to deliver to both sides — not disappointing your family, not picking a fight with his own."),
-        hidden: L("他已经背着你先答应了他妈「婚礼先按他们的意思攒着」，怕你知道后生气一直不敢说；只有你单独关起门、用不指责的口吻直接问他「你是不是已经先答应了你妈什么」，他才可能坦白这句越界的话。", "He has already quietly told his mother ’start gathering things their way’, behind your back, and is terrified you’ll explode — he can only own up to this overreach when you’re alone with him and ask, without accusation, whether he has already promised his mother something."),
-        hue: 150,
+        stance: L("想两头都交差——既不想让你家失望，也不想跟她家起冲突。", "Wants to deliver to both sides — not disappointing your family, not picking a fight with her own."),
+        hidden: L("她已经背着你先答应了她妈「婚礼先按她们的意思攒着」，怕你知道后生气一直不敢说；只有你单独关起门、用不指责的口吻直接问她「你是不是已经先答应了你妈什么」，她才可能坦白这句越界的话。", "She has already quietly told her mother ’start gathering things their way’, behind your back, and is terrified you’ll explode — she can only own up to this overreach when you’re alone with her and ask, without accusation, whether she has already promised her mother something."),
+        hue: 118,
       },
     ],
     objectives: [
@@ -145,8 +145,8 @@ export const LOVE_SCENARIOS_DEEP_FAMILY: Scenario[] = [
       L("对齐一支口径，约定各自只向自己父母表述，不替对方承诺。", "Agree on one shared position, with each of you presenting only to your own family — no committing for the other."),
       L("把两家的期待翻译成可共同提出的选项：先做什么、后做什么、什么需要他们确认。", "Translate both families’ wishes into options you can present together: what happens first, what comes after, what genuinely needs their sign-off."),
     ],
-    success: L("你们对齐了口径，约好各自先跟自己父母谈；即便 Rio 瞒着答应过他妈的旧账被翻出来，也把它重新收回到两人的决策里。", "You land on a shared position and agree each of you talks to your own family first — and even when Rio’s hidden half-promise to his mom surfaces, it folds back into the two of you owning the decision."),
-    failure: L("你替 Rio 答应他家的方案，或逼 Rio 当「传话筒」替你回绝他爸妈，让两边期待因为你们俩的争执越烧越旺。", "You commit Rio to his family’s plan, or turn him into your messenger to refuse his parents — the clash only burns hotter because of your fighting."),
+    success: L("你们对齐了口径，约好各自先跟自己父母谈；即便 Rio 瞒着答应过她妈的旧账被翻出来，也把它重新收回到两人的决策里。", "You land on a shared position and agree each of you talks to your own family first — and even when Rio’s hidden half-promise to her mom surfaces, it folds back into the two of you owning the decision."),
+    failure: L("你替 Rio 答应她家的方案，或逼 Rio 当「传话筒」替你回绝她爸妈，让两边期待因为你们俩的争执越烧越旺。", "You commit Rio to her family’s plan, or turn her into your messenger to refuse her parents — the clash only burns hotter because of your fighting."),
     maxTurns: 8,
     opening: {
       characterId: "rio",
@@ -155,6 +155,7 @@ export const LOVE_SCENARIOS_DEEP_FAMILY: Scenario[] = [
     source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-family.ts#love-family-expectation-clash",
     keywords: ["期待冲突", "婚礼", "对齐口径", "见家长", "expectation clash", "wedding", "aligned front"],
     loveTopic: "family",
+    series: { id: "love-arc-rio-clarify", name: L("暧昧到说清楚", "From Ambiguous to Explicit") },
     icon: "split",
   },
   {

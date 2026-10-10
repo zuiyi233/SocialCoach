@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Play } from "lucide-react";
@@ -11,6 +11,8 @@ import { LoveProficiency } from "@/components/LoveProficiency";
 import { SCENARIOS, THEORIES, CASES } from "@/data/corpus";
 import type { Scenario } from "@/data/corpus/types";
 import { LOVE_TOPICS, loveTopicById, type LoveTopicId } from "@/data/corpus/love-topics";
+import { LOVE_SERIES } from "@/data/corpus/love-series";
+import { readLoveSeriesProgress } from "@/lib/love-series-progress";
 import { useApp, useLang, useLoveProficiency } from "@/store/useApp";
 import { t } from "@/lib/i18n";
 import { buildSession, sessionMinutes } from "@/lib/session-utils";
@@ -69,17 +71,27 @@ export default function Love() {
     addSession(session);
     router.push(`/practice/${session.id}`);
   };
-  /** 剧情模式入口指向的场景：优先 nextPick，否则第一个带 loveTopic 的恋爱场景。 */
-  const gameEntry = useMemo(
-    () => nextPick ?? ordered.find((s) => s.loveTopic) ?? loveScenarios[0] ?? null,
-    [nextPick, ordered, loveScenarios],
-  );
-  /** 剧情模式入口：已有剧情线时先进线内首页（能看到进度与场景列表），否则进单场景。 */
-  const gameHref = useMemo(() => {
-    const seriesScene = ordered.find((s) => s.series);
-    if (seriesScene?.series) return `/love/play/series/${seriesScene.series.id}`;
-    return gameEntry ? `/love/play/${gameEntry.id}` : null;
-  }, [ordered, gameEntry]);
+  /**
+   * 各剧情线的设备端完成数。挂载后再读 localStorage：服务端首屏没有存储，
+   * 统一以 null 起始避免 hydration 不一致（与 SeriesPlay 同一口径）。
+   */
+  const [seriesDone, setSeriesDone] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      if (!alive) return;
+      const map: Record<string, number> = {};
+      for (const ser of LOVE_SERIES) {
+        const p = readLoveSeriesProgress(ser.id);
+        map[ser.id] = ser.scenarios.filter((s) => p.completed.includes(s.id)).length;
+      }
+      setSeriesDone(map);
+    }, 0);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <Shell>
@@ -90,18 +102,37 @@ export default function Love() {
           <p className="text-[14px] text-ink-3 mt-3 max-w-[var(--measure)]">{t(lang, "love_sub")}</p>
         </header>
 
-        {gameHref && (
+        {LOVE_SERIES.length > 0 && (
           <section aria-label={t(lang, "love_mode_title")} className="flex flex-col gap-3">
-            <Link href={gameHref} className="press card card-link text-left p-5 flex items-center gap-4">
-              <span className="shrink-0 w-12 h-12 rounded-full grid place-items-center bg-accent-soft text-accent-deep">
-                <Play size={22} />
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="block font-semibold text-[16px] leading-snug">{t(lang, "love_mode_title")}</span>
-                <span className="block text-[12px] text-ink-3 mt-1">{t(lang, "love_mode_sub")}</span>
-              </span>
-              <ArrowRight size={17} className="shrink-0 text-accent-deep" />
-            </Link>
+            <div>
+              <h2 className="display text-[20px]">{t(lang, "love_mode_title")}</h2>
+              <p className="text-[12px] text-ink-3 mt-1">{t(lang, "love_mode_sub")}</p>
+            </div>
+            <div className="flex flex-col gap-3">
+              {LOVE_SERIES.map((ser) => {
+                const total = ser.scenarios.length;
+                const done = seriesDone?.[ser.id] ?? 0;
+                return (
+                  <Link
+                    key={ser.id}
+                    href={`/love/play/series/${ser.id}`}
+                    className="press card card-link text-left p-5 flex items-center gap-4"
+                  >
+                    <span className="shrink-0 w-12 h-12 rounded-full grid place-items-center bg-accent-soft text-accent-deep">
+                      <Play size={22} />
+                    </span>
+                    <span className="flex-1 min-w-0 flex flex-col gap-1">
+                      <span className="block font-semibold text-[16px] leading-snug">{ser.name[lang]}</span>
+                      <span className="block text-[12px] text-ink-3">{t(lang, "love_series_progress", { n: done, total })}</span>
+                      <span className="block text-[12px] text-ink-2 leading-relaxed">
+                        {ser.scenarios.map((s) => s.title[lang]).join(" → ")}
+                      </span>
+                    </span>
+                    <ArrowRight size={17} className="shrink-0 text-accent-deep" />
+                  </Link>
+                );
+              })}
+            </div>
           </section>
         )}
 

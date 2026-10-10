@@ -157,6 +157,7 @@ export const LOVE_SCENARIOS_DEEP_APPROACH: Scenario[] = [
     source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-approach.ts#love-approach-soft-decline-reinvite",
     keywords: ["邀约", "软拒绝", "忙", "时间差", "纠缠", "invitation", "soft decline", "timing", "boundary"],
     loveTopic: "approach",
+    series: { id: "love-arc-rio-clarify", name: L("暧昧到说清楚", "From Ambiguous to Explicit") },
     icon: "calendar-x",
   },
   {

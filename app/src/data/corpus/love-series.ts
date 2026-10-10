@@ -14,7 +14,9 @@ function buildSeries(): LoveSeries[] {
   const order: string[] = [];
   const byId = new Map<string, LoveSeries>();
   for (const s of SCENARIOS) {
-    if (!s.series) continue;
+    // 只聚合恋爱场景：series 标签本身是跨模块用的（职场/家庭线也挂 series），
+    // 不过滤会把 junior-aze / family-care 混进恋爱主页。
+    if (!s.series || s.context !== "romantic") continue;
     let ser = byId.get(s.series.id);
     if (!ser) {
       ser = { id: s.series.id, name: s.series.name, scenarios: [] };

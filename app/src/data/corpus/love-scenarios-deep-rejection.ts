@@ -206,5 +206,6 @@ export const LOVE_SCENARIOS_DEEP_REJECTION: Scenario[] = [
     keywords: ["婉拒", "读书会", "共同圈子", "体面", "收尾", "shared circle", "graceful closure", "friendship"],
     loveTopic: "rejection",
     icon: "users",
+    series: { id: "love-arc-eve-after-no", name: L("被拒之后", "After the No") },
   },
 ];
