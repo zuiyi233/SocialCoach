@@ -122,10 +122,15 @@ export default function Love() {
                       <Play size={22} />
                     </span>
                     <span className="flex-1 min-w-0 flex flex-col gap-1">
-                      <span className="block font-semibold text-[16px] leading-snug">{ser.name[lang]}</span>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="block font-semibold text-[16px] leading-snug">{ser.name[lang]}</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${ser.continuous ? "border-accent-soft text-accent-deep" : "border-line text-ink-3"}`}>
+                          {ser.continuous ? t(lang, "love_series_cast") : t(lang, "love_series_theme")}
+                        </span>
+                      </span>
                       <span className="block text-[12px] text-ink-3">{t(lang, "love_series_progress", { n: done, total })}</span>
                       <span className="block text-[12px] text-ink-2 leading-relaxed">
-                        {ser.scenarios.map((s) => s.title[lang]).join(" → ")}
+                        {ser.scenarios.map((s) => s.title[lang]).join(ser.continuous ? " → " : " · ")}
                       </span>
                     </span>
                     <ArrowRight size={17} className="shrink-0 text-accent-deep" />

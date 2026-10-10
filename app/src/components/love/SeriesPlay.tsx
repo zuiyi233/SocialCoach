@@ -30,10 +30,13 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
   }, [series.id]);
 
   const total = series.scenarios.length;
+  // 同一人物贯穿的线才用「第 N 幕」；换人的线是主题合集，用「第 N 场」，
+  // 否则用户会以为旧线也是连续剧情。
+  const continuous = series.continuous;
   const doneCount = progress ? series.scenarios.filter((s) => progress.completed.includes(s.id)).length : 0;
   // 继续入口：优先最近玩过的场景，校验它仍属于这条线；否则从头开始。
   const nextId = progress && series.scenarios.some((s) => s.id === progress.lastScene) ? progress.lastScene : series.scenarios[0].id;
-  const flow = series.scenarios.map((s) => s.title[lang]).join(" → ");
+  const flow = series.scenarios.map((s) => s.title[lang]).join(continuous ? " → " : " · ");
 
   return (
     <Shell>
@@ -47,7 +50,7 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
             <ArrowLeft size={20} />
           </button>
           <div className="min-w-0">
-            <p className="eyebrow mb-3 text-accent-deep">{t(lang, "love_series_arc")}</p>
+            <p className="eyebrow mb-3 text-accent-deep">{continuous ? t(lang, "love_series_arc") : t(lang, "love_series_theme")}</p>
             <h1 className="display text-[26px] md:text-[32px] leading-tight break-words">{series.name[lang]}</h1>
             <p className="text-[13px] text-ink-3 mt-2">{t(lang, "love_series_progress", { n: doneCount, total })}</p>
             <p className="text-[13px] text-ink-2 mt-1">{flow}</p>
@@ -60,15 +63,19 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
           </span>
           <span className="flex-1 min-w-0">
             <span className="block font-semibold text-[16px] leading-snug">
-              {doneCount === 0 ? t(lang, "love_series_start") : doneCount >= total ? t(lang, "love_series_restart") : t(lang, "love_series_continue")}
+              {doneCount === 0
+                ? continuous ? t(lang, "love_series_start") : t(lang, "love_pack_start")
+                : doneCount >= total
+                  ? t(lang, "love_series_restart")
+                  : continuous ? t(lang, "love_series_continue") : t(lang, "love_pack_continue")}
             </span>
             <span className="block text-[12px] text-ink-3 mt-1">{series.scenarios.find((s) => s.id === nextId)?.title[lang]}</span>
           </span>
           <ArrowRight size={17} className="shrink-0 text-accent-deep" />
         </Link>
 
-        <section aria-label={t(lang, "love_series_scenes")} className="flex flex-col gap-3">
-          <h2 className="display text-[20px]">{t(lang, "love_series_scenes")}</h2>
+        <section aria-label={continuous ? t(lang, "love_series_scenes") : t(lang, "love_pack_scenes")} className="flex flex-col gap-3">
+          <h2 className="display text-[20px]">{continuous ? t(lang, "love_series_scenes") : t(lang, "love_pack_scenes")}</h2>
           <div className="flex flex-col gap-3">
             {series.scenarios.map((sc, i) => {
               const isDone = !!progress?.completed.includes(sc.id);
@@ -81,7 +88,7 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
                   <ScenarioCover scenario={sc} size={48} />
                   <span className="flex-1 min-w-0 flex flex-col gap-1.5">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] text-accent-deep">{t(lang, "love_series_act", { n: i + 1 })}</span>
+                      <span className="text-[11px] text-accent-deep">{continuous ? t(lang, "love_series_act", { n: i + 1 }) : t(lang, "love_series_scene", { n: i + 1 })}</span>
                       <span className="font-semibold text-[15px] leading-snug">{sc.title[lang]}</span>
                       {isDone && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-teal-soft text-teal px-2 py-0.5 text-[11px]">

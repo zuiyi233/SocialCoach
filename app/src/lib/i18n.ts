@@ -108,6 +108,13 @@ const dict = {
   love_series_continue: { zh: "继续这段剧情", en: "Continue the story" },
   love_series_restart: { zh: "再看一遍", en: "Replay the story" },
   love_series_done: { zh: "已完成", en: "Done" },
+  // 剧情线两种口径：同一人物贯穿才叫「幕」，换人的线是同一主题下的独立场景合集。
+  love_series_theme: { zh: "主题合集", en: "Theme pack" },
+  love_series_cast: { zh: "同一人物贯穿", en: "One character throughout" },
+  love_series_scene: { zh: "第 {n} 场", en: "Scene {n}" },
+  love_pack_start: { zh: "从第一场开始", en: "Start with the first scene" },
+  love_pack_continue: { zh: "回到上次那场", en: "Back to your last scene" },
+  love_pack_scenes: { zh: "合集场景", en: "Scenes in this set" },
   pg_love_go: { zh: "去恋爱专区", en: "Open Love" },
   pg_love_empty: { zh: "恋爱练习还没开始", en: "No love practice yet" },
   pg_love_empty_body: { zh: "初次认识、暧昧、分手——恋爱里难开口的对话，也能在这里练。", en: "First approaches, ambiguity, breakups — the love conversations you keep avoiding are here too." },
