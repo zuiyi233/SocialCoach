@@ -36,3 +36,4 @@ docs/screenshots/raw/
 # Regenerable packed Blender sources and production cache (not web assets)
 .blender-work/
 __pycache__/
+_portrait-dump/
