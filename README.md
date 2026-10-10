@@ -161,7 +161,7 @@ cd app
 cp .env.production.example .env.production
 ```
 
-编辑 `.env.production`，填入模型凭证与限流配置。将 `Caddyfile` 中的 `example.com` 换成你的域名，将域名解析到服务器，并确保 80、443 端口可访问。然后启动：
+编辑 `.env.production`，填入模型凭证与限流配置；`robots.txt` 与 `sitemap.xml` 的绝对地址取自 `NEXT_PUBLIC_SITE_URL`，不设则用默认的 Vercel 直连域名。将 `Caddyfile` 中的 `example.com` 换成你的域名，将域名解析到服务器，并确保 80、443 端口可访问。然后启动：
 
 ```bash
 docker compose up -d --build

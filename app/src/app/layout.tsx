@@ -2,10 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/AppProviders";
+import { SITE_URL } from "@/lib/site-url";
 
 const hanken = Hanken_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-hanken", display: "swap" });
 
 export const metadata: Metadata = {
+  // canonical / OG 之类的相对路径据此拼成绝对地址。逐页 canonical 要等落地页
+  // 那一轮再加：/arena、/love、/learn 都是 `use client`，导出不了 metadata。
+  metadataBase: new URL(SITE_URL),
   title: "SocialCoach",
   description: "想说的话，说出来。跟有自己目的、不会让你赢的 AI 角色实战演练，拿到引用你原话的教练复盘——告诉你是不会，还是会但没做到。每天 3 分钟。Say the thing you’ve been not saying.",
   manifest: "/manifest.webmanifest",
