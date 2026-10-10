@@ -14,7 +14,7 @@ import { stopSpeaking, unlockSpeech } from "@/lib/speech";
 import { DEFAULT_PATIENCE, useApp, useLang } from "@/store/useApp";
 import { t, pick } from "@/lib/i18n";
 import { clockMarks, PatiencePicker } from "@/components/practice/ReplyClock";
-import { COMPETENCIES, SKILLS, type SkillId } from "@/data/taxonomy";
+import { COMPETENCIES, CONTEXTS, SKILLS, contextById, type ContextId, type SkillId } from "@/data/taxonomy";
 import { compColor } from "@/lib/format";
 import { AvatarFigure, learnerSeed } from "@/data/avatars";
 import { AvatarPicker } from "@/components/AvatarPicker";
@@ -43,12 +43,19 @@ export default function Settings() {
   const [edit, setEdit] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
+  const [contextsOpen, setContextsOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const byok = useByok();
   const ownModel = isReady(byok);
   const [name, setName] = useState(profile?.name ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
   if (!profile) return null;
+
+  const toggleContext = (id: ContextId) =>
+    updateProfile({
+      contexts: profile.contexts.includes(id) ? profile.contexts.filter((c) => c !== id) : [...profile.contexts, id],
+    });
+  const contexts = profile.contexts ?? [];
 
   const exportData = () => {
     const blob = new Blob(
@@ -137,6 +144,32 @@ export default function Settings() {
               {profile.goals.map((g) => (
                 <SkillTag key={g} id={g} lang={lang} />
               ))}
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <SectionTitle
+              right={
+                <button onClick={() => setContextsOpen(true)} className="press text-[13px] text-action min-h-11 min-w-11">
+                  {t(lang, "st_edit")}
+                </button>
+              }
+            >
+              {t(lang, "st_contexts")}
+            </SectionTitle>
+            <div className="flex flex-wrap gap-2">
+              {contexts.length === 0 ? (
+                <span className="text-[13px] text-ink-3">{t(lang, "st_contexts_empty")}</span>
+              ) : (
+                contexts.map((c) => {
+                  const ctx = contextById(c);
+                  return (
+                    <span key={c} className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-0.5 text-[12px]">
+                      {ctx.name[lang]}
+                    </span>
+                  );
+                })
+              )}
             </div>
           </section>
 
@@ -339,6 +372,35 @@ export default function Settings() {
               </div>
             </div>
           ))}
+        </div>
+      </Sheet>
+
+      <Sheet open={contextsOpen} onClose={() => setContextsOpen(false)} title={t(lang, "st_contexts")}>
+        <div className="flex flex-col gap-4 pt-2">
+          <p className="text-[13px] text-ink-3" role="status">{t(lang, "st_contexts_hint")}</p>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {CONTEXTS.map((c) => {
+              const on = contexts.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => toggleContext(c.id)}
+                  aria-pressed={on}
+                  className={clsx("press card text-left p-4 flex flex-col gap-2 min-h-[104px] rise", on && "border-ink bg-inset")}
+                >
+                  <span className="font-semibold text-[15px]">
+                    {c.name[lang]}
+                    {c.id === "romantic" && (
+                      <span className="ml-1.5 rounded-full bg-accent-soft text-accent-deep px-1.5 py-0.5 text-[10px] font-medium align-middle">
+                        {t(lang, "love_eyebrow")}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[12px] text-ink-3 leading-snug">{c.types.slice(0, 3).map((x) => x[lang]).join(" · ")}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </Sheet>
 

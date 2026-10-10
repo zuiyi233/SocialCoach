@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Check, Clock3, RefreshCw } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Clock3, Heart, RefreshCw } from "lucide-react";
 import { DinnerEntry } from "@/components/DinnerEntry";
 import { CoachMascot } from "@/components/CoachMascot";
 import { Shell } from "@/components/Shell";
@@ -21,7 +21,7 @@ import { ScenarioCover } from "@/components/ScenarioCover";
 export default function Home() {
   const lang = useLang();
   const router = useRouter();
-  const { profile, proficiency, sessions, practiceDays, todaySessionId, todayDate, addSession, setToday, removeSession, pruneSessions } =
+  const { profile, proficiency, sessions, practiceDays, todaySessionId, todayDate, addSession, setToday, removeSession, pruneSessions, updateProfile } =
     useApp();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -203,6 +203,28 @@ export default function Home() {
           {/* the margin: what you are working on, and what you have already done */}
           <aside className="min-w-0 flex flex-col gap-7 xl:pl-6 xl:border-l xl:border-dashed xl:border-line-strong">
             <PracticeWeek days={practiceDays} streak={streak} />
+            {/* love entry — visible even when the context is off so the home margin surfaces it */}
+            <section className="flex flex-col gap-2">
+              <Link
+                href="/love"
+                onClick={() => {
+                  // Surface the love track on the home margin even before onboarding
+                  // switches the context on; leaving it off just means the daily
+                  // pick stays skill-generic.
+                  if (!profile.contexts.includes("romantic")) updateProfile({ contexts: [...profile.contexts, "romantic"] });
+                }}
+                className="press card card-link flex items-center gap-3 p-4"
+              >
+                <span className="shrink-0 w-10 h-10 rounded-full grid place-items-center bg-accent-soft text-accent-deep">
+                  <Heart size={18} aria-hidden />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-semibold text-[14px] leading-snug">{t(lang, "love_mode_title")}</span>
+                  <span className="block text-[12px] text-ink-3 mt-0.5">{t(lang, "love_mode_sub")}</span>
+                </span>
+                <ArrowRight size={16} className="shrink-0 text-accent-deep" aria-hidden />
+              </Link>
+            </section>
             {/* skills */}
             <section className="flex flex-col gap-3">
               <SectionTitle
