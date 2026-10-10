@@ -22,7 +22,7 @@ practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（�
 
 - [x] 官网与 README 的场景数仍是 58（`site/content.mjs` 的 `description` + stats、`README.md` 覆盖说明），语料实际 142。→ 2026-10-10 修正为 142 / 168 / 39，并把清点口径改成以 `corpus/index.ts` 的拼接列表为准、五个展示数字全部派生断言、语料读取先归一 CRLF（旧文件名正则在 Windows 工作区直接把整份文件读成 0 条，本地构建本来是抛错的）。详见 [站点语料数字清点口径](./80-known-pitfalls.md#站点语料数字用文件名正则清点会静默漏掉整批场景2026-10-10)。
 - [ ] `Model connection: {issue}.`（`src/lib/llm.ts:204`、`src/lib/llm-client.ts:80`）在未接模型时直出中文界面，是内部诊断串而不是面向用户的文案；需要决定翻成 `L` 文案还是收敛成通用提示。
-- [ ] 旧的两条恋爱剧情线人物不连续：「信任与边界」是 ning / jamie / nora 三个不同 NPC，「初见与心动」是 tess / mae / zoe。新加的 rio、eve 两条是同一人物贯穿，两种线在同一列表里并列会让人误判剧情连续性。要么把旧线改成主题合集口径，要么按新口径补人物连续的场景。
+- [x] 旧的两条恋爱剧情线人物不连续：「信任与边界」是 ning / jamie / nora 三个不同 NPC，「初见与心动」是 tess / mae / zoe。→ 2026-10-10 采用主题合集口径（用户拍板）：`LoveSeries.continuous` 按「每场 NPC 阵容是否一致」算出，贯穿线继续用「剧情线 / 第 N 幕 / →」，换人的线改显示「主题合集 / 第 N 场 / ·」与「从第一场开始」；不新增语料、不动立绘。代价是旧线仍是三个独立场景而不是一段故事，真要连续还得补同人物的场景（本轮未做）。
 - [ ] `love-define-rio-pace-talk`、`love-boundary-eve-contact-rhythm`、`love-trust-eve-what-you-told` 三个新场景只做了结构与渲染冒烟，让步 / 拒绝 / 反问 / 玩笑 / 修复 / 续聊六项需要真实模型跑一遍才算验收。
 
 ## 待修订 PR（2026-10-09）
@@ -33,7 +33,9 @@ practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（�
 
 ## Stage C 开工前待拍板（2026-10-10 方案盘点）
 
-- [ ] 数字口径三处互斥，需统一到同一口径：`wiki/12-stage-c.md:24` 写「118 条（46 场景 + 42 理论 + 30 案例）× 中英 = 236 页」，roadmap:94 写「130 条 = 260 页」，roadmap:109 又写 236。实测语料为场景 142 + 理论 168 + 案例 39 = **349 条 / 双语 698 页**。推荐按 349/698 三处一起改，并把清点口径挂在 `corpus/index.ts`（站点侧已经这么做了）。
+- [x] 数字口径三处互斥，需统一到同一口径：`wiki/12-stage-c.md:24` 写「118 条（46 场景 + 42 理论 + 30 案例）× 中英 = 236 页」，roadmap:94 写「130 条 = 260 页」，roadmap:109 又写 236。→ 2026-10-10 三处一起按实测改写：场景 142 + 理论 168 + 案例 39 = **349 条 / 双语 698 页**，清点口径挂在 `corpus/index.ts`。
+- [x] Stage C 地基（roadmap C2）先落地：`SITE_URL`（`NEXT_PUBLIC_SITE_URL` 可覆盖，默认 Vercel 直连域名）、根 layout `metadataBase`、`app/robots.ts`（禁抓 `/api/`、`/practice/`、`/progress`、`/settings`、`/rehearse`、`/onboarding`）、`app/sitemap.ts`（5 条公开路由）。构建产物核对过 `robots.txt.body` 与 `sitemap.xml.body` 都是绝对 HTTPS。
+- [ ] 逐页 canonical 与 `llms.txt`（C5）留到落地页那轮：`/arena`、`/love`、`/learn` 是 `use client`，导出不了 `metadata`，要先拆 server component 壳；`llms.txt` 要列语料 URL，现在列了就会立刻过期。
 - [ ] 语料读取方式：站点继续用正则读 TS，还是新增 `app/scripts/dump-corpus.mjs` 产 JSON 快照作为单一事实源。推荐后者——349 条里多行带引号的字段是 C1/C3 最大的工程风险，顺带彻底消掉换行与文件名口径两类漏计（今天就是 `^scenarios-[a-z]\.ts$` 漏掉了 84 条）。
 - [ ] 落地页基址域名：`site.content.mjs` 里 `appDeepUrl` 是 Vercel 直连域名、`appUrl` 是地域分流域名且**会丢子路径**（见 pitfall「地域分流短域名不保留深链接」）。`metadataBase` 与深链 CTA 必须选 Vercel 直连，否则爬虫拿到的是首页。
 - [ ] 双语 URL：推荐中文在根 + `/en/…`（与官网同构、改动最小）；备选是 `[lang]` 全前缀，需要重写现在 9 条 `use client` 路由与全部内链。

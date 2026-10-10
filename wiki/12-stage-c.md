@@ -21,14 +21,14 @@ app/ 缺 OG 图  JSON-LD  hreflang(zh/en)
 
 | 资产 | 内容 |
 |---|---|
-| **语料 = 236 个现成落地页** | `src/data/corpus/` 里 118 条内容（46 场景 + 42 理论 + 30 案例）× 中英。场景标题本身就是高意图长尾搜索词（「如何跟老板谈加薪」、「how to decline extra work」），**搜这些词的人和晚上 11 点打开 App 的人是同一批**（A 类客户）。内容已写完，只是索引不到 |
+| **语料 = 698 个现成落地页** | `src/data/corpus/` 里 349 条内容（142 场景 + 168 理论 + 39 案例，按 `corpus/index.ts` 实测；旧稿的 118 / 46+42+30 已经落后于两次 practical 批次）× 中英。场景标题本身就是高意图长尾搜索词（「如何跟老板谈加薪」、「how to decline extra work」），**搜这些词的人和晚上 11 点打开 App 的人是同一批**（A 类客户）。内容已写完，只是索引不到 |
 | **论文 = 可核验的研究来源** | 当前是 arXiv 预印本，官网已链接原文并提供 `ScholarlyArticle`、`SoftwareApplication` 结构化数据与 `llms.txt`。这些有助于机器理解产品与论文的关系，但不能保证搜索排名或 AI 引用 |
 
 ## 功能汇总
 
 | # | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| C1 | 语料落地页 SSG（236 页） | 📋 | 核心 |
+| C1 | 语料落地页 SSG（698 页） | 📋 | 核心；地基（`metadataBase` / `robots.ts` / `sitemap.ts`）已于 2026-10-10 先行落地，见下 |
 | C2 | `sitemap.ts` / `robots.ts` / `metadataBase` | 📋 | |
 | C3 | 动态 OG 图 | 📋 | |
 | C4 | JSON-LD 结构化数据 | 📋 | |
@@ -43,6 +43,10 @@ app/ 缺 OG 图  JSON-LD  hreflang(zh/en)
 
 **只把语料变成可索引页面，不动练习流程。** `/practice/[id]`、`/arena`、`/progress` 等交互页保持 `use client`——它们依赖 localStorage，本来也不该被索引。
 
+### 地基（2026-10-10 已落地）
+
+`app/src/lib/site-url.ts` 定义 `SITE_URL`（`NEXT_PUBLIC_SITE_URL` 可覆盖，默认 Vercel 直连域名；地域分流短域名会丢子路径，不能当规范地址）；根 layout 加 `metadataBase`；`app/robots.ts` 放行公开页并禁止 `/api/`、`/practice/`、`/progress`、`/settings`、`/rehearse`、`/onboarding`；`app/sitemap.ts` 先列 `/`、`/arena`、`/love`、`/learn`、`/3d` 五条。逐页 canonical 与 hreflang 留到落地页那轮：`/arena`、`/love`、`/learn` 都是 `use client`，导出不了 `metadata`，需要先拆出 server component 壳。`llms.txt`（C5）也留到那时一起做，避免在没有语料 URL 时先写一份要马上过期的索引。
+
 ### 待定的关键决策
 
 | 决策点 | 待定 | 说明 |
@@ -56,7 +60,7 @@ app/ 缺 OG 图  JSON-LD  hreflang(zh/en)
 
 - `curl` 一个落地页，`<body>` 里能看到场景标题、背景、目标——**不执行 JS 的前提下**
 - 每页有独立 `title` / `description` / canonical / hreflang
-- `sitemap.xml` 列出全部 236 页
+- `sitemap.xml` 列出全部 698 页
 - 已练过的场景不在落地页泄露用户数据（落地页不读 localStorage）
 
 ### 受影响文件（预估）

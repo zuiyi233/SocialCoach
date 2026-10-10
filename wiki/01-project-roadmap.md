@@ -64,7 +64,7 @@
 
 | A35 | 视频观摩与同场景练习 | ✅ 双平台已发布，真机待验 | 用户提供的职场饭局与 HR 电梯两条动画；原生播放 / 双语字幕 / 时间戳拆解 / 统一检索与收藏 / 游客入口 / 3D 确认；8 种浏览器组合和真实播放、重试与跳转已验证；2026-10-08 发布与国内公开播放复核 → [发布记录](../docs/reviews/video-release-2026-10-08/README.md)； [方案](./specs/spec-video-learning.md)、[验收](../docs/reviews/video-learning-2026-10-07/README.md) |
 | A36 | NPC 自然语音与等待上限 | ✅ 双平台已发布，真机待验 | MiMo PCM 实时播放；3.5 秒首样本截止 / 一分钟降级冷却；文字先显示、开麦 / 发言 / 切页取消、设备选择与个人模型零共享请求；真实网页约 3.26 秒调度首声、国内首段音频约 2.08 秒，314 项检查 → [方案](./archive/specs/spec-natural-npc-speech.md)、[实测与发布](../docs/reviews/mimo-speech-2026-10-08/README.md) |
-| A37 | 恋爱 Galgame 游戏模式 | ✅ 实现 / 254 项检查全绿，立绘 200 张通过 | 可选游戏模式（不替代教练主链）：`/api/love-play` AI 剧情引擎（非流式 JSON，复用 roleplay 契约与守卫）、`/love/play/[scenarioId]` 界面（背景 / 立绘 / 打字台词 / 选项 / 自由输入）、`completeLovePlay` 统计写入（不伪造能力评估）、千问 IMAGE 2.1 原生透明底立绘管线（50 角色 × 4 表情，2026-10-10 噪点修复后全量重出并通过内容级体检）、series 剧情线 4 条 + 设备端进度（2026-10-10：聚合物只收 `context: romantic`，职场/家庭线不再混进恋爱主页；新增「暧昧到说清楚」rio ×3 与「被拒之后」eve ×3 两条同一人物贯穿的线，`/love` 改为按线列出全部剧情线）；P3 打字机 / 揭示动画 / 好感度条。剩余人工项：立绘在场景渐变上的合成效果人眼复核 → [spec-love-visual-novel](./specs/spec-love-visual-novel.md) |
+| A37 | 恋爱 Galgame 游戏模式 | ✅ 实现 / 254 项检查全绿，立绘 200 张通过 | 可选游戏模式（不替代教练主链）：`/api/love-play` AI 剧情引擎（非流式 JSON，复用 roleplay 契约与守卫）、`/love/play/[scenarioId]` 界面（背景 / 立绘 / 打字台词 / 选项 / 自由输入）、`completeLovePlay` 统计写入（不伪造能力评估）、千问 IMAGE 2.1 原生透明底立绘管线（50 角色 × 4 表情，2026-10-10 噪点修复后全量重出并通过内容级体检）、series 剧情线 4 条 + 设备端进度（2026-10-10：聚合物只收 `context: romantic`，职场/家庭线不再混进恋爱主页；新增「暧昧到说清楚」rio ×3 与「被拒之后」eve ×3 两条同一人物贯穿的线，`/love` 改为按线列出全部剧情线；线分两种口径展示——`LoveSeries.continuous` 由「每场 NPC 阵容是否一致」算出，贯穿线用「剧情线 / 第 N 幕 / →」，换人的旧线（初见与心动、信任与边界）改用「主题合集 / 第 N 场 / ·」，不再让人误以为也是连续剧情）；P3 打字机 / 揭示动画 / 好感度条。剩余人工项：立绘在场景渐变上的合成效果人眼复核 → [spec-love-visual-novel](./specs/spec-love-visual-novel.md) |
 
 ### Stage B — 定位与对外物料
 
@@ -91,8 +91,8 @@
 
 | # | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| C1 | 语料落地页 SSG（`corpus` 130 条 × 双语 = 260 页，独立 `generateMetadata`） | 📋 | 当前 8/8 路由 `use client`，爬虫拿到空壳 |
-| C2 | `app/` 的 `sitemap.ts` / `robots.ts` / `metadataBase` | 📋 | 官网已有静态 sitemap 和 robots |
+| C1 | 语料落地页 SSG（`corpus` 349 条 × 双语 = 698 页，独立 `generateMetadata`） | 📋 | 条数按 `corpus/index.ts` 实测（142 场景 / 168 理论 / 39 案例），旧稿的 118 / 130 / 236 都已失真；当前 9 条路由 `use client`，爬虫拿到空壳 |
+| C2 | `app/` 的 `sitemap.ts` / `robots.ts` / `metadataBase` | 🟡 地基已就位 | 2026-10-10：`NEXT_PUBLIC_SITE_URL`（默认 Vercel 直连域名）+ 根 layout `metadataBase` + `robots.ts`（设备数据页与 `/api/` 禁止抓取）+ `sitemap.ts`（5 条公开路由）。逐页 canonical 要等落地页那轮——`/arena`、`/love`、`/learn` 是 `use client`，导出不了 metadata。官网已有静态 sitemap 和 robots |
 | C3 | `app/` 的动态 OG 图（`opengraph-image.tsx`） | 📋 | 官网已有静态 OG 图 |
 | C4 | `app/` 的 JSON-LD：`SoftwareApplication` + `ScholarlyArticle` | 📋 | 官网已有产品与 arXiv 预印本结构化数据 |
 | C5 | `app/` 的 `llms.txt` 与可直接读取的语料结构 | 📋 | 官网已有产品和论文摘要；应用内语料待开放 |
@@ -106,6 +106,6 @@
 | 2026-09-03 | 定位定稿 + 主句三处对齐 + README 重排 + banner | ✅ |
 | 2026-09-03 | wiki 体系建立 | 🚧 |
 | — | 线上可访问 + LICENSE + 截图（Stage B 收口） | 📋 |
-| — | 236 个落地页可被 LLM 爬虫读到（Stage C 收口） | 📋 |
+| — | 698 个落地页可被 LLM 爬虫读到（Stage C 收口） | 📋 |
 
 2026-10-08 全仓复核与修订：中央共享日政策 1 亿、跨窗口记录/密钥、备份故障隔离、能力窗口、模拟公开投影、接入与双语、依赖/PWA；PR #13 / #14 已合并、两站已发布，293 个程序检查通过，真实回放及保留边界见 [修订记录](./reviews/review-2026-10-08-repo-refinement.md)。
