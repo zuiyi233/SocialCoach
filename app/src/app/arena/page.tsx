@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, ArrowRight, ArrowUpRight, ChevronDown, SlidersHorizontal, X, Heart } from "lucide-react";
 import Link from "next/link";
@@ -13,7 +13,7 @@ import { CONTEXTS, RELATIONSHIPS, SKILLS, contextById, skillById, type ContextId
 import { useApp, useLang } from "@/store/useApp";
 import { pick, t } from "@/lib/i18n";
 import { buildSession } from "@/lib/session-utils";
-import { rememberArenaLocation } from "@/lib/arena-location";
+import { arenaSearchSnapshot, rememberArenaLocation, replaceArenaLocation, subscribeArenaLocation } from "@/lib/arena-location";
 import { clsx } from "clsx";
 
 const copy = {
@@ -27,7 +27,12 @@ const RELATIONSHIPS_IDS = Object.keys(RELATIONSHIPS) as RelationshipType[];
 export default function Arena() {
   const lang = useLang();
   const router = useRouter();
-  const params = useSearchParams();
+  const routeParams = useSearchParams();
+  const search = useSyncExternalStore(subscribeArenaLocation, arenaSearchSnapshot, () => {
+    const query = routeParams.toString();
+    return query ? `?${query}` : "";
+  });
+  const params = useMemo(() => new URLSearchParams(search), [search]);
   useEffect(() => { rememberArenaLocation(params.toString()); }, [params]);
   const { profile, sessions, customScenarios, addSession } = useApp();
 // The URL keeps the collection intact when returning from a scene.
@@ -47,7 +52,7 @@ export default function Arena() {
     if (!value || value === "all") next.delete(key); else next.set(key, value);
     if (key === "context" && value === "all") next.delete("collection");
     if (key !== "limit") next.delete("limit");
-    window.history.replaceState(null, "", `/arena${next.size ? `?${next}` : ""}`);
+    replaceArenaLocation(next.toString());
   };
   const setQ = (value: string) => setFilter("q", value);
   /** Leaving the love context releases the love-topic filter, so the UI never shows an active filter that isn't visible. */
@@ -148,7 +153,7 @@ export default function Arena() {
 const loveFilterActive = ctx === "romantic" && !!loveTopic;
 const filtering = ctx !== "all" || !!skill || !!q.trim() || difficulty !== "all" || loveFilterActive || rel !== "all" || practiced !== "all" || recent;
   const reset = () => {
-    window.history.replaceState(null, "", "/arena");
+    replaceArenaLocation("");
     searchRef.current?.focus();
   };
   const orderedSkills = [...SKILLS.filter((s) => profile?.goals.includes(s.id)), ...SKILLS.filter((s) => !profile?.goals.includes(s.id))];
