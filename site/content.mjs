@@ -32,8 +32,8 @@ export const meta = {
     "SocialCoach — Your AI Social Skills Coach · Practice & 3D Scenes",
   ),
   description: L(
-    "想说的话，说出来。SocialCoach 陪你练习难开口的对话：58 个场景、3D 饭局与办公室、视频示范，以及引用原话的复盘。无需注册，支持自己的模型。",
-    "Practice difficult conversations with SocialCoach: 58 scenarios, 3D dinners and offices, video demonstrations, and feedback grounded in your own words. No account required. Bring your own model or use the shared quota.",
+    "想说的话，说出来。SocialCoach 陪你练习难开口的对话：142 个场景、3D 饭局与办公室、视频示范，以及引用原话的复盘。无需注册，支持自己的模型。",
+    "Practice difficult conversations with SocialCoach: 142 scenarios, 3D dinners and offices, video demonstrations, and feedback grounded in your own words. No account required. Bring your own model or use the shared quota.",
   ),
 };
 
@@ -80,9 +80,9 @@ export const trust = {
   eyebrow: L("语料与出处", "Corpus and sources"),
   title: L("判断有证据，建议有出处", "Evidence before judgment, sources before advice"),
   stats: [
-    { n: "58", icon: "scene", label: L("双语场景", "bilingual scenarios") },
-    { n: "42", icon: "book", label: L("策略", "strategies") },
-    { n: "30", icon: "quote", label: L("案例", "cases") },
+    { n: "142", icon: "scene", label: L("双语场景", "bilingual scenarios") },
+    { n: "168", icon: "book", label: L("策略", "strategies") },
+    { n: "39", icon: "quote", label: L("案例", "cases") },
     { n: "7", icon: "pin", label: L("类生活情境", "context types") },
     { n: "34", icon: "sparkle", label: L("项社交技能", "social skills") },
   ],
@@ -293,7 +293,7 @@ export const experience = {
   practiceTitle: L("第一句之后，\n对方还会接着问。", "After your opening line,\nthey’ll have another question."),
   practiceLead: L("角色有自己的立场。你可以追问、拒绝、改口，也可以继续谈。结束后，教练回到你的原话，和你一起看清刚才发生了什么。", "Characters have positions of their own. Ask, decline, reconsider or keep talking. When you finish, revisit your own words with the coach and see what happened."),
   flow: [
-    { title: L("选一场，或带来自己的处境", "Pick a scene, or bring your own"), body: L("58 个双语场景覆盖 7 类生活情境，也可以描述你真正要面对的那场对话。", "58 bilingual scenarios across seven everyday contexts, plus custom rehearsals for the conversation ahead of you.") },
+    { title: L("选一场，或带来自己的处境", "Pick a scene, or bring your own"), body: L("142 个双语场景覆盖 7 类生活情境，也可以描述你真正要面对的那场对话。", "142 bilingual scenarios across seven everyday contexts, plus custom rehearsals for the conversation ahead of you.") },
     { title: L("开口，接住下一句", "Speak, then handle the reply"), body: L("用文字或语音组织回应。想增加压力，可以开启限时应答；还没谈完，就继续聊。", "Respond in text or use voice input. Add timed replies for more pressure, or keep the conversation going when you need to.") },
     { title: L("回到原话，再试一次", "Revisit your words. Try again."), body: L("看具体反馈、尝试改写、继续问教练。练习记录也会帮助安排接下来练什么。", "Read specific feedback, try another phrasing and ask the coach follow-up questions. Your practice history helps shape what comes next.") },
   ],
@@ -321,7 +321,7 @@ export const experience = {
     { id: "elevator-hr", title: L("领导当众问：是不是要离职？", "Your boss asks: are you leaving?"), body: L("旁人都在听。把私人边界和工作安排分别说清楚。", "Everyone is listening. Separate private boundaries from work commitments."), duration: "0:51", scene: "elevator", opening: "elevator-privacy" },
   ],
   videoPractice: L("进入对应的 3D 练习", "Try the matching 3D practice"),
-  library: L("继续看 42 条策略与 30 个案例", "Explore 42 strategies and 30 cases"),
+  library: L("继续看 168 条策略与 39 个案例", "Explore 168 strategies and 39 cases"),
   closeTitle: L("把那场难开口的对话，\n先在这里练一遍。", "Give that difficult conversation\na first try here."),
   closeBody: L("和老板谈加薪，请朋友还钱，或把一件拖了很久的事说清楚。从你现在最想练的那场开始。", "Ask for a raise, bring up an unpaid loan or finally talk through something you have put off. Start with the conversation that matters to you."),
   sourceNote: L("技能分类参考 CASEL 的社交与情绪学习框架。", "The skill map draws on CASEL’s social and emotional learning framework."),

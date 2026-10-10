@@ -393,6 +393,14 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **解法：** beta / gamma 投影为屏幕重力方向，按当前握姿校准，给相机与玩家头部叠加有界临时偏移；不改 World / 移动方向 / 存档。暂停、恢复和横竖屏重校准。
 - **教训：** API 存在不等于收到有效读数；授权要从点击直接发起，迟到结果不能恢复已关闭的监听。模拟传感器只验证逻辑，真机另验。见 [机制参考](./refs/browser-device-orientation.md) 与 [验收](./reviews/review-2026-10-05-3d-tilt.md)。
 
+### 站点语料数字用文件名正则清点，会静默漏掉整批场景（2026-10-10）
+
+- **现象：** 官网与 README 长期写「58 个场景 / 42 策略 / 30 案例」，语料实际已到 142 / 168 / 39；而在 Windows 工作区里 `node site/build.mjs` 直接抛 `Site scenario count differs from the source-backed corpus`，CI（Linux）却是绿的。
+- **原因：** 两处叠加。① `site/build.mjs` 用文件名正则 `^scenarios-[a-z]\.ts$` 挑语料文件——只认单字母批次，`love-scenarios*`、`scenarios-junior/family/wf/friendship` 全在门外，58 恰好等于 a+b+c+d；新增批次文件不改名就永远不会被算进对外数字，检查项也发现不了（它只比“展示值 == 解析值”，两边同时漏）。② 仓库没有 `.gitattributes` 且本机 `core.autocrlf=true`，早先提交的场景文件工作副本是 CRLF，而解析器按 `\n  {` 切条目——整份文件被读成 0 条，于是本地解析 30、展示 58、CI 解析 58。
+- **解法：** 语料清单改为读 `app/src/data/corpus/index.ts` 的 `export const SCENARIOS/THEORIES/CASES` 拼接顺序（含 `as` 别名），文件级常量名 → 路径由该文件的 import 语句解析；所有语料读取先 `\r\n → \n`；五个展示数字（场景/策略/案例/情境/技能）全部派生并逐项断言，写死的字面量一旦与语料不一致即构建失败；`llms.txt` 里的策略/案例数同样改成插值。验证：`node site/build.mjs` 通过、`PYTHONUTF8=1 python site/verify-seo.py` 三条检查通过、`site/dist/llms.txt` 输出 142/168/39。
+- **教训：** 「展示值 == 我自己解析出来的值」这种自检只能防手改数字，防不住解析口径过窄；清点口径必须挂在**唯一事实源**（index.ts 的拼接列表）上。跨平台读文本做正则切分时，先归一换行，否则同一份仓库在两台机器上给出两个数。本机没有 `python3`（只有 `python`），且 Windows 默认 GBK 编码会让 `verify-seo.py` 读 UTF-8 HTML 失败——用 `PYTHONUTF8=1` 而不是改脚本。
+
+
 ## 档案读写与窗口权限（2026-10-06）
 
 合法 JSON 的坏结构、保存配额失败和并发整档覆盖不是同一种恢复问题。读合并前验证、写失败保留内存、字节预算与窗口权限分别验收；异步逐写锁还需处理立即刷新。Node 24 也有 navigator.locks，不能仅凭这个属性判断浏览器。新输出的非空约束不要误伤历史安全空值。详见 [档案一致性复盘](./81-postmortem-archive-consistency.md)。

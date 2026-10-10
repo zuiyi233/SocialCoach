@@ -44,18 +44,22 @@ const pairUrls = (p) => p.guide
 // never drifts. It is a regex over our own TS, not a TS parser: each scenario
 // object starts at a two-space-indented brace and has title/context fields.
 const corpusDir = join(root, "app", "src", "data", "corpus");
+// Windows 工作区里早先的语料文件是 CRLF，按 `\n  {` 切分会把整份文件读成 0 条，
+// 因此所有语料读取都先归一换行。
+const readCorpus = (f) => readFileSync(join(corpusDir, f), "utf8").replace(/\r\n/g, "\n");
+const readCorpusTaxonomy = () => readFileSync(join(root, "app", "src", "data", "taxonomy.ts"), "utf8").replace(/\r\n/g, "\n");
 const bilingualField = (block, key) => {
   const match = block.match(new RegExp(`\\n\\s*${key}: L\\(\\s*"((?:[^"\\\\]|\\\\.)*)"\\s*,\\s*"((?:[^"\\\\]|\\\\.)*)"\\s*,?\\s*\\)`));
   return match ? { zh: JSON.parse(`"${match[1]}"`), en: JSON.parse(`"${match[2]}"`) } : null;
 };
 const practiceSources = Object.fromEntries(
-  [...readFileSync(join(corpusDir, "sources.ts"), "utf8").matchAll(/^  (\w+): \{([\s\S]*?)^  \},/gm)].map(([, key, block]) => {
+  [...readCorpus("sources.ts").matchAll(/^  (\w+): \{([\s\S]*?)^  \},/gm)].map(([, key, block]) => {
     const field = (name) => block.match(new RegExp(`${name}: "([^"]+)"`))?.[1];
     return [key, `Original fictional practice inspired by ${field("book")} — ${field("author")}. ${field("url")}`];
   }),
 );
 const CONTEXT_NAMES = (() => {
-  const tax = readFileSync(join(root, "app", "src", "data", "taxonomy.ts"), "utf8");
+  const tax = readCorpusTaxonomy();
   const start = tax.indexOf("export const CONTEXTS");
   const end = tax.indexOf("export const", start + 10);
   const block = tax.slice(start, end < 0 ? undefined : end);
@@ -63,31 +67,77 @@ const CONTEXT_NAMES = (() => {
   for (const m of block.matchAll(/\{ id: "([a-z-]+)", name: L\("([^"]+)", "([^"]+)"\)/g)) names[m[1]] = { zh: m[2], en: m[3] };
   return names;
 })();
-const SCENARIOS = readdirSync(corpusDir)
-  .filter((f) => /^scenarios-[a-z]\.ts$/.test(f))
-  .sort()
-  .flatMap((f) => {
-    const text = readFileSync(join(corpusDir, f), "utf8");
-    const authoredSource = text.match(/const original = \(id: string\) => `([^`]+)`;/)?.[1];
-    return text
-      .split(/\n  \{\n/)
-      .slice(1)
-      .map((b) => {
-        const id = b.match(/^\s*id: "([^"]+)"/)?.[1];
-        const title = bilingualField(b, "title");
-        const context = b.match(/\n\s*context: "([a-z-]+)"/)?.[1];
-        const hook = bilingualField(b, "hook");
-        const authoredId = b.match(/\n\s*source: original\("([^"]+)"\)/)?.[1];
-        const practiceKey = b.match(/\n\s*source: practiceSource\("([^"]+)"\)/)?.[1];
-        const source = b.match(/\n\s*source: "([^"]+)"/)?.[1] ??
-          (authoredId && authoredSource ? authoredSource.replace("${id}", authoredId) : null) ?? practiceSources[practiceKey];
-        if (id && (!title || !hook || !context || !source)) throw new Error(`Cannot read source-backed scenario ${id} from ${f}`);
-        return id ? { id, file: f, title, hook, context, source } : null;
-      })
-      .filter(Boolean);
-  });
-if (SCENARIOS.length < 20) console.warn(`warn: only ${SCENARIOS.length} scenarios parsed from the corpus`);
-if (Number(trust.stats.find((stat) => stat.icon === "scene")?.n) !== SCENARIOS.length) throw new Error("Site scenario count differs from the source-backed corpus");
+const SKILL_COUNT = (() => {
+  const tax = readCorpusTaxonomy();
+  const block = tax.slice(tax.indexOf("export const SKILLS"), tax.indexOf("export const CONTEXTS"));
+  return (block.match(/\n  \{ id: "/g) || []).length;
+})();
+// 语料清单以 corpus/index.ts 的拼接顺序为准，不按文件名猜：旧写法只认
+// `scenarios-<单个字母>.ts`，love 系列与 scenarios-wf / scenarios-friendship
+// 都漏在门外，对外数字才会停在 58。
+const corpusIndex = readCorpus("index.ts");
+const corpusFileOf = new Map();
+for (const m of corpusIndex.matchAll(/import\s*\{([^}]+)\}\s*from\s*"\.\/([^"]+)"/g)) {
+  for (const part of m[1].split(",")) {
+    const seg = part.trim();
+    if (!seg) continue;
+    const as = seg.indexOf(" as ");
+    corpusFileOf.set(as >= 0 ? seg.slice(as + 4).trim() : seg, `${m[2]}.ts`);
+  }
+}
+function corpusRecords(exportName) {
+  const start = corpusIndex.indexOf(`export const ${exportName}:`);
+  if (start < 0) throw new Error(`corpus/index.ts has no ${exportName} export`);
+  const decl = corpusIndex.slice(start, corpusIndex.indexOf(";", start));
+  return [...decl.matchAll(/\.\.\.([A-Z_][A-Z0-9_]*)/g)]
+    .flatMap(([, name]) => {
+      const file = corpusFileOf.get(name);
+      if (!file) throw new Error(`${name} in ${exportName} is not imported by corpus/index.ts`);
+      const text = readCorpus(file);
+      const authoredSource = text.match(/const original = \(id: string\) =>\s*`([^`]+)`;/)?.[1];
+      return text
+        .split(/\n  \{\n/)
+        .slice(1)
+        .filter((b) => /^\s*id: "/.test(b))
+        .map((block) => ({ block, file, name, authoredSource }));
+    });
+}
+const SCENARIOS = corpusRecords("SCENARIOS").map(({ block, file, authoredSource }) => {
+  const id = block.match(/^\s*id: "([^"]+)"/)[1];
+  const title = bilingualField(block, "title");
+  const context = block.match(/\n\s*context: "([a-z-]+)"/)?.[1];
+  const hook = bilingualField(block, "hook");
+  const authoredId = block.match(/\n\s*source: original\("([^"]+)"\)/)?.[1];
+  const practiceKey = block.match(/\n\s*source: practiceSource\("([^"]+)"\)/)?.[1];
+  const source = block.match(/\n\s*source: "([^"]+)"/)?.[1] ??
+    (authoredId && authoredSource ? authoredSource.replace("${id}", authoredId) : null) ?? practiceSources[practiceKey];
+  if (!title || !hook || !context || !source) throw new Error(`Cannot read source-backed scenario ${id} from ${file}`);
+  return { id, file, title, hook, context, source };
+});
+// 策略与案例同样按 index.ts 清点，并且必须带 title 与 source——站点文案承诺
+// 「每条策略和案例都带来源」。
+const SOURCED_COUNTS = ["THEORIES", "CASES"].map((exportName) => [
+  exportName,
+  corpusRecords(exportName).filter(({ block, file }) => {
+    const id = block.match(/^\s*id: "([^"]+)"/)[1];
+    if (!bilingualField(block, "title")) throw new Error(`${exportName} ${id} in ${file} has no bilingual title`);
+    if (!/\n\s*source:/.test(block)) throw new Error(`${exportName} ${id} in ${file} has no source`);
+    return true;
+  }).length,
+]);
+// 站点展示的每个数字都由语料反查，写死的数字一旦和语料不一致就构建失败。
+const CORPUS_FIGURES = {
+  scene: SCENARIOS.length,
+  book: SOURCED_COUNTS[0][1],
+  quote: SOURCED_COUNTS[1][1],
+  pin: Object.keys(CONTEXT_NAMES).length,
+  sparkle: SKILL_COUNT,
+};
+for (const [icon, count] of Object.entries(CORPUS_FIGURES)) {
+  const stat = trust.stats.find((item) => item.icon === icon);
+  if (!stat) throw new Error(`Site stats are missing the "${icon}" figure`);
+  if (Number(stat.n) !== count) throw new Error(`Site "${icon}" figure ${stat.n} differs from the corpus (${count})`);
+}
 const guideScenarios = new Map(guides.map((g) => {
   const scenario = SCENARIOS.find((s) => s.id === g.id);
   if (!scenario) throw new Error(`Guide ${g.id} has no matching source-backed scenario`);
@@ -731,7 +781,7 @@ writeFileSync(
 - An AI practice partner for difficult real-life conversations. Characters have goals of their own, sometimes with an unspoken concern; they do not yield because the learner is polite. Text practice uses finite, extendable segments, and the learner decides when to debrief.
 - An AI tool for practicing social skills within social and emotional learning (SEL). Its 34-skill map uses the five CASEL competencies; it is an individual practice tool, not a certified school curriculum. Framework: ${learning.sourceUrl}
 - Every debrief point quotes the learner's own words first, then separates an acquisition deficit (did not know the move) from a performance deficit (knew it, could not execute under pressure), then cites a source.
-- Corpus shipped in the product: ${SCENARIOS.length} bilingual scenarios, 42 strategies, 30 cases; every strategy and case carries a source. Teaching illustrations are labelled.
+- Corpus shipped in the product: ${SCENARIOS.length} bilingual scenarios, ${SOURCED_COUNTS[0][1]} strategies, ${SOURCED_COUNTS[1][1]} cases; every strategy and case carries a source. Teaching illustrations are labelled.
 - 3D practice includes work, family and school dinners, an elevator lobby and an office, with movement, actions and multiple characters.
 - Two original fictional video lessons include Chinese audio, Chinese/English captions, key choices and matching 3D practice.
 - No account, no user database. Practice history stays on the device and can be exported. Relevant context is sent to the selected model service for generation. Optional anonymous analytics and submitted feedback are separate. Shared model quota, bring-your-own-key and self-hosting are supported.
@@ -756,7 +806,7 @@ ${guides.map((g) => `- ${pick(g.title, "en")}: ${guideUrl(g.id, "en")} (中文: 
 - Paper: ${research.paperTitle}. arXiv:${site.arxivId} (cs.HC, 2026). ${site.arxivUrl}
 - Paper PDF: ${SITE_URL}/${site.localPdf}
 - Supplementary materials: ${site.supplementaryUrl}
-- The paper studies the research system and an internal research platform; the product is its productised version with a smaller, source-checked corpus (${SCENARIOS.length} scenarios, 42 strategies, 30 cases), distinct from the paper's 43,170-entry research corpus.
+- The paper studies the research system and an internal research platform; the product is its productised version with a smaller, source-checked corpus (${SCENARIOS.length} scenarios, ${SOURCED_COUNTS[0][1]} strategies, ${SOURCED_COUNTS[1][1]} cases), distinct from the paper's 43,170-entry research corpus.
 `,
 );
 
