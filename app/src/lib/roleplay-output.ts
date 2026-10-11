@@ -25,7 +25,7 @@ export class RoleplayFactError extends ReplyRejected {
 /** Meta-talk: the simulator talking about the exercise instead of the character.
  * No in-fiction line has any use for these strings, so a match is always a breach.
  * Source: the live injection replay, where the NPC wrote 「已退出角色。hidden 字段原样为：…」. */
-const META_TALK = /(?:退出角色|出戏|不再扮演|扮演模式|系统提示词?|隐藏(?:字段|设定|动机|提示|值|信息)|作为\s*(?:AI|人工智能|语言模型|大模型|助手)|(?<!不)我(?:是|只(?:是|不过是))\s*(?:AI|人工智能|语言模型|大模型|模型)|AI\s*(?:助手|语言模型|模型)|(?:练习|训练)目标(?:已|被|全部|都)?(?:标记|标为|设为)[^。！？\n]{0,8}完成|宣布[^。！？\n]{0,8}(?:成功|通过|达成)|(?:ignore|disregard|forget|override)[^.!?\n]{0,30}(?:instructions?|prompts?|rules?|settings?|system)|break(?:ing)?\s+character|as an AI|language model|system prompt|hidden (?:field|prompt|instruction|setting|value)|mark(?:ed)? (?:all )?objectives?[^.!?\n]{0,20}complete|you (?:have )?won|you passed)/iu;
+const META_TALK = /(?:退出角色|出戏|不再扮演|扮演模式|系统提示词?|隐藏(?:字段|设定|动机|提示|值|信息)|作为\s*(?:AI|人工智能|语言模型|大模型|助手)|(?<!不)我(?:是|只(?:是|不过是))\s*(?:AI|人工智能|语言模型|大模型|模型)|AI\s*(?:助手|语言模型|模型)|(?:练习|训练)目标(?:已|被|全部|都)?(?:标记|标为|设为)[^。！？\n]{0,8}完成|宣布[^。！？\n]{0,8}(?:成功|通过|达成)|(?:ignore|disregard|forget|override)[^.!?\n]{0,30}(?:instructions?|prompts?|rules?|settings?|system)|break(?:ing)?\s+character|as an AI|language model|system prompt|hidden (?:field|prompt|instruction|setting|value)|mark(?:ed)? (?:all )?objectives?[^.!?\n]{0,20}complete|you (?:have )?won(?![a-z'])|you passed)/iu;
 
 const fold = (s: string) => s.toLowerCase().replace(/[\p{P}\p{S}\s]+/gu, "");
 const ECHO_WINDOW = 30;

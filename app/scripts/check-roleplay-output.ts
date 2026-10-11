@@ -1,7 +1,7 @@
 /** npx tsx scripts/check-roleplay-output.ts — real streaming boundaries, no model calls. */
 import assert from "node:assert/strict";
-import { scenarioById } from "../src/data/corpus";
-import { roleplayOutput } from "../src/lib/roleplay-output";
+import { scenarioById, SCENARIOS } from "../src/data/corpus";
+import { replyBoundaryProblem, roleplayOutput } from "../src/lib/roleplay-output";
 import { runRoleplay } from "../src/lib/tasks/roleplay";
 import { parseRoleplay } from "../src/lib/client-api";
 import type { LLM } from "../src/lib/llm-core";
@@ -102,6 +102,18 @@ async function main() {
   for (const legal of ["你要的分工我确认了，这次算你赢了。", "报告完成就算这一项过了。", "你别把「不合作」当成我的动机。", "I never agreed to take over your whole task list."]) {
     assert.ok(output.complete(JSON.stringify({ meta, utterances: [{ characterId: "cheng", text: legal }] }))); checks++;
   }
+  // The guard must not eat legitimate authored text: a model echoing a scene's
+  // own objective or ending line is still in character. Scanning all 142 scenes
+  // caught "you won't refuse this" tripping an unbounded `you won` alternative.
+  let guardHits = 0;
+  for (const scene of SCENARIOS) {
+    const learner = scene.characters.find((c) => c.playable)?.id ?? "you";
+    const speaker = scene.characters.find((c) => !c.playable)?.id ?? learner;
+    for (const text of [scene.opening.text.zh, scene.opening.text.en, scene.success.zh, scene.success.en, scene.failure.zh, scene.failure.en, ...scene.objectives.flatMap((o) => [o.zh, o.en])]) {
+      if (replyBoundaryProblem(scene, learner, [{ characterId: speaker, text }], [])) { guardHits++; console.log(`GUARD HIT ${scene.id}: ${text.slice(0, 70)}`); }
+    }
+  }
+  assert.equal(guardHits, 0, "the boundary guard must not reject authored corpus text"); checks++;
   console.log(`${checks} structured roleplay / streaming checks passed.`);
 }
 void main();

@@ -104,6 +104,17 @@ async function main() {
     const r = sanitizeReport({ ...raw, stars: 3, outcome: "success", ratings: [{ ...raw.ratings![0], level: 0 }] }, base, [], [], [learner], [skill]);
     assert.equal(r.stars, 0); assert.equal(r.outcome, "success"); assert.deepEqual(r.deltas, {});
   });
+  check("a quotation differing only by typography is still the learner's own words", () => {
+    // Real model replies retype the sentence they quote: half-width punctuation,
+    // an extra space, letter case. Those are the same words. Joining fragments is
+    // not, and must keep failing — the red line is "quote the learner first".
+    const retyped = { ...raw, ratings: [{ ...raw.ratings![0], evidence: "我现在不能答应,需要先了解这个安排会影响谁。" }] };
+    const kept = sanitizeReport(retyped, base, [], [], [learner, npc], [skill]);
+    assert.equal(kept.ratings?.length, 1, "a half-width comma is not a different claim");
+    assert.equal(kept.stars, 3, "the retyped quote still carries the score, so the fold cannot quietly downgrade a report");
+    const spliced = { ...raw, ratings: [{ ...raw.ratings![0], evidence: "我现在不能答应…等你确认后再谈。" }] };
+    assert.equal(sanitizeReport(spliced, base, [], [], [learner, npc], [skill]).ratings?.length, 0, "an ellipsis splice is still not a quote");
+  });
   check("invented evidence, duplicate ratings, and unpracticed skills cannot inflate scores", () => {
     const r = sanitizeReport({ ...raw, ratings: [raw.ratings![0], { ...raw.ratings![0], level: 0 }, { ...raw.ratings![0], evidence: "捏造", level: 3 }] }, base, [], [], [learner], [skill]);
     assert.equal(r.ratings?.length, 1);

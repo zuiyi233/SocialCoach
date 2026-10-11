@@ -92,16 +92,21 @@ async function runScene(id: string, moveCap = Infinity) {
     let out!: Awaited<ReturnType<typeof runLovePlay>>;
     let attempts = 0;
     const failures: string[] = [];
-    for (; attempts < 3; attempts++) {
+    for (; attempts < 6; attempts++) {
       try {
         out = await runLovePlay(input, llm, FAST_MODEL);
         break;
       } catch (e) {
-        failures.push(String((e as Error)?.message ?? e));
-        await new Promise((r) => setTimeout(r, 800));
+        const message = String((e as Error)?.message ?? e);
+        failures.push(message);
+        // 网关按分钟限流：429 不是模型缺陷，也不是契约塌陷，退到下一个分钟窗口
+        // 再试；非限流失败仍按原来的三次上限收口。
+        const throttled = /429|rpm exhausted|rate.?limit|quota/i.test(message);
+        if (!throttled && attempts >= 2) break;
+        await new Promise((r) => setTimeout(r, throttled ? 20_000 : 800));
       }
     }
-    if (!out!) throw new Error(`${id} #${i + 1} ${cfg.moves[i]!.kind}：三次都没拿到合法回合 — ${failures.join(" / ")}`);
+    if (!out!) throw new Error(`${id} #${i + 1} ${cfg.moves[i]!.kind}：${attempts} 次都没拿到合法回合 — ${failures.join(" / ")}`);
     const line = out.line[cfg.lang];
     if (attempts > 0) problems.push(`#${i + 1} ${move.kind} 第 ${attempts + 1} 次才拿到合法输出（${failures[0] ?? ""}）`);
     history.push({ role: "npc", characterId: scenario.opening.characterId, text: line, ts: Date.now() });

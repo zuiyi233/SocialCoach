@@ -168,6 +168,11 @@ export async function runDinner(input:unknown,llm:LLM,model:string,signal?:Abort
       }
       return {...reply,cue:renderedCue(reply,scene,body.lang)};
     }catch(error){
+      // The user-facing text is deliberately generic, so the rule that actually
+      // failed has to reach the log or a live run cannot be attributed. A ZodError
+      // dumps the whole payload as its message; log only the offending fields.
+      const issues=(error as {issues?:{path:(string|number)[]}[]}|null)?.issues;
+      console.error('[dinner] reply rejected', { attempt, reason: issues?`schema fields: ${[...new Set(issues.map(issue=>issue.path.join('.')))].join(', ')}`:String(error instanceof Error?error.message:error).slice(0,200) });
       if(attempt===1)throw new LLMError(pick({zh:'这一句没有接上当前场景，你的话已保留，请再试一次。',en:'That reply did not fit the current scene. Your words are saved; please retry.'},body.lang),502);
       repair=`\nREPAIR REQUIRED: Your previous draft failed validation: ${error instanceof Error?error.message:'Invalid reply'}. Return a fresh valid reply to the same current player turn. story.topic must be exactly one of ${sceneTopics[scene.id].join(', ')}; development IDs belong ONLY in story.beat. Do not repeat an unavailable event. This is still the same turn, not a new conversation.`;
     }
