@@ -1,12 +1,16 @@
 import {pick} from './i18n';
 import {LLMError,systemParts,type LLM,type ChatOpts} from './llm-core';
 
+import { reasoningTimeoutFactor } from './reasoning-policy';
 export const TASK_LIMITS={schedule:[110000,6],roleplay:[55000,2],assess:[165000,8],reflect:[55000,4],hint:[25000,1],rehearse:[110000,4],pattern:[55000,2],'debrief-chat':[55000,4],dinner:[110000,4],'love-play':[55000,2]} as const;
 export type ModelTask=keyof typeof TASK_LIMITS;
 /** One deadline and call budget, including repairs, on server and BYOK. */
 export function taskLLM(llm:LLM,task:ModelTask,signal?:AbortSignal,onCall?:(event:{task:ModelTask;call:number;durationMs:number;ok:boolean;inputBytes:number;maxOutput:number})=>void,lang:"zh"|"en"="zh"):LLM{
  const [timeout,maxCalls]=TASK_LIMITS[task];
- const deadline=AbortSignal.timeout(timeout),combined=signal?AbortSignal.any([signal,deadline]):deadline;
+ // A thinking tier is slower by design; the deadline has to move with it, or the
+ // person who asked for a better answer only ever gets a timeout. The tier comes
+ // off the client: the learner's own choice is invisible to the server.
+ const deadline=AbortSignal.timeout(Math.round(timeout*reasoningTimeoutFactor(llm.thinkingTier??'fast'))),combined=signal?AbortSignal.any([signal,deadline]):deadline;
  let calls=0;
  const prepare=(o:ChatOpts)=>{
   combined.throwIfAborted();o.signal?.throwIfAborted();

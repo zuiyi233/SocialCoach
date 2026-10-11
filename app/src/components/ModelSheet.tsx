@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
-import { Button, Chip, Sheet } from "@/components/ui";
+import { Button, Chip, ChoiceGroup, Sheet } from "@/components/ui";
 import { useByok, type ByokConfig } from "@/lib/byok";
+import { REASONING_TIERS, tierOf, type ReasoningTier } from "@/lib/reasoning-policy";
 import { checkByokConnection } from "@/lib/llm-client";
 import { acceptModelCheck, refreshModelAccess, useModelAccess } from "@/lib/model-access";
 import { M, modelMessage } from "@/lib/model-copy";
@@ -11,10 +12,11 @@ import { useLang } from "@/store/useApp";
 import type { ModelCheck } from "@/lib/model-status";
 import type { Provider } from "@/lib/llm-core";
 import {modelBaseUrl} from '@/lib/llm-core';
-import type {Lang} from '@/data/taxonomy';
+import type {L, Lang} from '@/data/taxonomy';
 
 const input = "h-11 w-full min-w-0 px-3.5 rounded-xl bg-card border border-line text-[16px] sm:text-[14px] focus:border-ink transition-colors placeholder:text-ink-4";
 const DEFAULT = { openai: "gpt-4.1-mini", anthropic: "claude-sonnet-5-5" };
+const TIER_LABELS: Record<ReasoningTier, L> = { fast: M.tierFast, balanced: M.tierBalanced, deep: M.tierDeep };
 
 function ModelForm({ onClose,lang }: { onClose: () => void;lang:Lang }) {
   const access = useModelAccess();
@@ -29,7 +31,7 @@ function ModelForm({ onClose,lang }: { onClose: () => void;lang:Lang }) {
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => { controller.current?.abort(); }, []);
   const update = (patch: Partial<ByokConfig>) => { setDraft(d => ({ ...d, ...patch })); setCheck(null);setSaveError(false); };
-  const config: ByokConfig = { enabled: true, provider: draft.provider, tokenParam: draft.tokenParam, disableThinking: !!draft.disableThinking, apiKey: draft.apiKey.trim(), baseUrl: modelBaseUrl(draft.baseUrl,draft.provider), fastModel: draft.fastModel.trim(), smartModel: draft.smartModel.trim() || draft.fastModel.trim() };
+  const config: ByokConfig = { enabled: true, provider: draft.provider, tokenParam: draft.tokenParam, disableThinking: !!draft.disableThinking, reasoningTier: draft.reasoningTier, apiKey: draft.apiKey.trim(), baseUrl: modelBaseUrl(draft.baseUrl,draft.provider), fastModel: draft.fastModel.trim(), smartModel: draft.smartModel.trim() || draft.fastModel.trim() };
   const validAddress = !config.baseUrl || (() => { try { return ["https:", "http:"].includes(new URL(config.baseUrl).protocol); } catch { return false; } })();
   const save = (result: ModelCheck) => { if(!useByok.getState().set(config,revision)){setSaveError(true);return;}acceptModelCheck(result); onClose(); };
   const connect = async () => {
@@ -62,6 +64,7 @@ function ModelForm({ onClose,lang }: { onClose: () => void;lang:Lang }) {
       <div className="flex flex-col gap-2"><label htmlFor="model-base-url" className="eyebrow">{pick(M.endpoint, lang)}</label><input id="model-base-url" type="url" value={draft.baseUrl} onChange={e => update({ baseUrl: e.target.value })} autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-describedby="model-base-url-hint" className={input} placeholder="https://…" /><p id="model-base-url-hint" className="text-[12px] text-ink-3">{pick(M.endpointHint, lang)}</p></div>
       <details className="group"><summary className="press min-h-11 flex items-center justify-between cursor-pointer text-[13px] text-ink-3">{pick(M.advanced, lang)}<ChevronDown size={15} aria-hidden className="group-open:rotate-180 transition-transform" /></summary><div className="flex flex-col gap-4 pt-2">
         <label className="flex flex-col gap-2"><span className="eyebrow">{pick(M.reportModel, lang)}</span><input value={draft.smartModel} onChange={e => update({ smartModel: e.target.value })} spellCheck={false} className={input} placeholder={pick(M.sameModel, lang)} /></label>
+        <div className="flex flex-col gap-2"><p className="eyebrow">{pick(M.reasoning, lang)}</p><ChoiceGroup label={pick(M.reasoning, lang)} className="flex flex-wrap gap-2">{REASONING_TIERS.map(tier => <Chip key={tier} active={tierOf(draft.reasoningTier) === tier} onClick={() => update({ reasoningTier: tier })}>{pick(TIER_LABELS[tier], lang)}</Chip>)}</ChoiceGroup><p className="text-[12px] leading-relaxed text-ink-3">{pick(M.reasoningHint, lang)}</p>{tierOf(draft.reasoningTier) !== "fast" && <p className="text-[12px] leading-relaxed text-ink-3">{pick(M.reasoningOverrides, lang)}</p>}</div>
         {draft.provider === "openai" && <label className="flex flex-col gap-2"><span className="eyebrow">{pick(M.tokenParam, lang)}</span><select className={input} value={draft.tokenParam} onChange={e => update({ tokenParam: e.target.value as ByokConfig["tokenParam"] })}><option>max_tokens</option><option>max_completion_tokens</option></select></label>}
         {draft.provider === "openai" && <div><label className="press flex min-h-11 items-center gap-3 text-[13px]"><input type="checkbox" checked={!!draft.disableThinking} onChange={e => update({ disableThinking: e.target.checked })} className="h-4 w-4" />{pick(M.disableThinking, lang)}</label><p className="text-[12px] leading-relaxed text-ink-3">{pick(M.disableThinkingHint, lang)}</p></div>}
       </div></details>

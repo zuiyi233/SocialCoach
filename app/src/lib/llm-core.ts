@@ -12,6 +12,9 @@ import type { ModelIssue } from "./model-status";
 
 export type Provider = "anthropic" | "openai";
 export type TokenParam = "max_tokens" | "max_completion_tokens";
+/** What the person agreed to spend on thinking. Declared here because both the
+ * request options and the client that applies them carry it. */
+export type ReasoningTier = "fast" | "balanced" | "deep";
 /** SDKs append their own API route. Keep the gateway prefix when pasting an endpoint. */
 export function modelBaseUrl(value:string,provider:Provider):string{
   const trimmed=value.trim();
@@ -42,6 +45,9 @@ export interface ChatOpts {
   effort?: "low" | "medium" | "high";
   /** false disables extended thinking on providers that have it. */
   thinking?: boolean;
+  /** Tokens the provider may spend thinking. `maxTokens` already includes it: the
+   * shared pool reserves against the real ceiling, so the policy raises both together. */
+  thinkingBudget?: number;
 }
 
 /** Provider-agnostic streaming run: consume `deltas`, then read `text()`. */
@@ -58,6 +64,10 @@ export interface TextRun {
  * variables; the browser builds one from the user's own settings.
  */
 export interface LLM {
+  /** The reasoning tier every call through this client gets, when it applies one.
+   * The task deadline reads it, so the timeout follows the client that will
+   * actually spend it — the hosted pool or the learner's own key. */
+  thinkingTier?: ReasoningTier;
   chatText(o: ChatOpts): Promise<string>;
   chatStream(o: ChatOpts): TextRun;
 }
@@ -79,7 +89,7 @@ export function anthropicArgs(o: ChatOpts, fallbackModel: string) {
       ...(p.cache ? { cache_control: { type: "ephemeral" as const } } : {}),
     })),
     messages: o.messages,
-    ...(o.thinking === false ? { thinking: { type: "disabled" as const } } : {}),
+    ...(o.thinking === false ? { thinking: { type: "disabled" as const } } : o.thinkingBudget ? { thinking: { type: "enabled" as const, budget_tokens: o.thinkingBudget } } : {}),
     ...(o.effort ? { output_config: { effort: o.effort } } : {}),
   };
 }

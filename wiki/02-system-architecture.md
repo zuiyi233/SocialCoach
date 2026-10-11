@@ -246,6 +246,8 @@ type ChatRole = "learner" | "npc" | "coach" | "event";   // event = 房间里发
 
 2026-10-09：主站与 ModelScope 的默认共享模型配置为 `LLM_PROVIDER=openai`、`LLM_BASE_URL=https://api.deepseek.com`，fast / smart 均为 `deepseek-flash`；凭证保留在平台 Secret。`LLM_OPENAI_THINKING=disabled` 只对声明 `thinking:false` 的短任务生效，完整报告仍可推理；DeepSeek 的复杂原话核验保留低强度推理，输出上限 10,000（含思考与 JSON），字段修订仍为 4,000 并关闭推理。其他模型的核验沿 5,000 非推理预算。显式非推理请求不同时发送 reasoning effort。预算均受原有 165 秒 / 8 次调用与中央共享政策约束。NPC 自然语音通过独立 `NPC_SPEECH_API_KEY` / `NPC_SPEECH_BASE_URL` 保留原 MiMo 网关，不随对话模型切换。共享中央日上限、已用计数和并发政策保留。→ [DeepSeek 接口依据](./refs/deepseek-api.md)
 
+2026-10-11：新增 `LLM_REASONING_TIER`（`fast` 默认 | `balanced` | `deep`），部署侧思考档位；个人模型走 BYOK 里的 `reasoningTier`，同一个抽屉的「其他设置」选择，默认仍是快速。`LLM_REASONED_MODELS`（默认 `deepseek-`）决定复盘事实核验在哪些模型 id 上保留推理预算——Sensenova 开着推理时核验结果更差，所以留在默认值之外。三档的请求形状、预算与 deadline 联动见 [思考档位与预算结算](#思考档位与预算结算2026-10-11本地)。
+
 服务端按当前协议复用 Anthropic 或 OpenAI SDK 实例，`maxRetries: 2`，`timeout: 120_000`（`src/lib/llm.ts`）。
 
 ## 构建命令
@@ -410,3 +412,12 @@ AppProviders 在确认默认 API 不可用时自动打开可关闭的配置弹�
 - **托盘语义**（继承模板）：关窗口 = 隐藏到托盘（sidecar 继续跑），托盘 Quit 才 `app.exit(0)` 触发 Exit 清理。强杀（崩溃/任务管理器）会绕过 Exit 回调留下 node 残留——见 [桌面 README](./desktop/README.md) 故障排查。
 - **自动更新**：占位 key 会让本地构建崩（`PluginInitialization("updater", …)`），故默认关闭——`Cargo.toml` 预留 `updater` feature（依赖可选化），启用需补 `plugins.updater` 配置 + `--features updater` 构建。
 - **验证**：`desktop:runtime` + `desktop:smoke` 绿；`cargo check` 零警告；release 产物 `SocialCoach_0.1.0_x64-setup.exe`（86.54 MiB）受控冒烟通过（进程存活 + `/api/health` 应答 + 窗口可见 + 关闭隐藏 + 退出清理）。桌面壳改动后必须重建并冒烟（见根 `AGENTS.md` 桌面规范）。
+
+
+## 思考档位与预算结算（2026-10-11，本地）
+
+- 新增 `app/src/lib/reasoning-policy.ts`：三档 `fast|balanced|deep` 回答的是“愿意为思考花多少”，不是任何一家的参数名。`fast` 原样透传，每个任务保持自己的 `thinking` 意图；高档是显式覆盖——每次调用都思考，按步骤类型给思考预算（对话回合等显式声明不思考的快步骤 2,048 / 8,192，本就要求推理的复盘链路 4,096 / 32,768），并把 `maxTokens` 与预算一起抬高，使共享池预留看到真实上限。回合永远拿不到 32K：让对方等 32K 思考等于卡住。
+- 档位只在两个客户端接缝解析，任务模块不知道它存在：`serverLLM` 读 `LLM_REASONING_TIER`，`makeByokLLM` 读 BYOK 的 `reasoningTier`（新配置默认 `fast`，改版不让任何人的回复变慢变贵）。请求形状仍由 `llm-core` 单一定义：Anthropic 得 `thinking:{type:"enabled",budget_tokens}` 且 `max_tokens` 大于该预算，OpenAI 兼容端得 `reasoning_effort` 加抬高的 token 参数——没有数字预算可发时档位仍有含义。`llm-core` 继续保持无 SDK / 无 `process.env`，`reasoning-policy` 因此可被浏览器导入。
+- 思考按设计就是更慢，所以任务 deadline 随档位放大（×1 / ×2 / ×4），而档位从 `LLM.thinkingTier` 读取而不是服务端环境变量：浏览器里个人模型的选择对服务端不可见，超时必须跟着真正要花时间的那份客户端走。输入字节与任务自身 16,000 输出上限的校验发生在抬升之前，口径不变。
+- 预算从“只预留”改成“预留—结算”（`shared-budget.ts`）：调用拿到 usage 后按 `reserved - actual` 退还差额，退款夹在 `[0, 已用计数]` 内；拿不到 usage 只解除并发占位，不作折扣——没核对过的调用不能变成优惠券。抬高 `maxTokens` 不再永久抽干日额度，这是敢开放思考档位的前置条件。
+- 契约由 `app/tests/core/reasoning-tier.test.ts`（档位→请求形状→deadline）与 `app/tests/core/budget-settlement.test.ts`（预留 / 退款 / 无 usage 释放）钉住。真实网关上的 `reasoning_effort` 接受度与大 `max_tokens` 上限仍需巡检，见 [backlog](./85-backlog.md)。

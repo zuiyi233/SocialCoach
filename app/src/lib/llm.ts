@@ -1,4 +1,5 @@
 import {reserveSharedBudget,requiresBudgetSetup,sharedBudgetConfigured} from "./shared-budget";
+import { applyReasoningTier, tierOf } from "./reasoning-policy";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { modelIssue, type ModelIssue, type ModelMetadata } from "./model-status";
@@ -179,8 +180,19 @@ export function chatStream(o: ChatOpts): TextRun {
   return { deltas: run(), text: () => acc, refused: () => refusal };
 }
 
-/** The server-side LLM, for route handlers. */
-export const serverLLM: LLM = { chatText, chatStream };
+/** The server-side LLM, for route handlers.
+ *
+ * The hosted pool spends a budget shared by everyone, so thinking is opt-in per
+ * deployment here; a learner using their own key decides that in
+ * `llm-client.ts`. The tier is applied at this single seam — no task module
+ * knows it exists, and the reservation still sees the raised ceiling.
+ */
+const SERVER_REASONING_TIER = tierOf(process.env.LLM_REASONING_TIER);
+export const serverLLM: LLM = {
+  thinkingTier: SERVER_REASONING_TIER,
+  chatText: (o) => chatText(applyReasoningTier(o, SERVER_REASONING_TIER)),
+  chatStream: (o) => chatStream(applyReasoningTier(o, SERVER_REASONING_TIER)),
+};
 
 /** `jsonCall` bound to the server LLM. */
 export const jsonCall = <T>(opts: JSONCallOpts) => coreJsonCall<T>(opts, serverLLM);

@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import type { Provider, TokenParam } from "./llm-core";
+import { tierOf, type ReasoningTier } from "./reasoning-policy";
 
 /**
  * The learner's own model credentials.
@@ -23,6 +24,8 @@ export interface ByokConfig {
   tokenParam: TokenParam;
   /** Opt-in for compatible endpoints that support thinking:{type:"disabled"}. */
   disableThinking?: boolean;
+  /** What the learner chose to spend on thinking; anything unreadable is fast. */
+  reasoningTier?: ReasoningTier;
 }
 
 const EMPTY: ByokConfig = {
@@ -34,6 +37,8 @@ const EMPTY: ByokConfig = {
   smartModel: "",
   tokenParam: "max_tokens",
   disableThinking: false,
+  // Nobody gets a slower, costlier reply because a new option shipped.
+  reasoningTier: "fast",
 };
 
 interface ByokState extends ByokConfig {
@@ -54,7 +59,7 @@ function configuration(value:unknown):ByokConfig{
   const c=value as Partial<ByokConfig>|null;
   if(!c||!['anthropic','openai'].includes(c.provider??''))return {...EMPTY};
   const string=(value:unknown)=>typeof value==='string'?value:'';
-  return {enabled:c.enabled===true,provider:c.provider!,baseUrl:string(c.baseUrl),apiKey:string(c.apiKey),fastModel:string(c.fastModel),smartModel:string(c.smartModel),tokenParam:c.tokenParam==='max_completion_tokens'?'max_completion_tokens':'max_tokens',disableThinking:c.disableThinking===true};
+  return {enabled:c.enabled===true,provider:c.provider!,baseUrl:string(c.baseUrl),apiKey:string(c.apiKey),fastModel:string(c.fastModel),smartModel:string(c.smartModel),tokenParam:c.tokenParam==='max_completion_tokens'?'max_completion_tokens':'max_tokens',disableThinking:c.disableThinking===true,reasoningTier:tierOf(c.reasoningTier)};
 }
 function readConfiguration(){
   const raw=typeof localStorage==='undefined'?null:localStorage.getItem(STORAGE_KEY);

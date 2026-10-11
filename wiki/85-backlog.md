@@ -38,6 +38,11 @@ practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（�
 - [ ] **该网关实测约 3 次/分钟**：两个 live 检查并行就会互相打出 429，而 429 会被脚本记成「拿不到合法回合」的假失败（本轮并行分发两路时误判过一次）。live 检查必须串行；验收脚本已对 429 退避到下一个分钟窗口（`check-love-play-live.ts`），其余 eval 脚本仍会一次性把限流记成 issues。要么给它们加同样的退避，要么换更高 rpm 的套餐。
 - [ ] **`eval-practice-policy` / `eval-practice-continuation` / `eval-disclosure-continuity` 在 V4 下的完整复跑未完成**：修复（引文归一化、两次不可见修复）只有离线断言 + 局部 live 证据，整份 eval 被 rpm 限流截断（25/48 样本即 8 次 429）。要完整销账需要一段不被抢占的串行窗口。
 
+- [x] **思考只能全局关掉，用户无法选**：`LLM_OPENAI_THINKING=disabled` 是唯一开关，测试图快就把能力关掉了。→ 2026-10-11 三档 `fast|balanced|deep` 落地（`reasoning-policy.ts`）：默认仍是 fast，个人模型在「接入模型 → 其他设置」里选，部署侧用 `LLM_REASONING_TIER`。思考预算与输出上限一起抬高（显式声明不思考的对话回合与快步骤 8K，本就要求推理的复盘链路 32K 封顶），deadline ×1/×2/×4 跟随客户端档位，预留改为按 usage 结算。离线契约见 `tests/core/reasoning-tier.test.ts`。
+- [x] **高档位在真实网关上的请求形状**：2026-10-11 探针（一次性脚本，不入库）对 `sensenova-6.8-flash-lite` 与 `deepseek-v4-flash` 发 `reasoning_effort:'high'` + `max_tokens:40000`，两家都 200 接受、不报未知参数，并且都回 `completion_tokens_details.reasoning_tokens`（sensenova 的推理文本在 `reasoning`，deepseek 在 `reasoning_content`，都不污染 `content`）——结算退款因此有真实数字可用。
+- [ ] **高档位的质量与耗时仍未 A/B**：上面只证明网关接受这个形状。32K 预算下复盘/生成实际慢多少、 balanced / deep 是否真比 fast 好，要一段不串流的串行窗口跑 `eval-practice-continuation` 与 `check-3d-debrief-live`。已知反例：sensenova 开推理时复盘事实核验反而更差（`LLM_REASONED_MODELS` 默认排除它）。
+- [ ] **预算结算只被离线 stub 验证过**：真实退款依赖网关回 `usage`（OpenAI 流式还要 `stream_options.include_usage`）。上线共享池前用一次 live 调用核对 `day:<n>` 计数的下降量等于实际用量。
+
 ## 待修订 PR（2026-10-09）
 
 

@@ -9,6 +9,7 @@ import {
   type TextRun,
 } from "./llm-core";
 import type { ByokConfig } from "./byok";
+import { applyReasoningTier, tierOf } from "./reasoning-policy";
 import { checkModelConnection, modelIssue, type ModelMetadata } from "./model-status";
 
 /**
@@ -186,5 +187,7 @@ export function makeByokLLM(c: ByokConfig): LLM {
     return { deltas: run(), text: () => acc, refused: () => refusal };
   };
 
-  return { chatText, chatStream };
+  // Resolved at this one seam, so no task module has to know the tier exists.
+  const tier = tierOf(c.reasoningTier);
+  return { thinkingTier: tier, chatText: (o: ChatOpts) => chatText(applyReasoningTier(o, tier)), chatStream: (o: ChatOpts) => chatStream(applyReasoningTier(o, tier)) };
 }

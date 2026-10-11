@@ -31,6 +31,14 @@
 
 个人模型的 `baseUrl` 与部署侧地址共用 `modelBaseUrl()`：OpenAI 完整 `/chat/completions` 地址去掉该路由，Anthropic 完整 `/v1/messages` 或末尾 `/v1` 去掉 SDK 会追加的部分，保留网关前缀。SDK 元数据与实际生成使用同一规范化结果；不改模型名称或协议。
 
+### 思考档位（2026-10-11）
+
+`fast|balanced|deep` 是同一份契约的两个入口：部署侧 `LLM_REASONING_TIER`，个人模型的 BYOK 配置 `reasoningTier`（缺省与旧记录都读作 `fast`）。`fast` 不改任何请求形状；`balanced|deep` 让每次调用都思考并抬高输出上限——显式声明不思考的对话回合与快步骤 2,048 / 8,192 思考预算，本就要求推理的复盘链路 4,096 / 32,768。共享池预留按抬高后的真实上限计算，调用返回 usage 后按实际用量退还差额，没有 usage 只释放并发。
+
+Anthropic 得到 `thinking:{type:"enabled",budget_tokens}`（`max_tokens` 大于预算）与 `output_config.effort`；OpenAI 兼容端只得到 `reasoning_effort`（`low|high`）和抬高的 token 参数，不发送任何数字思考预算。`thinking:false` 的任务在高档位下被覆盖，因此「短对话关闭额外推理」与 `LLM_OPENAI_THINKING=disabled` 只在 `fast` 下有意义。
+
+任务 deadline 按客户端档位延长（×1 / ×2 / ×4）；档位从发起调用的客户端读取，服务端环境变量只描述共享池。无新增公开端点，`/api/health` 与 BYOK 检查口径不变。见 [思考档位与预算结算](./02-system-architecture.md)。
+
 ### NPC 语音 `GET /api/speech` / `POST /api/speech`（2026-10-08）
 
 GET 返回 `{configured:boolean}`，仅表示配置齐备，不证明音频生成可用。POST 接收 `{text:string,lang:"zh"|"en",voice:"白桦"|"苏打"|"茉莉"|"冰糖"|"Mia"|"Chloe"|"Milo"|"Dean",tone?:"neutral"|"firm"|"gentle",delivery?:"wav"|"pcm",stream?:boolean}`。台词 1–500 字符、未知字段拒绝，最终 assistant 消息保留原文。固定 `mimo-v2.5-tts`，不优化文字、不克隆声音。
