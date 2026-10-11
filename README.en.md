@@ -56,7 +56,7 @@ https://github.com/user-attachments/assets/8d645827-c03c-44e9-aea0-ef1b9131d2e5
 <tr>
 <td><a href="docs/screenshots/screenshot-01-home-en.png"><img src="docs/screenshots/screenshot-01-home-en.png" width="260" alt="A personalized recommendation to practice declining extra hours, with an explanation of why it fits"></a></td>
 <td><a href="docs/screenshots/screenshot-02-pushback-en.png"><img src="docs/screenshots/screenshot-02-pushback-en.png" width="260" alt="A practice conversation with a manager who challenges the learner's response"></a></td>
-<td><a href="docs/screenshots/screenshot-03-evidence-debrief-en.png"><img src="docs/screenshots/screenshot-03-evidence-debrief-en.png" width="260" alt="Feedback quoting the learner's words and suggesting a clearer way to set a boundary"></a></td>
+<td><a href="docs/screenshots/screenshot-03-evidence-debrief-en.png"><img src="docs/screenshots/screenshot-03-evidence-debrief-en.png" width="260" alt="A debrief that opens with a quote of the learner's own words, with communication rated separately from goals"></a></td>
 </tr>
 <tr>
 <td><sub>A scenario matched to your goals.</sub></td>

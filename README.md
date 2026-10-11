@@ -52,7 +52,7 @@
 <tr>
 <td><a href="docs/screenshots/screenshot-01-home-zh.png"><img src="docs/screenshots/screenshot-01-home-zh.png" width="260" alt="首页推荐拒绝临时加班的练习，并说明它为什么适合当前目标"></a></td>
 <td><a href="docs/screenshots/screenshot-02-pushback-zh.png"><img src="docs/screenshots/screenshot-02-pushback-zh.png" width="260" alt="在对练中回应经理的要求和进一步追问"></a></td>
-<td><a href="docs/screenshots/screenshot-03-evidence-debrief-zh.png"><img src="docs/screenshots/screenshot-03-evidence-debrief-zh.png" width="260" alt="复盘引用用户原话，解释表达的问题，并给出更清楚的边界表达建议"></a></td>
+<td><a href="docs/screenshots/screenshot-03-evidence-debrief-zh.png"><img src="docs/screenshots/screenshot-03-evidence-debrief-zh.png" width="260" alt="复盘先引用你的原话给出判断，沟通表现与目标达成各自评分"></a></td>
 </tr>
 <tr>
 <td><sub>根据你的目标，安排下一场练习。</sub></td>

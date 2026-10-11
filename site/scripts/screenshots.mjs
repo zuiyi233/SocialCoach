@@ -23,8 +23,8 @@ const zh = LANG === "zh";
 mkdirSync(join(OUT, "raw"), { recursive: true });
 
 const S = zh
-  ? { start: "开始练习", why: "为什么是这个", another: ["换一个", "再来一个"], enter: "进入对话", send: "发送", end: "结束对话", endReview: "结束并复盘", toReport: "看复盘", writing: "教练正在写", stillWriting: "还在写", wantTitle: "拒绝临时加班" }
-  : { start: "Start practice", why: "Why this one", another: ["One more", "Swap"], enter: "Enter the scene", send: "Send", end: "End scene", endReview: "End and review", toReport: "See the debrief", writing: "Coach is writing", stillWriting: "Still writing", wantTitle: "Declining Extra Hours" };
+  ? { plan: "推荐今日练习", start: "开始练习", why: "为什么是这个", retry: "重试", checking: "正在检查模型连接", another: ["换一个", "再来一个"], enter: "进入对话", send: "发送", end: "收尾 / 复盘", endReview: "结束并复盘", toReport: "看复盘", writing: "教练正在写", stillWriting: "还在写", wantTitle: "拒绝临时加班" }
+  : { plan: "Recommend today's practice", start: "Start practice", why: "Why this one", retry: "Retry", checking: "Checking the model connection", another: ["One more", "Swap"], enter: "Enter the scene", send: "Send", end: "Finish / review", endReview: "End and review", toReport: "See the debrief", writing: "Coach is writing", stillWriting: "Still writing", wantTitle: "Declining Extra Hours" };
 
 const profile = zh
   ? { name: "小周", bio: "工作两年的产品经理，不太会拒绝别人，最近总被临时加活。", goals: ["seeking-help", "communication", "goal-setting"], contexts: ["workplace"], lang: "zh", createdAt: Date.now() }
@@ -160,9 +160,10 @@ const shot = async (name, { full = false } = {}) => {
 
 try {
 
-  // Seed the demo learner so the app skips onboarding.
+  // Seed the demo learner so the app skips onboarding. The 3D announcement is a
+  // one-time sheet per browser profile, and it would cover the home screen.
   await goto(`${BASE}/onboarding`);
-  await evaluate(`localStorage.setItem("socialcoach.v1", ${JSON.stringify(JSON.stringify({ state: { profile, proficiency }, version: 0 }))}); "ok"`);
+  await evaluate(`localStorage.setItem("socialcoach.v1", ${JSON.stringify(JSON.stringify({ state: { profile, proficiency }, version: 0 }))}); localStorage.setItem("socialcoach.3d-launch.v1", "seen"); "ok"`);
 
   if (opt["arena-only"]) {
     // The catalogue is public product UI; this path does not call a model.
@@ -175,13 +176,33 @@ try {
   } else {
   // 01 · home: today's pick, reason expanded.
   await goto(`${BASE}/`);
-  await waitFor(`$("button", ${JSON.stringify(S.start)})`, "today card", 240000);
-  for (let i = 0; !opt["home-only"] && i < 3 && !(await ev(`body().includes(${JSON.stringify(S.wantTitle)})`)); i++) {
-    log("today's pick is not the overtime scene; asking for another");
-    const before = await ev(`body()`);
-    if (!(await click(`(${JSON.stringify(S.another)}).map(t => $("button", t)).find(Boolean)`))) break;
-    await waitFor(`$("button", ${JSON.stringify(S.start)}) && body() !== ${JSON.stringify(before)}`, "new pick", 90000);
-    await sleep(500);
+  // A profile with no practice yet sees the recommendation as a request, not as
+  // a card that schedules itself, so ask for it before waiting for the card.
+  // The card is inert while the model connection check is still running, and a
+  // schedule can fail as a task error and leave the request behind — asking
+  // again is what a learner would do.
+  const todayCard = (ms) => waitFor(`$("button", ${JSON.stringify(S.start)})`, "today card", ms, 400);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (await ev(`!!$("button", ${JSON.stringify(S.start)})`)) break;
+    await waitFor(`!body().includes(${JSON.stringify(S.checking)})`, "model check settled", 60000);
+    if (await click(`$("button", ${JSON.stringify(S.plan)})`) || await click(`$("button", ${JSON.stringify(S.retry)})`)) log(`asking for today's pick (attempt ${attempt})`);
+    await todayCard(100_000).catch(() => {});
+  }
+  await todayCard(240000);
+  // The two demo lines belong to one specific scene. A card that is still
+  // animating in can read as "not that scene", so let the title settle before
+  // deciding, and never walk into a practice whose lines do not fit it.
+  const onWantedScene = () => waitFor(`body().includes(${JSON.stringify(S.wantTitle)})`, "the wanted pick", 8000, 400).then(() => true, () => false);
+  if (!opt["home-only"]) {
+    for (let i = 0; i < 6 && !(await onWantedScene()); i++) {
+      log("today's pick is not the overtime scene; asking for another");
+      const before = await ev(`body()`);
+      if (!(await click(`(${JSON.stringify(S.another)}).map(t => $("button", t)).find(Boolean)`))) break;
+      // A swap can fail as a task error and leave the same card behind; that is
+      // another attempt, not the end of the run.
+      await waitFor(`$("button", ${JSON.stringify(S.start)}) && body() !== ${JSON.stringify(before)}`, "new pick", 90000).catch(() => {});
+    }
+    if (!(await onWantedScene())) throw new Error(`today's pick never became “${S.wantTitle}”; the demo lines would not fit`);
   }
   await click(`$("button", ${JSON.stringify(S.why)})`);
   await sleep(900);
@@ -206,13 +227,22 @@ try {
   await sleep(1500);
 
   // Chat: type a line, send, wait for the character to finish.
+  const replied = (label, ms = 120000) => waitFor(`!document.querySelector("textarea")?.disabled`, label, ms, 300);
   const say = async (text) => {
     await evaluate(`document.querySelector("textarea").focus(); "ok"`);
     await cdp("Input.insertText", { text });
     await waitFor(`(() => { const b = $('button[aria-label=${JSON.stringify(S.send)}]'); return b && !b.disabled; })()`, "send enabled", 10000);
     await click(`$('button[aria-label=${JSON.stringify(S.send)}]')`);
     try { await waitFor(`document.querySelector("textarea")?.disabled`, "busy", 8000, 100); } catch {}
-    await waitFor(`!document.querySelector("textarea")?.disabled`, "character replied", 120000, 300);
+    try {
+      await replied("character replied");
+    } catch (e) {
+      // A model turn can spend its own repair budget and stop with a retry
+      // affordance; that is what a learner would press, so press it.
+      if (!(await click(`$("button", ${JSON.stringify(S.retry)})`))) throw e;
+      log("the turn hit its call budget; retried as a learner would");
+      await replied("character replied after retry", 180000);
+    }
     await sleep(1200);
   };
   await say(lines[0]);
@@ -226,10 +256,19 @@ try {
   await shot(`screenshot-02b-after-boundary-${LANG}`, { full: true });
 
   // End → reveal → report.
-  await click(`$('button[aria-label=${JSON.stringify(S.end)}]')`);
+  await click(`$("button", ${JSON.stringify(S.end)})`);
   await waitFor(`$("button", ${JSON.stringify(S.endReview)})`, "end sheet", 15000);
   await click(`$("button", ${JSON.stringify(S.endReview)})`);
-  await waitFor(`(() => { const b = $("button", ${JSON.stringify(S.toReport)}); return b && !b.disabled; })()`, "report ready", 180000, 500);
+  const reportReady = (ms) => waitFor(`(() => { const b = $("button", ${JSON.stringify(S.toReport)}); return b && !b.disabled; })()`, "report ready", ms, 500);
+  try {
+    await reportReady(180000);
+  } catch (e) {
+    // A debrief can fail its evidence check and offer a retry; that is a learner
+    // action, not the end of the run.
+    if (!(await click(`$("button", ${JSON.stringify(S.retry)})`))) throw e;
+    log("the debrief failed its check; retried as a learner would");
+    await reportReady(240000);
+  }
   await sleep(800);
   await shot(`screenshot-03a-reveal-${LANG}`);
   await click(`$("button", ${JSON.stringify(S.toReport)})`);

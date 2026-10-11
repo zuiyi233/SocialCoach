@@ -41,7 +41,15 @@ practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（�
 - [x] **思考只能全局关掉，用户无法选**：`LLM_OPENAI_THINKING=disabled` 是唯一开关，测试图快就把能力关掉了。→ 2026-10-11 三档 `fast|balanced|deep` 落地（`reasoning-policy.ts`）：默认仍是 fast，个人模型在「接入模型 → 其他设置」里选，部署侧用 `LLM_REASONING_TIER`。思考预算与输出上限一起抬高（显式声明不思考的对话回合与快步骤 8K，本就要求推理的复盘链路 32K 封顶），deadline ×1/×2/×4 跟随客户端档位，预留改为按 usage 结算。离线契约见 `tests/core/reasoning-tier.test.ts`。
 - [x] **高档位在真实网关上的请求形状**：2026-10-11 探针（一次性脚本，不入库）对 `sensenova-6.8-flash-lite` 与 `deepseek-v4-flash` 发 `reasoning_effort:'high'` + `max_tokens:40000`，两家都 200 接受、不报未知参数，并且都回 `completion_tokens_details.reasoning_tokens`（sensenova 的推理文本在 `reasoning`，deepseek 在 `reasoning_content`，都不污染 `content`）——结算退款因此有真实数字可用。
 - [ ] **高档位的质量与耗时仍未 A/B**：上面只证明网关接受这个形状。32K 预算下复盘/生成实际慢多少、 balanced / deep 是否真比 fast 好，要一段不串流的串行窗口跑 `eval-practice-continuation` 与 `check-3d-debrief-live`。已知反例：sensenova 开推理时复盘事实核验反而更差（`LLM_REASONED_MODELS` 默认排除它）。
+- [ ] **共享池开高档位前要先核对路由 `maxDuration`**：`assess` 180 秒、`roleplay` / `hint` 60 秒在 serverless 上位于任务 deadline 之外，档位放大 ×2/×4 会被平台先切断，放大形同无效（自托管 standalone 忽略 `maxDuration`，BYOK 在浏览器里直连，两者不受影响）。要么按档位同步提高路由上限，要么把部署侧档位限制在 `fast`。
 - [ ] **预算结算只被离线 stub 验证过**：真实退款依赖网关回 `usage`（OpenAI 流式还要 `stream_options.include_usage`）。上线共享池前用一次 live 调用核对 `day:<n>` 计数的下降量等于实际用量。
+
+- [ ] **调度理由会漏出英文技能 id**：README 截图重采时看到中文「为什么是这个」写成「你现在 seeking-help 约 2.5/5、communication 约 3.0/5」。`profileBlock`（`src/lib/prompts.ts:25`）给模型的是 `Name [id] — current estimate`，模型把方括号里的 id 直接抄进面向用户的句子。修法在契约层：adaptation 系统提示要求只用当前语言书写技能名、不得出现内部 id，并在 `check-scene-craft` 一类真实模型检查里加一条断言。
+- [ ] **`sensenova-6.8-flash-lite` 上的有界契约仍会花完自己的调用预算**：截图复采期间两次可见失败——文字对练第 2 回合「这次模型处理已到调用上限，记录已保留，请重试」（`roleplay:[55000,2]`，重试后正常），以及今日推荐连续几次以 `502 task_error` 结束、首页落到「角色匹配结果不完整，请重试。」（`schedule` 的两次调用都 HTTP 成功，是角色匹配结果被本地校验拒绝）。两处都保留了对用户友好的重试入口，不是死路；但共享池换到这一档模型后，排程与回合的契约失败率明显高于 DeepSeek 档，需要一次正式测量再决定是给这类步骤多一次修复预算，还是把共享池默认模型换回可预测的一档。
+
+- [x] **复盘首屏两个「目标达成」互相打脸**：截图复采时英文复盘同时显示「0 of 3 goals reached」（`session.objectiveDone` 的场内模拟估计）和「Original aims · 2/3 Evidenced as met · 1 Not established」（逐条核对转录后的结论）。`Debrief.tsx:345` 那行只在没有 sceneContext 的旧文字局出现，中文那次恰好两边相同才没被发现。→ 2026-10-11 报告已有 `objectiveResults` 时不再显示模拟 tally：模拟估计要么单独标注为估计，就不该用「达成 N 个目标」这种定论句式。
+- [x] **英文回合数没有单数形式**：「1 turns · finish when ready」（`pr_turn_progress`）。→ 2026-10-11 改为「Turn {n} · finish when ready」，与恋爱模式的 `love_play_turns` 同一口径。英文里 `{n} + 复数名词` 的写法在别处仍存在（`pr_turns_left`、`pg_sessions`、`love_practices`），要一起治需要给 `t()` 加复数机制，暂列观察。
+- [ ] **`site/scripts/screenshots.mjs` 把界面文案抄成字面量，会随 UI 漂移**：本轮三处失效——今日推荐改成需要点按钮、结束入口从 `结束对话` 变成 `收尾 / 复盘`、英文 `today's` 用的是直引号而脚本写了弯引号。每次都是跑到超时才暴露。建议把该脚本转成 tsx 并直接 `import { t } from 'app/src/lib/i18n'` 取标签，让文案漂移变成编译期可见。
 
 ## 待修订 PR（2026-10-09）
 
@@ -157,7 +165,7 @@ R1 共享池/健康检查已修订，沿用用户最新批准的 1 亿中央政�
 
 ## 技术债
 
-- [ ] 2026-09-21 README 截图仍是 2026-09-08 的真实演示，早于本次核心路径 UI 精修；需重新采集中英各三张同一流程截图，可再录制一段真实对练到复盘的短演示。英文 README 已先切换为现有英文素材。
+- [x] 2026-09-21 README 截图仍是 2026-09-08 的真实演示，早于本次核心路径 UI 精修；需重新采集中英各三张同一流程截图，可再录制一段真实对练到复盘的短演示。英文 README 已先切换为现有英文素材。→ 2026-10-11 中英各三张重采自同一条真实流程（今日推荐「拒绝临时加班」→ 经理追问 → 引用原话的复盘），`docs/screenshots/` 与 `site/assets/` 同步替换，第三张的 alt 文案改成画面里实际有的内容。录制短演示仍未做。
 - [x] 默认模型空值配置已采用 `trim() || DEFAULT_MODELS`，空白字符串与空值均回退。2026-10-08 对照当前 `llm.ts` 清理过期待办；该逻辑此前已实现。
 
 - [ ] **46 个场景里有 29 个包含 `hidden`（底牌，2026-10-01 实数）。** 其余 17 个会跳过揭示屏，直接进报告。是否补齐应按场景教学目标判断，并保留来源；补语料另行定义范围。
