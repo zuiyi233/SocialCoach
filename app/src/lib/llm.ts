@@ -1,4 +1,4 @@
-import {reserveSharedBudget,requiresBudgetSetup} from "./shared-budget";
+import {reserveSharedBudget,requiresBudgetSetup,sharedBudgetConfigured} from "./shared-budget";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { modelIssue, type ModelIssue, type ModelMetadata } from "./model-status";
@@ -106,8 +106,10 @@ export function serverModelMetadata(): ModelMetadata {
  * task modules in `lib/tasks/` run unchanged on either side.
  * ------------------------------------------------------------------------- */
 
-/** One-shot call; returns the assistant's text. */
-async function providerText(o: ChatOpts): Promise<string> {
+/** One-shot call; returns the assistant's text and, when the provider reports
+ * it, the tokens actually spent — including reasoning tokens, which are what a
+ * thinking tier really costs. */
+async function providerText(o: ChatOpts): Promise<{ text: string; tokens?: number }> {
   if (PROVIDER === "openai") {
     const res = await openai().chat.completions.create(
       openaiArgs(o, SMART_MODEL, OPENAI_TOKEN_PARAM, OPENAI_DISABLE_THINKING) as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
@@ -115,19 +117,21 @@ async function providerText(o: ChatOpts): Promise<string> {
     );
     const choice = res.choices[0];
     if (choice?.message?.refusal) throw new LLMError("The model declined this request.", 422);
-    return choice?.message?.content ?? "";
+    return { text: choice?.message?.content ?? "", tokens: res.usage?.total_tokens };
   }
   const res = await anthropic().messages.create(anthropicArgs(o, SMART_MODEL), { signal: o.signal });
   if (res.stop_reason === "refusal") throw new LLMError("The model declined this request.", 422);
-  return res.content
+  const text = res.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
     .map((b) => b.text)
     .join("\n");
+  return { text, tokens: res.usage ? res.usage.input_tokens + res.usage.output_tokens : undefined };
 }
 
 export async function chatText(o:ChatOpts):Promise<string>{
  requireKey();const release=await reserveSharedBudget(o);
- try{return await providerText(o);}finally{await release();}
+ try{const result=await providerText(o);await release(result.tokens);return result.text;}
+ catch(error){await release();throw error;}
 }
 
 /** Streaming call. Text deltas only; tool calls and thinking blocks are not surfaced. */
@@ -136,13 +140,18 @@ export function chatStream(o: ChatOpts): TextRun {
   let refusal = false;
   async function* run() {
     requireKey();const release=await reserveSharedBudget(o);
+    let tokens: number | undefined;
     try{
     if (PROVIDER === "openai") {
       const stream = await openai().chat.completions.create({
         ...openaiArgs(o, SMART_MODEL, OPENAI_TOKEN_PARAM, OPENAI_DISABLE_THINKING),
         stream: true,
+        // Only the shared pool needs the trailing usage chunk. Endpoints that do
+        // not know `stream_options` keep streaming exactly as before.
+        ...(sharedBudgetConfigured() ? { stream_options: { include_usage: true } } : {}),
       } as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, {signal:o.signal});
       for await (const chunk of stream) {
+        if (chunk.usage) tokens = chunk.usage.total_tokens;
         const choice = chunk.choices[0];
         if (choice?.delta?.refusal) refusal = true;
         if (choice?.finish_reason === "content_filter") refusal = true;
@@ -164,7 +173,8 @@ export function chatStream(o: ChatOpts): TextRun {
     // Anthropic only reveals a refusal on the final message.
     const final = await stream.finalMessage();
     if (final.stop_reason === "refusal") refusal = true;
-    }finally{await release();}
+    tokens = final.usage ? final.usage.input_tokens + final.usage.output_tokens : undefined;
+    }finally{await release(tokens);}
   }
   return { deltas: run(), text: () => acc, refused: () => refusal };
 }

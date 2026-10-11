@@ -24,6 +24,21 @@ redis.call('INCRBY',counter,ARGV[1])
 redis.call('EXPIREAT',counter,(day+2)*86400)
 redis.call('ZADD',active,now+180,ARGV[4])
 return 1`;
+/** Settle one reservation against what the provider actually reported.
+ * The up-front ceiling is what keeps concurrent visitors from overspending, but
+ * holding all of it forever would price every call at its worst case — and a
+ * thinking tier makes that worst case enormous. Only anonymous counters move. */
+export const SETTLE_SCRIPT=`
+local now=tonumber(redis.call('TIME')[1])
+local day=math.floor(now/86400)
+local counter=KEYS[1]..':day:'..day
+local used=tonumber(redis.call('GET',counter) or '0')
+local refund=tonumber(ARGV[1])-tonumber(ARGV[2])
+if refund<0 then refund=0 end
+if refund>used then refund=used end
+if refund>0 then redis.call('DECRBY',counter,refund) end
+redis.call('ZREM',KEYS[1]..':active',ARGV[3])
+return refund`;
 export function sharedBudgetConfigured(env:NodeJS.ProcessEnv=process.env){return !!env.LLM_BUDGET_REDIS_URL&&!!env.LLM_BUDGET_REDIS_TOKEN;}
 export function requiresBudgetSetup(env:NodeJS.ProcessEnv=process.env){return env.NODE_ENV==='production'&&!sharedBudgetConfigured(env);}
 const positive=(value:string|undefined,fallback:number)=>{const n=Number(value);return Number.isSafeInteger(n)&&n>0?n:fallback;};
@@ -61,7 +76,7 @@ export function reservedTokens(o:ChatOpts){
  const bytes=new TextEncoder().encode([...systemParts(o.system).map(p=>p.text),...o.messages.map(m=>m.content)].join('\n')).length;
  return 3*(bytes+4096+o.maxTokens);
 }
-export async function reserveSharedBudget(o:ChatOpts):Promise<()=>Promise<void>>{
+export async function reserveSharedBudget(o:ChatOpts):Promise<(actualTokens?:number)=>Promise<void>>{
  const lang=o.lang??"zh";
  if(!sharedBudgetConfigured()){
   if(requiresBudgetSetup())throw new LLMError(pick({zh:'共享模型预算尚未配置，请接入自己的模型继续。',en:'Connect your own model to continue. The shared model budget is not configured.'},lang),503,false,'setup');
@@ -74,5 +89,12 @@ export async function reserveSharedBudget(o:ChatOpts):Promise<()=>Promise<void>>
  if(result===0)throw Object.assign(new LLMError(pick({zh:'今天的共享池余量不足以处理这次任务，请在日额度更新后重试，或接入自己的模型。',en:'This task exceeds the remaining shared daily budget. Retry after renewal or connect your own model.'},lang),429,false,'shared_quota'),{retryAt:(Math.floor(Date.now()/86400000)+1)*86400000});
  if(result===-1)throw new LLMError(pick({zh:'共享模型正在忙，请稍后重试，或接入自己的模型。',en:'The shared model is busy. Retry shortly or connect your own model.'},lang),429,false,'shared_busy');
  if(result!==1)throw new LLMError(pick({zh:'共享模型预算暂时无法核对，请稍后重试。',en:'The shared model budget could not be checked.'},lang),503,false,'service');
- return async()=>{try{await budgetCommand(['ZREM',key+':active',id]);}catch{/* Reservation expires after the task deadline; tokens are never refunded. */}};
+ // Without a usage report the ceiling stays held: an unverified call must not
+ // become a discount, or every provider that hides usage would spend for free.
+ return async(actualTokens?:number)=>{
+  try{
+   if(typeof actualTokens==='number'&&Number.isFinite(actualTokens)&&actualTokens>=0)await budgetCommand(['EVAL',SETTLE_SCRIPT,1,key,reservedTokens(o),Math.round(actualTokens),id]);
+   else await budgetCommand(['ZREM',key+':active',id]);
+  }catch{/* The reservation expires after the task deadline; the ceiling is self-healing. */}
+ };
 }
