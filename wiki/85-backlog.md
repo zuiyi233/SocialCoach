@@ -30,10 +30,13 @@ practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（�
 10 项 live 检查在 `deepseek-v3.2`（OpenAI 兼容网关）下串行复跑：`eval-practice-policy` 的 roleplay / role-fit、`eval-practice-continuation`（48 样本）、`eval-disclosure-continuity`（36 样本）、`eval-resistance`、`check-scene-craft-live`（15/15 轮）、`check-npc-craft-live final`（10/10）、`check-places-live`（64 轮）、`check-dinner-brief-live`（10 行）、`check-love-play-live`（21 回合）通过；`check-3d-debrief-live` 稳定失败；`check-debrief-assistant-live` 需要 `LIVE_ASSISTANT_URL`，本轮未跑。日志在本地 `%TEMP%/sc-live-sweep-20261011/`（评审产物不入库）。
 
 - [x] 越狱指令可让 NPC 退出角色、原样吐出 `hidden` 并伪造目标达成。→ 2026-10-11 输出侧确定性拒绝 + 修复预算放宽到两次，三例真实模型攻击全部改判为剧情内回避。详见 [80-known-pitfalls](./80-known-pitfalls.md)。
-- [ ] **3D 复盘稳定失败**：`runDinner` 把玩家整句（实测 148 字）塞进 `replyTo`，被 `src/features/dinner/lib/engine.ts:16` 的 `max(120)` 拒；提示词 `director.ts:95` 要求「1–40 字符」，而 `director.ts:172` 的修复提示没重申这一条，于是两次尝试照抄同一个违规形状。确定性缺陷，与模型无关。
-- [ ] **复盘引文核对疑似过严（需拍板）**：`hasQuote`（`practice-policy.ts:31`）只做 `trim()` + 连续子串，全/半角标点、多一个空格、NBSP、省略号拼接、照抄 `名字 (LEARNER): ` 标签都会判「无法可靠核对原话」并抛 502（`assess.ts:102`，`family-privacy` 稳定复现）。子代理判定为假失败，建议加归一化并允许 `unknown/unmet` 省略 evidence；但这条直接压在「反馈必须先引用用户原话」红线上，放宽口径要用户确认后再动。
-- [ ] **roleplay 花括号滑位（需拍板）**：模型在 `objectiveEvidence` 之后多写一个 `}` 提前关掉 `meta`，`extractJSON` 在深度 0 处截断，把已经写出的 NPC 台词整段丢掉（48 例 1 次 / 36 例 1 次）。候选修法：`checked()` 前加一次「滑位还原」（仅当根层缺 `utterances` 且尾部确有 `"utterances"`）；或把 `revealed` 改可选（`roleplay-output.ts:82` 本就无条件覆写它）。
+- [x] **3D 复盘稳定失败**：`runDinner` 把玩家整句（实测 148 字）塞进 `replyTo`，被 `src/features/dinner/lib/engine.ts:16` 的 `max(120)` 拒；zod 的 `too_big` 不含可执行指令，修复提示因此没重申「1–40 字符」，两次照抄同一个违规形状。→ 2026-10-11 `validateReply` 改为抛带规则的报错（`reactions` 数量不符同样只报字段名 + 复写规则），不可见修复从 2 次放宽到 3 次（仍在 `dinner:[110000,4]` 预算内）。V4 第四次实测：整回合失败 0 次，3 次形状拒绝全部当轮修复；V4 仍会犯形状错，但不再变成用户可见的死对话。
+- [x] **复盘引文核对过严导致假失败**：`hasQuote`（`practice-policy.ts:31`）只做 `trim()` + 连续子串，全/半角标点、多余空格、NBSP、大小写、照抄 `[n] 名字 (LEARNER):` 标签都会判「无法可靠核对原话」并抛 502。→ 2026-10-11 先折叠排版再要求**连续子串**：拼接、改词、跨句、换说话人仍然拒绝，红线要的是「引用用户原话」而不是字节相同。学习者侧对齐 NPC 侧剥标签。
+- [ ] **roleplay 花括号滑位（已决定不做解析器手术）**：模型在 `objectiveEvidence` 之后多写一个 `}` 提前关掉 `meta`，`extractJSON` 在深度 0 处截断，把已写出的 NPC 台词整段丢掉（48 例 1 次 / 36 例 1 次）。曾考虑在 `checked()` 前加一次「滑位还原」。**决定：不加**——被拒后的回复常自己丢掉 meta，两次不可见修复已经覆盖用户可见失败，而对畸形 JSON 放宽容忍正是本仓已记录过的「兜底把协议失效伪装成正常」那条坑。留作观察项：若 V4 下发生率明显上升，再回到契约层（提示词/字段顺序）解决。契约拒绝现在会把缺失字段路径写进日志（只有字段名与长度）。
 - [ ] **`parseRoleplay` 的说话人兜底在掩盖协议失效**：`client-api.ts:290`/`:306` 把无 `@@` 标记的文本静默归给第一个 NPC，并经 `Chat.tsx:250` 变成持久 `characterId`。建议给 `ParsedTurn` 加 `speakerFallback` 标记、在 eval 里记 issue，不改渲染行为。
+- [ ] 验证模型已从 `deepseek-v3.2` 切到 **`deepseek-v4-flash`**（`deepseek-v4.1-flash` 不在该 token 套餐，403）。V4 下已实测通过：恋爱模式 21 回合六项验收（零红线告警，4 个回合因限流重试）、`eval-resistance` 三例越狱 3/3、`check-3d-debrief-live` 全量。上一轮「V4 撑不住恋爱契约」的判断是错的，那是我们的历史形状缺陷，不是模型问题。
+- [ ] **该网关实测约 3 次/分钟**：两个 live 检查并行就会互相打出 429，而 429 会被脚本记成「拿不到合法回合」的假失败（本轮并行分发两路时误判过一次）。live 检查必须串行；验收脚本已对 429 退避到下一个分钟窗口（`check-love-play-live.ts`），其余 eval 脚本仍会一次性把限流记成 issues。要么给它们加同样的退避，要么换更高 rpm 的套餐。
+- [ ] **`eval-practice-policy` / `eval-practice-continuation` / `eval-disclosure-continuity` 在 V4 下的完整复跑未完成**：修复（引文归一化、两次不可见修复）只有离线断言 + 局部 live 证据，整份 eval 被 rpm 限流截断（25/48 样本即 8 次 429）。要完整销账需要一段不被抢占的串行窗口。
 
 ## 待修订 PR（2026-10-09）
 
