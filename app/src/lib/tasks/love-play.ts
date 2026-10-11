@@ -12,7 +12,7 @@ import { z } from "zod";
 import { roleplaySystem } from "@/lib/prompts";
 import { extractJSON, LLMError, type ChatOpts, type LLM, type SystemPart } from "@/lib/llm-core";
 import { practiceTurnLimit } from "@/lib/practice-policy";
-import { RoleplayFactError } from "@/lib/roleplay-output";
+import { ReplyRejected, RoleplayFactError, RoleplayBoundaryError, replyBoundaryProblem } from "@/lib/roleplay-output";
 import { roleplaySpeechGuard } from "@/lib/roleplay-facts";
 import type { ChatMessage } from "@/lib/types";
 import type { Lang } from "@/data/taxonomy";
@@ -177,9 +177,13 @@ function parseLovePlay(raw: string, scenario: Scenario, learnerId: string, messa
     throw new LLMError(pick({ zh: "这次回复的场景信息不完整，你的话已保留，请重试。", en: "This reply has incomplete scene information. Your words are saved; please retry." }, lang), 502);
   }
   const reply = parsed.data;
+  const npcId = leadingNpc(scenario, learnerId).id;
+  // 边界检查覆盖两个语言键：泄底往往发生在「翻译」那一键上。
+  const boundary = replyBoundaryProblem(scenario, learnerId, [{ characterId: npcId, text: reply.line.zh }, { characterId: npcId, text: reply.line.en }], reply.revealed ? [npcId] : []);
+  if (boundary) throw new RoleplayBoundaryError(boundary, lang);
   // 用对话语言那一版的台词跑事实守卫，防止把未确认的安排讲成既成事实。
   const line = lang === "zh" ? reply.line.zh : reply.line.en;
-  const problem = roleplaySpeechGuard(scenario.id, toChatHistory(messages))?.([{ characterId: leadingNpc(scenario, learnerId).id, text: line }]);
+  const problem = roleplaySpeechGuard(scenario.id, toChatHistory(messages))?.([{ characterId: npcId, text: line }]);
   if (problem) throw new RoleplayFactError(problem, lang);
   return reply;
 }
@@ -210,7 +214,7 @@ export async function runLovePlay(input: LovePlayInput, llm: LLM, fastModel: str
   } catch (error) {
     // 拒绝 / 鉴权 / 限流 / 预算类错误不可修复，原样透出。
     if (!isRepairable(error)) throw error;
-    const fix = error instanceof RoleplayFactError ? error.correction : "Your previous draft had invalid JSON or missing required fields.";
+    const fix = error instanceof ReplyRejected ? error.correction : "Your previous draft had invalid JSON or missing required fields.";
     const repairSystem: SystemPart[] = [
       ...(Array.isArray(options.system) ? options.system : [{ text: options.system }]),
       { text: `${fix} No reply was accepted. Repair this SAME exchange, keeping the same facts, history and the learner's latest words, and return ONLY the LOVE-PLAY JSON contract above. Do not count this as a new turn or invent a transition.` },

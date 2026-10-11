@@ -69,7 +69,7 @@ async function main(){
  assert.equal(parseRoleplay(complete,['tang']).utterances[0].text,good);checks++;console.log('PASS one bounded repair keeps the same player turn and only shows the corrected reply');
  let failedVisible='',attempts=0;
  await assert.rejects(runRoleplay({scenario,learnerCharacterId:'you',lang:'en',messages:initial},{...fake,chatText:async()=>{attempts++;return raw(bad);}},'fixture',d=>failedVisible+=d),RoleplayFactError);
- assert.equal(attempts,1);assert.equal(failedVisible,'');checks++;console.log('PASS a second invalid draft remains unseen and unsaved');
+ assert.equal(attempts,2);assert.equal(failedVisible,'');checks++;console.log('PASS a stubbornly invalid draft stays unseen and unsaved across the two invisible repairs');
  console.log(`${checks} roleplay fact checks passed.`);
 }
 void main();

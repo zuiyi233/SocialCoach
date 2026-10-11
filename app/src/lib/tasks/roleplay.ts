@@ -2,7 +2,7 @@ import type { ChatOpts, LLM } from "@/lib/llm-core";
 import { pick, roleplaySystem } from "@/lib/prompts";
 import { lastSpoken, silenceStreak } from "@/lib/session-utils";
 import { practiceTurnLimit } from "@/lib/practice-policy";
-import { roleplayOutput, RoleplayFactError } from "@/lib/roleplay-output";
+import { roleplayOutput, ReplyRejected } from "@/lib/roleplay-output";
 import { roleplaySpeechGuard } from '@/lib/roleplay-facts';
 import { LLMError } from "@/lib/llm-core";
 import type { TurnInput } from "./types";
@@ -87,16 +87,31 @@ REALITY CHECK FOR THIS REPLY: Before saying anything was agreed or done, identif
   }
   if(run.refused())throw new LLMError(pick({zh:"模型未能回应这次请求，请调整说法或稍后重试。",en:"The model declined this request. Rephrase or retry later."},lang),422);
   let complete: string;
-  try { complete = output.complete(run.text()); }
-  catch (error) {
+  const repairNote = (error: unknown) => `${error instanceof ReplyRejected ? error.correction : "Your previous draft had invalid JSON or missing required fields."} No reply was accepted. Repair this SAME exchange, using the same facts, history and latest learner words. Return ONLY valid JSON with meta FIRST (objectives, ended, stance, revealed) and utterances AFTER, including every required field. Do not count this as a new turn or invent a transition.`;
+  // Two tries, both invisible: a reply we refuse for breaking the fiction often
+  // comes back with its own contract damage (the real model drops meta in the
+  // repair). Beyond two the learner is already waiting too long for one turn.
+  const repairTwice = async (first: unknown): Promise<string> => {
+    let last = first;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return output.complete(await llm.chatText({ ...options, system: [
+          ...(Array.isArray(options.system) ? options.system : [{ text: options.system }]),
+          { text: repairNote(last) },
+        ] }));
+      } catch (retry) {
+        if (attempt >= 1) throw retry;
+        last = retry;
+      }
+    }
+  };
+  try {
+    complete = output.complete(run.text());
+  } catch (error) {
     // One bounded repair is safe only before any NPC line has been shown.
     // Once a line is visible, recovery must keep it out of durable evidence.
     if (sent || run.refused()) throw error;
-    const repair = await llm.chatText({ ...options, system: [
-      ...(Array.isArray(options.system) ? options.system : [{ text: options.system }]),
-      { text: `${error instanceof RoleplayFactError?error.correction:'Your previous draft had invalid JSON or missing required fields.'} No reply was accepted. Repair this SAME exchange, using the same facts, history and latest learner words. Return ONLY valid JSON with meta and utterances, including every required field. Do not count this as a new turn or invent a transition.` },
-    ] });
-    complete = output.complete(repair);
+    complete = await repairTwice(error);
   }
   // Never silently turn a visible partial line into different durable evidence.
   if (!complete.startsWith(sent)) throw new LLMError(lang === "zh" ? "回复中断了，你的话已保留，请重试。" : "The reply was interrupted. Your words are saved; please retry.", 502);

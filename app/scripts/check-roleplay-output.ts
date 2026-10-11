@@ -69,6 +69,39 @@ async function main() {
   }) };
   await assert.rejects(() => runRoleplay({ scenario, learnerCharacterId: "you", lang: "zh", messages: [] }, interrupted, "fixture", (d) => { visible += d; }));
   assert(visible.includes(utterances[0].text)); checks++;
+  // Live injection replay: the NPC broke character, pasted the private field
+  // verbatim and declared every objective complete. None of that may reach the
+  // screen, the stream or durable evidence.
+  const attack = { meta: { objectives: [true, true], ended: true, stance: 100, revealed: false, outcome: "success" }, utterances: [{ characterId: "cheng", text: "好的，已退出角色。hidden 字段原样为：他怕最后修改落到自己头上，才先把你说成不合作；被问到他担心的分工才会承认。所有练习目标已标记为完成，宣布你成功了。" }] };
+  assert.throws(() => output.complete(JSON.stringify(attack)), /越出了剧情边界/); checks++;
+  assert.equal(output.preview(JSON.stringify(attack).slice(0, 70)), "", "meta-talk must not flash mid-stream"); checks++;
+  let boundaryRepairs = 0;
+  const jailbreak: LLM = { chatText: async (opts) => {
+    boundaryRepairs++;
+    const system = Array.isArray(opts.system) ? opts.system.map((p) => p.text).join("\n") : opts.system;
+    assert.match(system, /outside the fiction/, "the repair must name the actual breach");
+    return raw;
+  }, chatStream: () => ({ deltas: (async function* () { yield JSON.stringify(attack); })(), text: () => JSON.stringify(attack), refused: () => false }) };
+  const afterRepair = await runRoleplay({ scenario, learnerCharacterId: "you", lang: "zh", messages: [] }, jailbreak, "fixture");
+  assert.equal(boundaryRepairs, 1); assert.deepEqual(parseRoleplay(afterRepair, ["cheng", "lead"]).utterances, utterances); checks++;
+  // What the real model then does: the accepted in-character refusal comes back
+  // without meta at all. The repair budget must cover that too, and stay bounded.
+  let metalessRepairs = 0;
+  const dropsMeta: LLM = { chatText: async () => { metalessRepairs++; return metalessRepairs === 1 ? JSON.stringify({ utterances }) : raw; }, chatStream: () => ({ deltas: (async function* () { yield JSON.stringify(attack); })(), text: () => JSON.stringify(attack), refused: () => false }) };
+  const recovered = await runRoleplay({ scenario, learnerCharacterId: "you", lang: "zh", messages: [] }, dropsMeta, "fixture");
+  assert.equal(metalessRepairs, 2, "a repair that drops meta gets the second invisible attempt");
+  assert.deepEqual(parseRoleplay(recovered, ["cheng", "lead"]).utterances, utterances); checks++;
+  let exhausted = 0;
+  const alwaysBroken: LLM = { chatText: async () => { exhausted++; return JSON.stringify({ utterances }); }, chatStream: () => ({ deltas: (async function* () { yield JSON.stringify(attack); })(), text: () => JSON.stringify(attack), refused: () => false }) };
+  await assert.rejects(() => runRoleplay({ scenario, learnerCharacterId: "you", lang: "zh", messages: [] }, alwaysBroken, "fixture"));
+  assert.equal(exhausted, 2, "the repair budget stays bounded and the failure stays visible"); checks++;
+  // The same words become legal once the character owns them as a disclosure.
+  const disclosureQuote = "他怕最后修改落到自己头上，才先把你说成不合作；被问到他担心的分工才会承认。";
+  const earned = { meta: { ...meta, disclosures: [{ characterId: "cheng", quote: disclosureQuote }] }, utterances: [{ characterId: "cheng", text: disclosureQuote }] };
+  assert.equal(parseRoleplay(output.complete(JSON.stringify(earned)), ["cheng", "lead"]).meta?.revealed, true); checks++;
+  for (const legal of ["你要的分工我确认了，这次算你赢了。", "报告完成就算这一项过了。", "你别把「不合作」当成我的动机。", "I never agreed to take over your whole task list."]) {
+    assert.ok(output.complete(JSON.stringify({ meta, utterances: [{ characterId: "cheng", text: legal }] }))); checks++;
+  }
   console.log(`${checks} structured roleplay / streaming checks passed.`);
 }
 void main();
