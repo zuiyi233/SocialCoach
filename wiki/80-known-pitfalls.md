@@ -464,3 +464,11 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **原因：** 上游把 zustand persist 的读取从默认浅合并改成了自定义 `merge` → `parseArchive`（Zod 校验）。Zod `z.object` 默认 **strip 未知字段**：`ArchiveSchema` 没有 `loveProficiency`、`ScenarioSchema` 没有 `loveTopic`，于是任何新增字段一旦写进归档，下次 rehydrate 就被静默剥掉。写入路径（`partialize` allow-list）反而没问题。
 - **解法：** `ScenarioSchema` 补 `loveTopic: LoveTopicSchema.optional()`；`ArchiveSchema` 补 `loveProficiency: LoveProficiencySchema.default({})`；`merge` 显式 `loveProficiency: archive.loveProficiency ?? current.loveProficiency`。`check-corpus` 增加“所有 `context === "romantic"` 的场景必须带 `loveTopic`”断言，防止新场景再次脱离恋爱轨道。
 - **教训：** 自定义 `merge` + Zod 校验的持久化层是“字段白名单”，新增状态字段要同时改 `partialize` 和读取 schema 两处；独立审查要专门跑一次“写入 → rehydrate → 断言字段存活”的路径。→ [合并记录](./specs/spec-love-module.md#十上游合并记录2026-10-09)
+
+
+### 浏览器侧的超时不能读服务端环境变量（2026-10-11）
+
+- **现象：** 给任务 deadline 按思考档位放大时写成 `AbortSignal.timeout(timeout * factor(tierOf(process.env.LLM_REASONING_TIER)))`。`tsc` 通过、`pnpm check` 全绿、服务端路由行为正确——但个人模型（BYOK）选了深度档之后，回复更慢了，超时却一点没变长，用户只看到偶发中断。
+- **原因：** `task-runtime.ts` 同时被服务端路由和浏览器 `client-api.ts` 使用，而 Next 只把 `NEXT_PUBLIC_*` 内联进浏览器包；其余 `process.env.X` 在客户端读作 `undefined`，于是档位永远退化成 `fast`。类型检查与离线测试都看不出这条差异。
+- **解法：** 档位随真正要花时间的那份客户端走：`LLM` 增加可选 `thinkingTier`，`serverLLM` 与 `makeByokLLM` 各自声明，`taskLLM` 读 `llm.thinkingTier ?? 'fast'`。检查也保持在抬升之前，任务自身的输入字节与 16,000 输出上限口径不变。
+- **教训：** 凡是会被浏览器 import 的模块，配置要从**注入的对象**读，不要从 `process.env` 读——这也是 `llm-core.ts` 一直声明「无 SDK、无 `process.env`」的原因。新增检查要有一条能区分两条客户端的断言（`reasoning-tier.test.ts` 里 fast 与 deep 的 deadline 差就是这条）。
