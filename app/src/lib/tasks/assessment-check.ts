@@ -39,10 +39,14 @@ export async function checkAssessment(report:Report,input:AssessInput,llm:LLM,mo
  // whole transcript, a report and a knowledge set in mind at once, and it is the
  // only step the learner waits on after the conversation already ended.
  // Which ids belong to a reasoning tier is a name guess — that is all a BYOK
- // endpoint gives us — so it is a list, not a single vendor prefix. Measured on
-// sensenova-6.8-flash-lite, switching this on made the audit worse: the verdict
-// arrived inside the reasoning text and `extractJSON` had nothing to parse, so
-// every debrief ended as "could not verify the quotes". It stays opt-in per tier.
+ // endpoint gives us — so it is a list, not a single vendor prefix.
+// Sensenova is out of the default on a 2026-10-11 observation: its audit verdict
+// arrived inside the reasoning text and `extractJSON` had nothing to parse.
+// Re-measured 2026-10-12 that shape no longer reproduces (reasoning arrives in a
+// separate `reasoning` field, `content` stays parseable), while the suppressed
+// shape is what started returning JSON-free prose. The gate is therefore one
+// gateway's dated history, not a property of the model — reopen it with a run on
+// this payload. See wiki/80「把某一台网关的模型行为写成长期产品事实」.
 const REASONED_MODELS=(process.env.LLM_REASONED_MODELS??'deepseek-').split(',').map(value=>value.trim()).filter(Boolean);
 const reasonedCheck=REASONED_MODELS.some(prefix=>model.startsWith(prefix));
  const text=await llm.chatText({model,signal,maxTokens:reasonedCheck?10000:5000,thinking:reasonedCheck,effort:'low',system,messages:[{role:'user',content:JSON.stringify({transcript:input.messages.filter(m=>m.role!=='coach').map((m,index)=>({index,role:m.role,characterId:m.characterId,text:m.text,kind:m.kind})),publicScene,observations:input.sceneContext,retrievedKnowledge,report})}]});
