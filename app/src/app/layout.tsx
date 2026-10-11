@@ -3,6 +3,7 @@ import { Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/AppProviders";
 import { SITE_URL } from "@/lib/site-url";
+import { SiteJsonLd } from "@/components/SiteJsonLd";
 
 const hanken = Hanken_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-hanken", display: "swap" });
 
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AppProviders>{children}</AppProviders>
+        <SiteJsonLd />
       </body>
     </html>
   );
