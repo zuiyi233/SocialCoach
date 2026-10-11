@@ -35,8 +35,16 @@ Return ONLY JSON {"approved":true|false,"issues":[{"field":"objectiveResults|rat
 export async function checkAssessment(report:Report,input:AssessInput,llm:LLM,model:string,signal?:AbortSignal,retrievedKnowledge?:{theories:Theory[];cases:Case[]}){
  signal?.throwIfAborted();
  const publicScene=scenarioBlock(input.scenario,input.lang,input.learnerCharacterId,'learner');
- // DeepSeek needs reasoning for this evidence audit, with room left for its JSON verdict.
- const reasonedCheck=model.startsWith('deepseek-');
+ // The evidence audit is the one task that gets real reasoning: it has to hold a
+ // whole transcript, a report and a knowledge set in mind at once, and it is the
+ // only step the learner waits on after the conversation already ended.
+ // Which ids belong to a reasoning tier is a name guess — that is all a BYOK
+ // endpoint gives us — so it is a list, not a single vendor prefix. Measured on
+// sensenova-6.8-flash-lite, switching this on made the audit worse: the verdict
+// arrived inside the reasoning text and `extractJSON` had nothing to parse, so
+// every debrief ended as "could not verify the quotes". It stays opt-in per tier.
+const REASONED_MODELS=(process.env.LLM_REASONED_MODELS??'deepseek-').split(',').map(value=>value.trim()).filter(Boolean);
+const reasonedCheck=REASONED_MODELS.some(prefix=>model.startsWith(prefix));
  const text=await llm.chatText({model,signal,maxTokens:reasonedCheck?10000:5000,thinking:reasonedCheck,effort:'low',system,messages:[{role:'user',content:JSON.stringify({transcript:input.messages.filter(m=>m.role!=='coach').map((m,index)=>({index,role:m.role,characterId:m.characterId,text:m.text,kind:m.kind})),publicScene,observations:input.sceneContext,retrievedKnowledge,report})}]});
  signal?.throwIfAborted();
  let result:z.infer<typeof CheckSchema>;

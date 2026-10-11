@@ -100,6 +100,16 @@ export async function runAssess(input: AssessInput, llm: LLM, smartModel: string
   signal?.throwIfAborted();
   if (run.refused()) throw new Error("The model declined this request.");
   const unavailable=()=>new LLMError(pick({zh:'这次复盘还没能可靠地核对原话。对话已保留，请重试。',en:'This debrief could not reliably verify the conversation. Your transcript is saved; please retry.'},lang),502,true);
+  // The reader-facing text has to stay generic, but a live run cannot be
+  // attributed without the cause each stage swallows. Log rule text and schema
+  // paths only: assessment parse errors quote the offending value, so quoted
+  // payloads are stripped before anything reaches the log.
+  const causeOf=(error:unknown)=>{
+    const issues=(error as {issues?:{path:(string|number)[]}[]}|null)?.issues;
+    if(issues)return `schema fields: ${[...new Set(issues.map(issue=>issue.path.join('.')))].join(', ')||'unknown'}`;
+    return String(error instanceof Error?error.message:error).replace(/"[^"]{4,}"/gu,'"…"').slice(0,160);
+  };
+  const unavailableBecause=(cause:unknown,stage:string)=>{console.error('[assess] debrief unavailable',{stage,reason:causeOf(cause)});return unavailable();};
   const parse=(text:string)=>{
     const raw=extractJSON<Partial<Report>>(text);
     if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Report must be an object');
@@ -159,7 +169,7 @@ export async function runAssess(input: AssessInput, llm: LLM, smartModel: string
   try{report=parse(text);}catch(error){
     formatRepairUsed=true;
     text=await repair(formatReason(error));
-    try{report=parse(text);}catch{throw unavailable();}
+    try{report=parse(text);}catch(repairError){throw unavailableBecause(repairError,'format repair');}
   }
   // Check meaning, not only quotation existence. Only the accepted report is emitted.
   const semanticRevisions=2;
@@ -168,10 +178,10 @@ export async function runAssess(input: AssessInput, llm: LLM, smartModel: string
     try{check=await checkAssessment(report,{...input,sceneContext},llm,smartModel,signal,{theories:kb.theories,cases:kb.cases});}catch(error){
       // Provider failures and cancellation retain their original type/status.
       if(signal?.aborted||error instanceof LLMError)throw error;
-      throw unavailable();
+      throw unavailableBecause(error,'fact check');
     }
     if(check.approved){onDelta?.(JSON.stringify(report));return report;}
-    if(attempt===semanticRevisions)throw unavailable();
+    if(attempt===semanticRevisions)throw unavailableBecause(new Error(`the checker still reports ${new Set(check.issues.map(issue=>issue.field)).size} unresolved fields`),'semantic revisions');
     const fields:string[]=[...new Set(check.issues.map(issue=>issue.field))];
     // Only re-generate the fields whose interpretation failed. Recopying the
     // whole accepted draft can corrupt unrelated, already verified quotations.

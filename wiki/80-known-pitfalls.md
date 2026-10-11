@@ -81,6 +81,18 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **解决方案：** 未确认结果只记录标记并继续检查其他不同模型；任何一档明确失效立即返回 unavailable，全部检查后才合并 available / unverified。共享配置和个人配置共用此逻辑。
 - **教训：** 多依赖检查按结论强度合并；未确认不能覆盖后续的确定故障，也不能把弱模型成功当成强模型成功。
 
+### 推理型网关会把 `max_tokens` 全花在 reasoning 上
+- **现象：** 同一套契约提示词换到 `sensenova-6.8-flash-lite`，小 `max_tokens` 的探测请求返回 `content: undefined`——消息里只有 `role` 和 `reasoning`，看起来像「模型没回答」，实际是思考把预算吃光了。
+- **原因：** 这类模型默认先写 reasoning 再写 content；`LLM_OPENAI_THINKING` 没开时应用不会发关闭参数，`maxTokens` 就全被 reasoning 占掉。
+- **解决方案：** 三条路径（`chatText` / `chatStream` / `jsonCall`）都随 `thinking:false` 发 `thinking:{type:"disabled"}`，由 `LLM_OPENAI_THINKING=disabled` 控制；实测关闭后 `reasoning_tokens:0`、`content` 正常，恋爱模式 21 回合契约稳定。官方 OpenAI 会直接 400 这个字段，所以只能按开关发，不能无条件发。
+- **教训：** 换模型档位时，先单独发一条小请求看**响应形状**（哪些键、content 是否空、reasoning 是否单独成键），再跑整套验收；`src/lib/llm-core.ts` 的注释记的就是这件事。
+
+### 给结构化输出路径开思考，可能把它做废
+- **现象：** 把复盘证据审计（`assessment-check.ts`）从 `model.startsWith('deepseek-')` 改成能力列表、让 sensenova 也开思考之后，`eval-practice-policy` 与 `check-3d-debrief-live` 双双失败：关思考 0 次「没能可靠地核对原话」，开思考 2 次。
+- **原因：** 失败点不在引文核对，而在**核查器自己的返回解析不出 JSON**（`CheckSchema.parse(extractJSON(text))` 抛「returned no usable result」）——这一档模型把结论写进了 reasoning 文本，`content` 里没有可解析的裁决。审计步骤要求的是严格 JSON 裁决，思考反而挤掉了它。
+- **解决方案：** 能力列表保留（名字前缀判断确实是错的抽象），但默认值回到 `deepseek-`，按档位显式开；同时给 `assess.ts` 三处 `unavailable()` 补上被吞原因的日志（只记阶段、规则文字与 schema 字段路径，引号内容整段抹掉），否则线上永远只看到同一句人话文案，无法归因。
+- **教训：** 「思考提升能力」对**开放式生成**成立，对**要求严格 JSON 裁决**的步骤不成立。开思考的三档偏好要按任务类型分，而不是全局开关；而且必须先有归因日志，否则 A/B 只能看到「变差了」看不到为什么。
+
 ### 网关不支持 `output_config.format`
 - **现象：** 用 SDK 的结构化输出 / JSON mode 会失败。
 - **原因：** 在用的网关不支持该参数（`src/lib/llm.ts` 有注释记录）。
