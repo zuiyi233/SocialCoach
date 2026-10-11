@@ -17,7 +17,13 @@ import { loadNotoSansSC } from "@/lib/og-font";
  * app's design tokens and the paper tone of docs/banner.svg.
  */
 
-export const dynamic = "force-dynamic";
+/**
+ * ISR rather than force-dynamic: the first crawler to ask pays the one-time
+ * font-subset fetch (~1-2s), then the rendered card is cached at the edge for
+ * a day. Corpus content is static per build, so a stale image is not a real
+ * risk; the window only bounds how fast a redeploy's changed titles appear.
+ */
+export const revalidate = 86400;
 export const runtime = "nodejs";
 
 /**
