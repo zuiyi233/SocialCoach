@@ -78,7 +78,14 @@ export function validateReply(data: unknown, scenario: Scenario): Reply {
   const replyTo = (data as { replyTo?: unknown } | null)?.replyTo;
   if (typeof replyTo === "string" && [...replyTo].length > 120)
     throw new Error('replyTo must copy 1–40 characters of the CURRENT player text: the shortest fragment this line actually answers, never the whole sentence');
-  const reply = ReplySchema.parse(data);
+  const parsed = ReplySchema.safeParse(data);
+  if (!parsed.success) {
+    // ZodError dumps the whole payload as its message, so the single repair turn
+    // got noise instead of the rule. Name the fields and restate what they need.
+    const fields = [...new Set(parsed.error.issues.map((issue) => issue.path.join(".")))].join(", ");
+    throw new Error(`The reply does not match the required shape (${fields || "unknown field"}). reactions must hold exactly one {characterId,emotion,gesture} per person at this table — three entries, real ids only. replyTo copies 1–40 characters of the CURRENT player text. text, speakerId and story.topic are required.`);
+  }
+  const reply = parsed.data;
   const ids = scenario.characters.map(c => c.id);
   if(scenario.space&&reply.reactions.some(r=>r.gesture==='toast'))throw new Error('There are no cups in this space. Use idle, lean, fold or nod');
   if (!ids.includes(reply.speakerId) || new Set(reply.reactions.map(r => r.characterId)).size !== 3 || reply.reactions.some(r => !ids.includes(r.characterId))) throw new Error('Invalid character');

@@ -106,4 +106,7 @@ test('an over-long replyTo is refused with the rule the model can act on',()=>{
   // The schema's own "too_big" text sent the repair back the same violation; a
   // real model produced a 148-character replyTo by copying the whole player line.
   assert.throws(()=>validateReply({...base,replyTo:'我'.repeat(148)},scene),/1–40 characters/);
+  // The dominant V4 rejection was a short reactions array, and ZodError dumped the
+  // whole payload as its message, so the repair turn never saw the actual rule.
+  assert.throws(()=>validateReply({...base,reactions:base.reactions.slice(0,2)},scene),/reactions must hold exactly one/);
 });
