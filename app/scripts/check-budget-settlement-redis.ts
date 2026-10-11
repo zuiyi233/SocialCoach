@@ -1,11 +1,13 @@
-/** Real-Redis settlement check. Opt-in, isolated key, loopback only:
+/** Real-Redis settlement check. Opt-in, loopback only:
  *   node scripts/check-budget-settlement-redis.ts [--live]
  *
  * The offline suite already proves the *commands* we send. This proves the other
  * half: that the reserve and settle Lua behave as claimed on an actual Redis, so
  * the daily counter ends up holding exactly what the provider reported and a
  * refund can never be applied twice. Nothing here may point at a production
- * instance — the key is namespaced for this check and refused otherwise.
+ * instance — the only permitted endpoint is loopback, asserted below, because
+ * `reserveSharedBudget` hardcodes its key, so isolation comes from the host
+ * rule, not from a check-specific key prefix.
  *
  * `--live` additionally makes ONE real model call and asserts the counter delta
  * against the usage the gateway itself reported. That is the end of the money
@@ -18,7 +20,10 @@ const host = process.env.REDIS_CLI_HOST ?? '127.0.0.1';
 assert.ok(['127.0.0.1', 'localhost', '::1'].includes(host), 'this check only ever talks to a local Redis');
 const port = Number(process.env.REDIS_HTTP_PORT || 6399);
 const token = 'synthetic-settlement-token';
-const key = 'socialcoach:{settlement-check}';
+// Must match the key `reserveSharedBudget` reserves under — the first draft of
+// this check used its own prefix and asserted against a counter the library
+// never writes, so every assertion compared the right number to the wrong key.
+const key = 'socialcoach:{model-budget}';
 const LIVE = process.argv.includes('--live');
 
 const shim = spawn(process.execPath, ['scripts/redis-http-shim.mjs'], { env: { ...process.env, REDIS_HTTP_PORT: String(port), REDIS_HTTP_TOKEN: token }, stdio: ['ignore', 'pipe', 'inherit'] });
@@ -36,7 +41,7 @@ async function dayCounter(): Promise<number> {
   const day = Math.floor(Number(now) / 86400);
   return Number(await redis('GET', `${key}:day:${day}`) ?? '0');
 }
-const activeCount = () => Number(redis('ZCARD', `${key}:active`));
+const activeCount = async () => Number(await redis('ZCARD', `${key}:active`));
 
 async function waitReady(): Promise<void> {
   for (let i = 0; i < 100; i++) {
@@ -58,7 +63,12 @@ let reserveSharedBudget: typeof import('../src/lib/shared-budget').reserveShared
 
 async function main() {
   await waitReady();
-  Object.assign(process.env, { NODE_ENV: 'test', LLM_PROVIDER: 'openai', LLM_BASE_URL: 'http://127.0.0.1:1', LLM_API_KEY: 'synthetic-settlement-key', LLM_FAST_MODEL: 'test-chat', LLM_SMART_MODEL: 'test-chat', LLM_BUDGET_REDIS_URL: `http://127.0.0.1:${port}`, LLM_BUDGET_REDIS_TOKEN: token, LLM_BUDGET_DAILY_TOKENS: '1000000', LLM_BUDGET_CONCURRENCY: '3' });
+  // Offline legs use a dead base URL so a stray model call fails loudly. The
+  // --live leg is the opposite point: it charges ONE real call, so it keeps the
+  // real provider env from --env-file and only pins the budget Redis to the shim.
+  Object.assign(process.env, LIVE
+    ? { NODE_ENV: 'test', LLM_BUDGET_REDIS_URL: `http://127.0.0.1:${port}`, LLM_BUDGET_REDIS_TOKEN: token, LLM_BUDGET_DAILY_TOKENS: '1000000', LLM_BUDGET_CONCURRENCY: '3' }
+    : { NODE_ENV: 'test', LLM_PROVIDER: 'openai', LLM_BASE_URL: 'http://127.0.0.1:1', LLM_API_KEY: 'synthetic-settlement-key', LLM_FAST_MODEL: 'test-chat', LLM_SMART_MODEL: 'test-chat', LLM_BUDGET_REDIS_URL: `http://127.0.0.1:${port}`, LLM_BUDGET_REDIS_TOKEN: token, LLM_BUDGET_DAILY_TOKENS: '1000000', LLM_BUDGET_CONCURRENCY: '3' });
   const budget = await import('../src/lib/shared-budget');
   reservedTokens = budget.reservedTokens; reserveSharedBudget = budget.reserveSharedBudget;
   await redis('DEL', `${key}:active`);

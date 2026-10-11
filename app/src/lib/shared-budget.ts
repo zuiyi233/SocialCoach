@@ -38,12 +38,16 @@ export const SETTLE_SCRIPT=`
 local now=tonumber(redis.call('TIME')[1])
 local day=math.floor(now/86400)
 local counter=KEYS[1]..':day:'..day
+-- Removing the reservation is the settle gate: a second settle of the same id
+-- finds nothing to remove and must not refund again, or every double-settled
+-- call makes the pool cheaper than reality.
+local removed=redis.call('ZREM',KEYS[1]..':active',ARGV[3])
+if removed==0 then return 0 end
 local used=tonumber(redis.call('GET',counter) or '0')
 local refund=tonumber(ARGV[1])-tonumber(ARGV[2])
 if refund<0 then refund=0 end
 if refund>used then refund=used end
 if refund>0 then redis.call('DECRBY',counter,refund) end
-redis.call('ZREM',KEYS[1]..':active',ARGV[3])
 return refund`;
 export function sharedBudgetConfigured(env:NodeJS.ProcessEnv=process.env){return !!env.LLM_BUDGET_REDIS_URL&&!!env.LLM_BUDGET_REDIS_TOKEN;}
 export function requiresBudgetSetup(env:NodeJS.ProcessEnv=process.env){return env.NODE_ENV==='production'&&!sharedBudgetConfigured(env);}
