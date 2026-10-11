@@ -28,12 +28,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const dinner = path === "/3d";
   const lang=dinner&&sceneLang?sceneLang:mainLang;
   const learning = path === "/learn";
+  // Corpus landing pages are public, indexable static pages: a search visitor
+  // arriving without a profile must read the article, not be pushed to onboarding.
+  const corpusLanding = path.startsWith("/scenarios/") || path.startsWith("/library/") || path.startsWith("/en/scenarios/") || path.startsWith("/en/library/");
   const canUseModel = useCanUseModel();
   const modelAccess = useModelAccess();
 
   useEffect(() => {
-    if (hydrated && byok.hydrated && !storageIssue && !learning) promptUnavailableSharedModel();
-  }, [hydrated, byok.hydrated, storageIssue, learning, modelAccess.state, modelAccess.source, modelAccess.issue, modelAccess.epoch]);
+    if (hydrated && byok.hydrated && !storageIssue && !learning && !corpusLanding) promptUnavailableSharedModel();
+  }, [hydrated, byok.hydrated, storageIssue, learning, corpusLanding, modelAccess.state, modelAccess.source, modelAccess.issue, modelAccess.epoch]);
 
   useEffect(() => {
     if (!byok.hydrated || learning) return;
@@ -49,8 +52,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || storageIssue) return;
-    if (!profile && path !== "/onboarding" && !dinner && !learning && !immersiveReview) router.replace("/onboarding");
-  }, [hydrated, storageIssue, profile, path, dinner, learning, immersiveReview, router]);
+    if (!profile && path !== "/onboarding" && !dinner && !learning && !corpusLanding && !immersiveReview) router.replace("/onboarding");
+  }, [hydrated, storageIssue, profile, path, dinner, learning, corpusLanding, immersiveReview, router]);
 
   useEffect(() => {
     // Follow the resolved language, not just an explicit choice: before

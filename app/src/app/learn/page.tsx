@@ -116,7 +116,10 @@ export default function Learn() {
           <p className="text-[14px] text-ink-3 mt-3 leading-relaxed">{t(lang, "ln_sub")}</p>
         </header>
 
-        {/* the index */}
+        {/* the index — wrapper caps the sticky panes' scroll range: without it the
+            100dvh sticky columns stayed pinned while the phrases section below
+            scrolled underneath them, and the two layers painted over each other. */}
+        <div className="contents lg:col-span-2 lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-x-10 lg:items-start">
         <div className="contents lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-6 lg:h-[calc(100dvh-3rem)]">
           <label className="library-search-field flex items-center gap-2 min-h-12 px-3.5 rounded-xl bg-card border border-line focus-within:border-ink transition-colors shrink-0">
             <Search size={17} className="text-ink-4" />
@@ -277,6 +280,7 @@ export default function Learn() {
             </motion.div>
           </article>
         )}
+        </div>
 
         {/* ready-made reference lines: grouped by scene, filtered by the search box */}
         <section aria-labelledby="phrases-heading" className="lg:col-span-2 border-t border-line pt-6 mt-2 lg:mt-8 lg:pt-8 flex flex-col gap-5">
@@ -294,23 +298,32 @@ export default function Learn() {
           {phraseGroups.every((g) => g.items.length === 0) ? (
             <p className="text-[13px] text-ink-3">{t(lang, "ln_phrases_empty")}</p>
           ) : (
-            <div className="flex flex-col gap-6">
-              {phraseGroups.filter((g) => g.items.length > 0).map((g) => (
-                <section key={g.scene} className="flex flex-col gap-2.5" aria-label={sceneLabel(g.scene)}>
-                  <h3 className="flex items-baseline gap-2">
+            <div className="flex flex-col gap-3">
+              {/* Folded per-scene groups: 126 rows laid out flat made this grid
+                  row ~70k px tall and broke the sticky two-pane above it. Native
+                  details keep the section compact; a search hit keeps its group
+                  open so results stay visible. */}
+              {phraseGroups.filter((g) => g.items.length > 0).map((g, groupIndex) => (
+                <details
+                  key={g.scene}
+                  open={q.trim().length > 0 || groupIndex === 0}
+                  className="card group px-4 py-3 open:pb-4"
+                >
+                  <summary className="flex cursor-pointer select-none items-baseline gap-2 min-h-9 [&::-webkit-details-marker]:hidden">
                     <span className="eyebrow">{sceneLabel(g.scene)}</span>
                     <span className="text-[11px] text-ink-3 num">{g.items.length}</span>
-                  </h3>
-                  <ul className="grid gap-2.5 lg:grid-cols-2">
+                    <span aria-hidden className="ml-auto text-[14px] text-ink-3 transition-transform group-open:rotate-90">›</span>
+                  </summary>
+                  <ul className="grid gap-2.5 lg:grid-cols-2 mt-3">
                     {g.items.map((p: Phrase) => (
-                      <li key={p.id} className="card p-4 flex flex-col gap-1.5">
+                      <li key={p.id} className="rounded-xl border border-line p-3.5 flex flex-col gap-1.5">
                         <p className="text-[14px] leading-snug text-pretty">{p.text.zh}</p>
                         <p className="text-[12px] text-ink-3 leading-snug text-pretty">{p.text.en}</p>
                         <p className="text-[10px] text-ink-4 num mt-1" title={p.source}>{guideName(p.source)}</p>
                       </li>
                     ))}
                   </ul>
-                </section>
+                </details>
               ))}
             </div>
           )}
