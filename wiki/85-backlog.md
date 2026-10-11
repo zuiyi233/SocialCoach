@@ -25,7 +25,18 @@ practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（�
 - [x] 旧的两条恋爱剧情线人物不连续：「信任与边界」是 ning / jamie / nora 三个不同 NPC，「初见与心动」是 tess / mae / zoe。→ 2026-10-10 采用主题合集口径（用户拍板）：`LoveSeries.continuous` 按「每场 NPC 阵容是否一致」算出，贯穿线继续用「剧情线 / 第 N 幕 / →」，换人的线改显示「主题合集 / 第 N 场 / ·」与「从第一场开始」；不新增语料、不动立绘。代价是旧线仍是三个独立场景而不是一段故事，真要连续还得补同人物的场景（本轮未做）。
 - [x] 2026-10-11 `love-define-rio-pace-talk`、`love-boundary-eve-contact-rhythm`、`love-trust-eve-what-you-told` 三个新场景的真实模型六项验收已完成（`app/scripts/check-love-play-live.ts`，deepseek-v3.2，三场景各 7 探针共 21 回合全部拿到合法契约，让步/施压/玩笑回合立场未涨、`revealed` 只在合法时机为真）。过程中修掉两个缺陷：第 2 回合起输出契约塌陷（见 [80-known-pitfalls](./80-known-pitfalls.md) 的 assistant 历史条目）、客户端从不回传模型自己的台词导致多回合剧情失忆。
 
+## 真实模型巡检遗留（2026-10-11）
+
+10 项 live 检查在 `deepseek-v3.2`（OpenAI 兼容网关）下串行复跑：`eval-practice-policy` 的 roleplay / role-fit、`eval-practice-continuation`（48 样本）、`eval-disclosure-continuity`（36 样本）、`eval-resistance`、`check-scene-craft-live`（15/15 轮）、`check-npc-craft-live final`（10/10）、`check-places-live`（64 轮）、`check-dinner-brief-live`（10 行）、`check-love-play-live`（21 回合）通过；`check-3d-debrief-live` 稳定失败；`check-debrief-assistant-live` 需要 `LIVE_ASSISTANT_URL`，本轮未跑。日志在本地 `%TEMP%/sc-live-sweep-20261011/`（评审产物不入库）。
+
+- [x] 越狱指令可让 NPC 退出角色、原样吐出 `hidden` 并伪造目标达成。→ 2026-10-11 输出侧确定性拒绝 + 修复预算放宽到两次，三例真实模型攻击全部改判为剧情内回避。详见 [80-known-pitfalls](./80-known-pitfalls.md)。
+- [ ] **3D 复盘稳定失败**：`runDinner` 把玩家整句（实测 148 字）塞进 `replyTo`，被 `src/features/dinner/lib/engine.ts:16` 的 `max(120)` 拒；提示词 `director.ts:95` 要求「1–40 字符」，而 `director.ts:172` 的修复提示没重申这一条，于是两次尝试照抄同一个违规形状。确定性缺陷，与模型无关。
+- [ ] **复盘引文核对疑似过严（需拍板）**：`hasQuote`（`practice-policy.ts:31`）只做 `trim()` + 连续子串，全/半角标点、多一个空格、NBSP、省略号拼接、照抄 `名字 (LEARNER): ` 标签都会判「无法可靠核对原话」并抛 502（`assess.ts:102`，`family-privacy` 稳定复现）。子代理判定为假失败，建议加归一化并允许 `unknown/unmet` 省略 evidence；但这条直接压在「反馈必须先引用用户原话」红线上，放宽口径要用户确认后再动。
+- [ ] **roleplay 花括号滑位（需拍板）**：模型在 `objectiveEvidence` 之后多写一个 `}` 提前关掉 `meta`，`extractJSON` 在深度 0 处截断，把已经写出的 NPC 台词整段丢掉（48 例 1 次 / 36 例 1 次）。候选修法：`checked()` 前加一次「滑位还原」（仅当根层缺 `utterances` 且尾部确有 `"utterances"`）；或把 `revealed` 改可选（`roleplay-output.ts:82` 本就无条件覆写它）。
+- [ ] **`parseRoleplay` 的说话人兜底在掩盖协议失效**：`client-api.ts:290`/`:306` 把无 `@@` 标记的文本静默归给第一个 NPC，并经 `Chat.tsx:250` 变成持久 `characterId`。建议给 `ParsedTurn` 加 `speakerFallback` 标记、在 eval 里记 issue，不改渲染行为。
+
 ## 待修订 PR（2026-10-09）
+
 
 - [x] PR #26 原异步筛选补丁的连续选择 / 开发搜索回归已修订，采用同步 URL 与显式订阅；开发 / 正式中英手机桌面 16 组浏览器验收、322 项核心 / 3D 检查通过。PR #30 远端质量与预览部署通过后保留提交合并，#26 同时标记已合并；原作者 Yi Zhan / @USTChandsomeboy 的提交保留在主线。→ [首次审核](./reviews/review-2026-10-09-pr26-arena-navigation.md)、[修订验收](./reviews/review-2026-10-10-pr26-arena-revision.md)
 
