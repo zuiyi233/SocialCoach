@@ -192,10 +192,11 @@ export function chatStream(o: ChatOpts): TextRun {
  * knows it exists, and the reservation still sees the raised ceiling.
  */
 const SERVER_REASONING_TIER = tierOf(process.env.LLM_REASONING_TIER);
+const SERVER_REASONING_CAPS = { canCapThinking: PROVIDER === "anthropic" || OPENAI_THINKING_BUDGET };
 export const serverLLM: LLM = {
   thinkingTier: SERVER_REASONING_TIER,
-  chatText: (o) => chatText(applyReasoningTier(o, SERVER_REASONING_TIER)),
-  chatStream: (o) => chatStream(applyReasoningTier(o, SERVER_REASONING_TIER)),
+  chatText: (o) => chatText(applyReasoningTier(o, SERVER_REASONING_TIER, SERVER_REASONING_CAPS)),
+  chatStream: (o) => chatStream(applyReasoningTier(o, SERVER_REASONING_TIER, SERVER_REASONING_CAPS)),
 };
 
 /** `jsonCall` bound to the server LLM. */

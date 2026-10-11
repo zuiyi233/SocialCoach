@@ -40,7 +40,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     syncModelConfiguration();
     void refreshModelAccess();
     return useByok.subscribe((next, previous) => {
-      if (["enabled", "provider", "baseUrl", "apiKey", "fastModel", "smartModel", "tokenParam", "disableThinking"].some(key => next[key as keyof typeof next] !== previous[key as keyof typeof previous])) {
+      if (["enabled", "provider", "baseUrl", "apiKey", "fastModel", "smartModel", "tokenParam", "disableThinking", "thinkingCap"].some(key => next[key as keyof typeof next] !== previous[key as keyof typeof previous])) {
         syncModelConfiguration();
         void refreshModelAccess();
       }

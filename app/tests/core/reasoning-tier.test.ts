@@ -24,18 +24,33 @@ test('fast leaves every request exactly as it is today',()=>{
 });
 
 test('a higher tier adds thinking room instead of cutting into the answer',()=>{
-  const balanced=applyReasoningTier(turn,'balanced');
+  const capped={canCapThinking:true};
+  const balanced=applyReasoningTier(turn,'balanced',capped);
   assert.equal(balanced.thinking,true);
   assert.equal(balanced.thinkingBudget,2048);
   assert.equal(balanced.maxTokens,1800+2048);
   assert.equal(balanced.effort,'low');
-  const deep=applyReasoningTier(analysis,'deep');
+  const deep=applyReasoningTier(analysis,'deep',capped);
   assert.equal(deep.thinkingBudget,32768);
   assert.equal(deep.maxTokens,8000+32768);
   assert.equal(deep.effort,'high');
   // A turn is still a turn at the top tier: nobody watches a spinner for 32K.
-  assert.equal(applyReasoningTier(turn,'deep').thinkingBudget,8192);
+  assert.equal(applyReasoningTier(turn,'deep',capped).thinkingBudget,8192);
   assert.ok(applyReasoningTier(analysis,'deep').maxTokens<=16000+32768);
+});
+
+test('an endpoint that cannot cap the spend keeps the steps that declined to think',()=>{
+  // Measured on a live OpenAI-compatible endpoint without budget_tokens:
+  // 13 of 35 role-match replies came back with an empty `content` channel,
+  // because the thinking ate the whole output allowance.
+  assert.equal(applyReasoningTier(turn,'deep',{canCapThinking:false}),turn);
+  assert.equal(applyReasoningTier(turn,'balanced',{canCapThinking:false}),turn);
+  const deeper=applyReasoningTier(analysis,'deep',{canCapThinking:false});
+  assert.equal(deeper.thinkingBudget,32768,'a step that already reasons still gets the deeper budget');
+  assert.equal(deeper.maxTokens,8000+32768);
+  const uncapped=openaiArgs(deeper,'test-chat','max_tokens',true,false) as unknown as OpenAIBody;
+  assert.equal('thinking' in uncapped,false,'no ceiling to send means no thinking object to send');
+  assert.equal(uncapped.reasoning_effort,'high');
 });
 
 test('the shared pool reserves against the raised ceiling',()=>{
@@ -48,7 +63,7 @@ type AnthropicBody={max_tokens:number;thinking?:{type:string;budget_tokens:numbe
 test('Anthropic gets a numeric budget with room left for the text',()=>{
   for(const tier of ['balanced','deep'] as const){
     for(const step of [turn,analysis]){
-      const body=anthropicArgs(applyReasoningTier(step,tier),'test-chat') as unknown as AnthropicBody;
+      const body=anthropicArgs(applyReasoningTier(step,tier,{canCapThinking:true}),'test-chat') as unknown as AnthropicBody;
       const budget=step===turn?(tier==='balanced'?2048:8192):(tier==='balanced'?4096:32768);
       assert.deepEqual(body.thinking,{type:'enabled',budget_tokens:budget});
       assert.ok(body.max_tokens>body.thinking!.budget_tokens,'max_tokens must exceed the thinking budget');
@@ -63,17 +78,18 @@ test('Anthropic gets a numeric budget with room left for the text',()=>{
 type OpenAIBody={max_tokens:number;reasoning_effort?:string;thinking?:unknown};
 test('a compatible endpoint gets the effort label and the raised output ceiling',()=>{
   for(const [tier,effort] of [['balanced','low'],['deep','high']] as const){
-    const body=openaiArgs(applyReasoningTier(turn,tier),'test-chat','max_tokens',true) as unknown as OpenAIBody;
+    const body=openaiArgs(applyReasoningTier(turn,tier,{canCapThinking:true}),'test-chat','max_tokens',true) as unknown as OpenAIBody;
     assert.equal(body.reasoning_effort,effort);
     assert.equal('thinking' in body,false,'a tier that asks for thinking never also disables it');
   }
-  const ceiling=openaiArgs(applyReasoningTier(turn,'deep'),'test-chat','max_tokens') as unknown as OpenAIBody;
+  const ceiling=openaiArgs(applyReasoningTier(turn,'deep',{canCapThinking:true}),'test-chat','max_tokens') as unknown as OpenAIBody;
   assert.equal(ceiling.max_tokens,1800+8192);
 });
 
 test('an endpoint that declares a numeric budget is given the number instead of the label',()=>{
+  const capped={canCapThinking:true};
   for(const [tier,budget] of [['balanced',2048],['deep',8192]] as const){
-    const body=openaiArgs(applyReasoningTier(turn,tier),'test-chat','max_tokens',true,true) as unknown as OpenAIBody;
+    const body=openaiArgs(applyReasoningTier(turn,tier,capped),'test-chat','max_tokens',true,true) as unknown as OpenAIBody;
     assert.deepEqual(body.thinking,{type:'enabled',budget_tokens:budget});
     assert.equal('reasoning_effort' in body,false,'a number the endpoint honours must not be undercut by a label');
     assert.ok(body.max_tokens>budget,'the answer keeps its own room on top of the thinking');
@@ -108,11 +124,19 @@ test('a stored record normalises the tier: legacy configs and garbage both read 
   const entries=new Map<string,string>();
   Object.defineProperty(globalThis,'localStorage',{value:{getItem:(key:string)=>entries.get(key)??null,setItem:(key:string,value:string)=>entries.set(key,value),removeItem:(key:string)=>{entries.delete(key);}},configurable:true});
   const {useByok}=await import('../../src/lib/byok');
-  const write=(reasoningTier:unknown)=>entries.set('socialcoach.llm.v1',JSON.stringify({version:0,revision:'synthetic',state:{enabled:true,provider:'openai',baseUrl:'',apiKey:'synthetic-test-key',fastModel:'test-chat',smartModel:'test-chat',tokenParam:'max_tokens',...(reasoningTier===undefined?{}:{reasoningTier})}}));
+  const write=(extra?:Record<string,unknown>)=>entries.set('socialcoach.llm.v1',JSON.stringify({version:0,revision:'synthetic',state:{enabled:true,provider:'openai',baseUrl:'',apiKey:'synthetic-test-key',fastModel:'test-chat',smartModel:'test-chat',tokenParam:'max_tokens',...(extra??{})}}));
   for(const [value,expected] of [[undefined,'fast'],['deep','deep'],['maximum-power','fast']] as const){
-    write(value);
+    write({reasoningTier:value});
     useByok.getState().synchronize();
     assert.equal(useByok.getState().reasoningTier,expected);
+  }
+  // A stored record that never declared the capability must not gain it: the
+  // higher tiers only re-open the suppressed steps once the learner confirms
+  // this endpoint accepts a ceiling.
+  for(const [value,expected] of [[undefined,false],['yes',false],[true,true]] as const){
+    write({thinkingCap:value});
+    useByok.getState().synchronize();
+    assert.equal(useByok.getState().thinkingCap,expected);
   }
 });
 

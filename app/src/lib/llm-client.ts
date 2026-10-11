@@ -128,7 +128,7 @@ export function makeByokLLM(c: ByokConfig): LLM {
       if (c.provider === "openai") {
         const oa = await openaiClient(c);
         const res = await oa.chat.completions.create(
-          openaiArgs(o, c.smartModel, c.tokenParam, c.disableThinking) as Parameters<typeof oa.chat.completions.create>[0] & { stream?: false },
+          openaiArgs(o, c.smartModel, c.tokenParam, c.disableThinking, !!c.thinkingCap) as Parameters<typeof oa.chat.completions.create>[0] & { stream?: false },
           { signal: o.signal },
         );
         const choice = "choices" in res ? res.choices[0] : undefined;
@@ -189,5 +189,6 @@ export function makeByokLLM(c: ByokConfig): LLM {
 
   // Resolved at this one seam, so no task module has to know the tier exists.
   const tier = tierOf(c.reasoningTier);
-  return { thinkingTier: tier, chatText: (o: ChatOpts) => chatText(applyReasoningTier(o, tier)), chatStream: (o: ChatOpts) => chatStream(applyReasoningTier(o, tier)) };
+  const caps = { canCapThinking: c.provider === "anthropic" || !!c.thinkingCap };
+  return { thinkingTier: tier, chatText: (o: ChatOpts) => chatText(applyReasoningTier(o, tier, caps)), chatStream: (o: ChatOpts) => chatStream(applyReasoningTier(o, tier, caps)) };
 }

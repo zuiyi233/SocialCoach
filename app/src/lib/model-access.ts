@@ -35,7 +35,7 @@ export function promptUnavailableSharedModel(): boolean {
 }
 
 // The identity is private, transient and never logged or persisted.
-function identity(c: ByokConfig) { return JSON.stringify([c.enabled, c.provider, c.baseUrl, c.apiKey, c.fastModel, c.smartModel, c.tokenParam, !!c.disableThinking]); }
+function identity(c: ByokConfig) { return JSON.stringify([c.enabled, c.provider, c.baseUrl, c.apiKey, c.fastModel, c.smartModel, c.tokenParam, !!c.disableThinking, !!c.thinkingCap]); }
 export function syncModelConfiguration() {
   useByok.getState().synchronize();
   const c = useByok.getState();
