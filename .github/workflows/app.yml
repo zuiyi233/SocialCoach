@@ -39,3 +39,35 @@ jobs:
           retention-days: 7
       - run: pnpm check
       - run: pnpm build
+  settlement:
+    name: shared budget settlement against a real Redis
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: app/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends redis-tools
+      # The offline suite proves which commands we send; this proves the reserve and
+      # settle Lua behave as claimed on a real Redis. It never runs --live: no model
+      # credential belongs in CI, so the gateway's own usage report is verified by an
+      # operator running the same script locally.
+      - run: pnpm exec tsx scripts/check-budget-settlement-redis.ts
