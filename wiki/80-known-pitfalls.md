@@ -264,7 +264,7 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 ### CDP `Runtime.evaluate` 返回 DOM 元素会静默失败
 - **现象：** 用 DevTools 协议轮询「按钮出现了吗」，按钮明明在截图里，脚本却一直等到超时。
 - **原因：** 表达式返回的是元素本身，`returnByValue: true` 序列化失败报 `Object reference chain is too long`，被 try/catch 吞掉后看起来像「还没出现」。
-- **解决方案：** 等待条件一律包成 `!!(...)` 返回布尔；`site/scripts/screenshots.mjs` 的 `waitFor` 已这样做，并把 eval 错误打到日志。
+- **解决方案：** 等待条件一律包成 `!!(...)` 返回布尔；`site/scripts/screenshots.mts` 的 `waitFor` 已这样做，并把 eval 错误打到日志。
 - **教训：** 轮询循环里的 catch 必须至少打印一次错误，否则任何脚本 bug 都会伪装成超时。
 
 ### DevTools 连接会在流程中途掉线（close 1006）

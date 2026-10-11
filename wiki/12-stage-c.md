@@ -1,8 +1,8 @@
-<!-- Last verified: 2026-09-23 | Current stage: B -->
+<!-- Last verified: 2026-10-12 | Current stage: C -->
 
 # Stage C — 可索引化与 GEO
 
-> 应用内语料落地页尚未开工；官网 `site/` 已有五个双语场景练习预览（10 页）。下列 C1–C6 指 `app/` 的完整语料发布，不重复计算官网试点。
+> 2026-10-12：C1–C6 已全部实现并通过运行时验收——349 条语料 × 中英 = 698 张落地页 SSG、sitemap 703 条、动态中文 OG、首页与每页 JSON-LD、llms.txt、hreflang 互指。官网 `site/` 的五个双语预览页并存，语料页 canonical 指向自身。下文原始方案保留作决策记录。
 
 ## 问题陈述
 
@@ -28,12 +28,12 @@ app/ 缺 OG 图  JSON-LD  hreflang(zh/en)
 
 | # | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| C1 | 语料落地页 SSG（698 页） | 📋 | 核心；地基（`metadataBase` / `robots.ts` / `sitemap.ts`）已于 2026-10-10 先行落地，见下 |
-| C2 | `sitemap.ts` / `robots.ts` / `metadataBase` | 📋 | |
-| C3 | 动态 OG 图 | 📋 | |
-| C4 | JSON-LD 结构化数据 | 📋 | |
-| C5 | `llms.txt` | 📋 | |
-| C6 | hreflang（zh / en） | 📋 | 需要 i18n 路由方案 |
+| C1 | 语料落地页 SSG（698 页） | ✅ 2026-10-12 | `/scenarios/[slug]` ×142、`/library/[slug]` ×207（理论+案例），英文在 `/en/...`；slug=语料 id（349 条无冲突）；渲染组件在 `components/corpus/`（ArticleShell/ScenarioArticle/LibraryArticle），中英路由共用；剧透字段（hidden/success/failure/simulationFacts）硬性不渲染，构建后 grep 抽查无泄露 |
+| C2 | `sitemap.ts` / `robots.ts` / `metadataBase` | ✅ 2026-10-12 | sitemap 703 条（5 入口 + 349×2，alternates.languages 互指）；robots/metadataBase 沿用 10-10 地基 |
+| C3 | 动态 OG 图 | ✅ 2026-10-12 | `/og/[kind]/[slug]/route.tsx`（next/og，nodejs）：中文走 Google Fonts Noto Sans SC 按需子集（`lib/og-font.ts`），色板为 globals.css OKLCH 换算 hex；1200×630 实测 49KB，未知 slug 404。坑：Satori 要求 div 多子节点必须显式 flex |
+| C4 | JSON-LD 结构化数据 | ✅ 2026-10-12 | 首页 `SiteJsonLd`（SoftwareApplication + ScholarlyArticle arXiv:2606.04155）；每张语料页内嵌各自 JSON-LD（citation 指向 theory source） |
+| C5 | `llms.txt` | ✅ 2026-10-12 | `app/public/llms.txt`（53KB：定位/论文/边界/全部语料 URL）；生成脚本 `scripts/gen-llms-txt.ts`，语料更新后重跑 |
+| C6 | hreflang（zh / en） | ✅ 2026-10-12 | 中文在根 + `/en/` 前缀（与官网同构）；每页 metadata alternates + sitemap alternates.languages；x-default 指中文 |
 
 ---
 

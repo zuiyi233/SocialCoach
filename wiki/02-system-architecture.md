@@ -57,7 +57,7 @@ SocialCoach/
 │   ├── design-tokens.mjs         构建时读取 globals.css；OG / theme-color 共用 OKLCH → sRGB
 │   ├── build.mjs                 零依赖构建 → dist/（/ 中文，/en/ 英文，sitemap · robots · llms.txt · 404）
 │   ├── scripts/og.mjs            用 app 的 sharp 生成 assets/og-{zh,en}.png
-│   ├── scripts/screenshots.mjs   DevTools 协议驱动 Chrome，对线上版自动拍三张手机截图
+│   ├── scripts/screenshots.mts   DevTools 协议驱动 Chrome，对线上版自动拍三张手机截图（文案取自 i18n）
 │   └── assets/                   icon.svg（与 app/public 同源）· OG 图 · 真实产品截图 / 视频封面（发布前检查资源是否存在）
 ├── desktop/                      桌面壳（Tauri 2 + Next standalone sidecar），独立于 app/ → 详见本文件「桌面壳」小节
 │   ├── scripts/build-runtime.mjs next build(standalone) → 组装 runtime（pnpm 虚拟 store 扁平化 + node.exe 下载）

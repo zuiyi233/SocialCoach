@@ -76,7 +76,7 @@
 | B2 | 主句定稿并三处对齐 | ✅ | README / `layout.tsx` / `manifest.webmanifest` |
 | B3 | README 按开源产品惯例重排 | ✅ | 2026-10-05 中英以“开始一场练习”为首个体验章节，接 3D / 场景 / 核心功能，SEL 学习依据后置；本地运行单独命名，3D 截图中英更新，News 保留四个发布节点，新增 2026-10-08 社交知识视频上线。维护规则见 [README 结构](./11-stage-b.md#b3-readme-结构)。2026-09-21 基础精修 → [评审](./reviews/review-2026-09-21-readme.md) |
 | B4 | 品牌 banner（明暗双版 SVG，色值由 `globals.css` OKLCH 精确换算） | ✅ | `docs/banner.svg` / `banner-dark.svg` |
-| B5 | 产品截图（首页 / 场景目录 / 对话中 / 复盘 / 今日推荐） | ✅ | `site/scripts/screenshots.mjs` 对线上正式版自动拍摄，中英各五张，存 `docs/screenshots/` 与 `site/assets/`；官网四步流程各配对应截图 |
+| B5 | 产品截图（首页 / 场景目录 / 对话中 / 复盘 / 今日推荐） | ✅ | `site/scripts/screenshots.mts`（文案取自 i18n，防漂移）对线上正式版自动拍摄，中英各五张，存 `docs/screenshots/` 与 `site/assets/`；官网四步流程各配对应截图 |
 | B6 | LICENSE 文件与 README 章节 | ✅ | 2026-09-09 用户选定 Apache-2.0；根目录加入官方 LICENSE 全文，README 增加许可及第三方材料说明 |
 | B7 | Live 站点地址替换 README 占位符 | ✅ | 2026-09-21 README 入口统一为 `https://socialcoach.aurax.live`，已验证跳转至当前 Vercel 站点；保留 ModelScope 备用入口 |
 | B8 | wiki 文档体系 | 🚧 | 本次建立 |
@@ -106,6 +106,6 @@
 | 2026-09-03 | 定位定稿 + 主句三处对齐 + README 重排 + banner | ✅ |
 | 2026-09-03 | wiki 体系建立 | 🚧 |
 | — | 线上可访问 + LICENSE + 截图（Stage B 收口） | 📋 |
-| — | 698 个落地页可被 LLM 爬虫读到（Stage C 收口） | 📋 |
+| — | 698 个落地页可被 LLM 爬虫读到（Stage C 收口） | ✅ 2026-10-12 | C1–C6 全部落地并过运行时验收；见 [12-stage-c](./12-stage-c.md) |
 
 2026-10-08 全仓复核与修订：中央共享日政策 1 亿、跨窗口记录/密钥、备份故障隔离、能力窗口、模拟公开投影、接入与双语、依赖/PWA；PR #13 / #14 已合并、两站已发布，293 个程序检查通过，真实回放及保留边界见 [修订记录](./reviews/review-2026-10-08-repo-refinement.md)。
