@@ -72,6 +72,12 @@ export function scriptedReply(scenario: Scenario, text: string, turn: number, la
 }
 
 export function validateReply(data: unknown, scenario: Scenario): Reply {
+  // A model that copies the whole player sentence into replyTo blows past the
+  // field limit, and the schema's own "too_big" text never says what to write
+  // instead — so the single repair replayed the same violation and the turn died.
+  const replyTo = (data as { replyTo?: unknown } | null)?.replyTo;
+  if (typeof replyTo === "string" && [...replyTo].length > 120)
+    throw new Error('replyTo must copy 1–40 characters of the CURRENT player text: the shortest fragment this line actually answers, never the whole sentence');
   const reply = ReplySchema.parse(data);
   const ids = scenario.characters.map(c => c.id);
   if(scenario.space&&reply.reactions.some(r=>r.gesture==='toast'))throw new Error('There are no cups in this space. Use idle, lean, fold or nod');

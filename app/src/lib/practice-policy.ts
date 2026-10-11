@@ -27,9 +27,19 @@ export function continuePractice(s: Pick<Session, "scenario" | "turnLimit" | "me
   };
 }
 
+/**
+ * Contiguity is the guarantee; typography is not. Full-width vs half-width
+ * punctuation, stray or non-breaking spaces and letter case are the same words,
+ * so they fold before the substring test. Reworded, joined or cross-speaker
+ * quotes still fail: those break contiguity, which normalization never repairs.
+ */
+const normalizeQuote = (value: string) => value.normalize("NFKC").replace(/\s+/gu, " ").trim().toLowerCase();
+
 /** Match an actual contiguous quotation, never fuzzy-match a different claim. */
 export function hasQuote(quote: unknown, texts: string[]): quote is string {
-  return typeof quote === "string" && quote.trim().length > 0 && texts.some((text) => text.includes(quote.trim()));
+  if (typeof quote !== "string") return false;
+  const needle = normalizeQuote(quote);
+  return needle.length > 0 && texts.some((text) => normalizeQuote(text).includes(needle));
 }
 
 /** These bins describe original goal attainment only, never communication skill. */

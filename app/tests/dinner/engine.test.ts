@@ -98,3 +98,12 @@ test('a project proposal or family bridge does not invent tea or a private-talk 
   assert.doesNotMatch(scriptedReply(scenarios[1],'我们一起吃饭吧',1,'zh').text,/私下聊可以/);
   assert.match(scriptedReply(scenarios[0],'用茶敬您',1,'zh').text,/茶可以/);
 });
+
+test('an over-long replyTo is refused with the rule the model can act on',()=>{
+  const scene=scenarios[0];
+  const base=scriptedReply(scene,'我不喝',1,'zh');
+  assert.equal(validateReply({...base,replyTo:'我不喝'},scene).replyTo,'我不喝');
+  // The schema's own "too_big" text sent the repair back the same violation; a
+  // real model produced a 148-character replyTo by copying the whole player line.
+  assert.throws(()=>validateReply({...base,replyTo:'我'.repeat(148)},scene),/1–40 characters/);
+});

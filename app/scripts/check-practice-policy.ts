@@ -46,6 +46,14 @@ async function main() {
     assert.equal(hasQuote("我愿意无条件加班", [learner.text]), false);
     assert.equal(hasQuote("不能答应", [learner.text]), true);
   });
+  check("quotation checking folds typography but never splices or rewrites", () => {
+    assert.equal(hasQuote("我现在不能答应,需要先了解", [learner.text]), true, "half-width punctuation is the same sentence");
+    assert.equal(hasQuote("我 同意 周三改稿。", ["我  同意 周三改稿。"]), true, "space runs and a non-breaking space are one gap");
+    assert.equal(hasQuote("I ALREADY SENT", ["i already sent the report."]), true, "letter case is not wording");
+    assert.equal(hasQuote("我现在不能答应…会影响谁", [learner.text]), false, "an ellipsis splice is not a quote");
+    assert.equal(hasQuote("我 现在 不 能 答 应", [learner.text]), false, "spacing inside a sentence is not a quote");
+    assert.equal(hasQuote("我现在不能答应，先了解", [learner.text]), false, "a dropped word is not a quote");
+  });
   const open: RoleplayMeta = { objectives: [false, false, false], ended: true, outcome: "failure" };
   check("bare failure / success / ended flags cannot terminate a conversation", () => {
     assert.equal(supportedClosure(open, [learner], [npc.text]), undefined);

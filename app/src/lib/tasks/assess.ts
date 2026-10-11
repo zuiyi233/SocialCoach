@@ -124,13 +124,20 @@ export async function runAssess(input: AssessInput, llm: LLM, smartModel: string
       for(const [field,lines] of [['evidence',learnerLines],['npcEvidence',npcLines]] as const){
         let quote=result[field];if(field==='npcEvidence'&&!quote)continue;
         quote=result[field]=literal(quote,lines)!;
-        if(field==='npcEvidence'&&typeof quote==='string'){
+        if(typeof quote==='string'){
           // Some providers copy the transcript's speaker metadata as well as
-          // the line. Remove only a known NPC label, then require the exact
+          // the line. Remove only a known label — an NPC id/name, or the
+          // learner's `[n] 名字 (LEARNER):` prefix — then require the exact
           // contiguous quotation as before. No punctuation/fuzzy repair.
-          const label=quote.match(/^([^:：\n]+)[:：]\s*([\s\S]*)$/);
+          const label=quote.match(/^(?:\[\d+\]\s*)?([^:：\n]{1,80})[:：]\s*([\s\S]*)$/);
           const body=label?literal(label[2],lines):undefined;
-          if(!hasQuote(quote,lines)&&label&&scenario.characters.some(c=>c.id!==learnerCharacterId&&[c.id,c.name.zh,c.name.en].includes(label[1].trim()))&&hasQuote(body,lines))quote=result.npcEvidence=body.trim();
+          const learnerLabel=`${name} (LEARNER)`;
+          const known=label&&label[1]&&(label[1].trim()===learnerLabel||label[1].trim()==='(LEARNER)'||scenario.characters.some(c=>c.id!==learnerCharacterId&&[c.id,c.name.zh,c.name.en].includes(label[1].trim())));
+          if(known&&body&&!hasQuote(quote,lines)&&hasQuote(body,lines)){
+            if(field==='npcEvidence')result.npcEvidence=body.trim();
+            else result.evidence=body.trim();
+            quote=result[field];
+          }
         }
         if(!hasQuote(quote,lines))quoteErrors.push(`objectiveResults[${index}].${field} is not a contiguous literal quote: ${JSON.stringify(quote)}. Do not join fragments or alter punctuation. Source lines: ${JSON.stringify(lines.length<=8?lines:[...lines.slice(0,3),...lines.slice(-5)])}`);
       }
