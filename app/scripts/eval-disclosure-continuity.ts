@@ -6,6 +6,7 @@ import {resolve} from 'node:path';
 import {scenarioById} from '../src/data/corpus';
 import {FAST_MODEL,hasServerCredential,serverLLM} from '../src/lib/llm';
 import type {ChatOpts,LLM} from '../src/lib/llm-core';
+import {runEval} from './lib/eval-runner';
 import {runRoleplay} from '../src/lib/tasks/roleplay';
 import {parseRoleplay} from '../src/lib/client-api';
 import type {ChatMessage} from '../src/lib/types';
@@ -93,4 +94,4 @@ async function main(){
  await writeFile(resolve(root,'replay.json'),JSON.stringify({at:new Date().toISOString(),model:FAST_MODEL,samples:records.length,issues,records},null,2)+'\n');
  console.log(JSON.stringify({samples:records.length,issues}));if(issues.length)process.exitCode=1;
 }
-void main();
+void runEval(main);

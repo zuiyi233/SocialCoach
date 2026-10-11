@@ -10,6 +10,7 @@ import { runRoleplay } from "../src/lib/tasks/roleplay";
 import { parseRoleplay } from "../src/lib/client-api";
 import { FAST_MODEL, hasServerCredential, serverLLM } from "../src/lib/llm";
 import type { ChatMessage } from "../src/lib/types";
+import { runEval } from "./lib/eval-runner";
 import type { Lang } from "../src/data/taxonomy";
 import type { LLM } from "../src/lib/llm-core";
 
@@ -141,4 +142,4 @@ async function main() {
   console.log(JSON.stringify({ samples: records.length, issues, warnings }));
   process.exitCode = issues.length ? 1 : 0;
 }
-void main();
+void runEval(main);

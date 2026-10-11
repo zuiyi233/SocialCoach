@@ -12,6 +12,7 @@ import { runAssess } from "../src/lib/tasks/assess";
 import { fitRoles } from "../src/lib/tasks/role-fit";
 import type { ChatMessage, Profile } from "../src/lib/types";
 import type { Lang } from "../src/data/taxonomy";
+import { runEval } from "./lib/eval-runner";
 
 async function main() {
   assert.ok(hasServerCredential(), "No model credential configured");
@@ -76,4 +77,4 @@ async function main() {
   await checkWithdrawal();
   console.log("live practice sample: 7 checks passed");
 }
-void main();
+void runEval(main);
