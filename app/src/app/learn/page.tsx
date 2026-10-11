@@ -11,7 +11,9 @@ import { Chip, ChoiceGroup, Empty, Page } from "@/components/ui";
 import { SkillTag } from "@/components/SkillBits";
 import { CASES, SCENARIOS, THEORIES } from "@/data/corpus";
 import type { Case, Scenario, Theory } from "@/data/corpus/types";
-import { skillById, type Lang } from "@/data/taxonomy";
+import type { Phrase } from "@/data/corpus/phrases";
+import { PHRASES } from "@/data/corpus/phrases";
+import { CONTEXTS, contextById, skillById, type ContextId, type Lang } from "@/data/taxonomy";
 import { useApp, useLang } from "@/store/useApp";
 import { pick, t } from "@/lib/i18n";
 import { VIDEO_LESSONS, matchesVideo, type VideoLesson as VideoItem } from "@/data/video-lessons";
@@ -75,6 +77,14 @@ export default function Learn() {
   const videos = VIDEO_LESSONS.filter(video => matchesVideo(video, q));
   const goals = profile?.goals ?? [];
   const relevance = (skills: string[]) => (skills.some((k) => goals.includes(k as never)) ? 0 : 1);
+
+  /* /learn 参考说法：社区话术包里的现成句子，按场景分组，随搜索框一起过滤。 */
+  const sceneLabel = (scene: ContextId | "general") => (scene === "general" ? t(lang, "ln_phrases_general") : contextById(scene).name[lang]);
+  const guideName = (source: string) => source.split("— ")[1]?.split(", extracted")[0] ?? source;
+  const phraseGroups: { scene: ContextId | "general"; items: Phrase[] }[] = ([...CONTEXTS.map((c) => c.id), "general"] as (ContextId | "general")[]).map((scene) => ({
+    scene,
+    items: PHRASES.filter((p) => match([p.text.zh, p.text.en, sceneLabel(p.scene), guideName(p.source)])),
+  }));
 
   const items: LibraryItem[] =
     tab === "videos" ? videos : tab === "theories"
@@ -267,6 +277,44 @@ export default function Learn() {
             </motion.div>
           </article>
         )}
+
+        {/* ready-made reference lines: grouped by scene, filtered by the search box */}
+        <section aria-labelledby="phrases-heading" className="lg:col-span-2 border-t border-line pt-6 mt-2 lg:mt-8 lg:pt-8 flex flex-col gap-5">
+          <header className="flex flex-col gap-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="eyebrow text-teal">{t(lang, "ln_phrases_title")}</p>
+              <p className="text-[11px] text-ink-3 num" role="status">
+                {t(lang, "ln_phrases_count", { n: PHRASES.length })}
+              </p>
+            </div>
+            <h2 id="phrases-heading" className="display text-[24px] lg:text-[30px] leading-tight">{t(lang, "ln_phrases_heading")}</h2>
+            <p className="text-[13px] text-ink-3 leading-relaxed max-w-[64ch]">{t(lang, "ln_phrases_note")}</p>
+          </header>
+
+          {phraseGroups.every((g) => g.items.length === 0) ? (
+            <p className="text-[13px] text-ink-3">{t(lang, "ln_phrases_empty")}</p>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {phraseGroups.filter((g) => g.items.length > 0).map((g) => (
+                <section key={g.scene} className="flex flex-col gap-2.5" aria-label={sceneLabel(g.scene)}>
+                  <h3 className="flex items-baseline gap-2">
+                    <span className="eyebrow">{sceneLabel(g.scene)}</span>
+                    <span className="text-[11px] text-ink-3 num">{g.items.length}</span>
+                  </h3>
+                  <ul className="grid gap-2.5 lg:grid-cols-2">
+                    {g.items.map((p: Phrase) => (
+                      <li key={p.id} className="card p-4 flex flex-col gap-1.5">
+                        <p className="text-[14px] leading-snug text-pretty">{p.text.zh}</p>
+                        <p className="text-[12px] text-ink-3 leading-snug text-pretty">{p.text.en}</p>
+                        <p className="text-[10px] text-ink-4 num mt-1" title={p.source}>{guideName(p.source)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+        </section>
       </Page>
     </Shell>
   );
