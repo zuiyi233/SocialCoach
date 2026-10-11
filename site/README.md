@@ -36,7 +36,7 @@ open site/dist/index.html          # 或 npx serve site/dist
 
 `verify-seo.py` 在检查全部页面与论文地图之外，解析本地图片、链接、锚点和语言切换目标；缺失资源会阻止发布。视频入口指向应用的视频课堂，3D 入口使用已有 `scene` / `opening` 参数，不自动清除用户的当前练习。
 
-重拍场景目录：`node site/scripts/screenshots.mjs --arena-only --lang=zh`（英文用 `--lang=en`），不调用模型。重拍今日推荐：`--home-only`，会调用一次排程模型。完整流程仍用 `node site/scripts/screenshots.mjs --lang=zh`（再跑一次英文）。脚本用 DevTools 协议驱动本机 Chrome，默认对 Vercel 正式应用种一个演示档案，输出到 `docs/screenshots/`（全页原图在 `raw/`，不入库）；官网图片再拷到 `site/assets/`。
+重拍场景目录：`./app/node_modules/.bin/tsx --tsconfig=app/tsconfig.json site/scripts/screenshots.mts --arena-only --lang=zh`（英文用 `--lang=en`），不调用模型。重拍今日推荐：`--home-only`，会调用一次排程模型。完整流程仍用 `./app/node_modules/.bin/tsx --tsconfig=app/tsconfig.json site/scripts/screenshots.mts --lang=zh`（再跑一次英文）。脚本用 DevTools 协议驱动本机 Chrome，默认对 Vercel 正式应用种一个演示档案，输出到 `docs/screenshots/`（全页原图在 `raw/`，不入库）；官网图片再拷到 `site/assets/`。
 
 `site.appUrl` 是按地域分流的分享入口，适合首页按钮；该 302 跳转不保留子路径和查询。场景目录及专题页的深链接因此使用 `site.appDeepUrl` 直达 Vercel，保证 `/arena?q=...` 能打开对应场景。
 

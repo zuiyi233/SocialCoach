@@ -1,9 +1,25 @@
 // Captures real product screens against a live deployment, phone-sized
 // (390×844 @3x = 1170×2532), light theme, driving Chrome over the DevTools protocol.
 //
-//   node site/scripts/screenshots.mjs [--base=https://socialcoach-ai.vercel.app] [--lang=zh] [--out=docs/screenshots]
-//   node site/scripts/screenshots.mjs --arena-only --lang=zh --out=docs/screenshots
-//   node site/scripts/screenshots.mjs --home-only --lang=zh --out=docs/screenshots
+// UI copy is NOT duplicated here: labels come from the app's i18n dict
+// (app/src/lib/i18n.ts, t/pick), the model-connection banner (app/src/lib/model-copy.ts)
+// and the scenario corpus title (app/src/data/corpus/scenarios-a.ts). A wording
+// change surfaces at type-check time instead of a 2–4 min live timeout.
+//
+// Run from the repo root so --out and other relative args keep their meaning;
+// tsx needs the app's tsconfig.json to resolve the app's `@/*` path alias.
+// The file is .mts (not .ts) because site/ has no package.json "type" field,
+// so a plain .ts file would load as CommonJS and reject top-level await:
+//
+//   ./app/node_modules/.bin/tsx --tsconfig=app/tsconfig.json site/scripts/screenshots.mts [--base=https://socialcoach-ai.vercel.app] [--lang=zh] [--out=docs/screenshots]
+//   ./app/node_modules/.bin/tsx --tsconfig=app/tsconfig.json site/scripts/screenshots.mts --arena-only --lang=zh --out=docs/screenshots
+//   ./app/node_modules/.bin/tsx --tsconfig=app/tsconfig.json site/scripts/screenshots.mts --home-only --lang=zh --out=docs/screenshots
+//
+// (Alternative: `cd app && npx tsx ../site/scripts/screenshots.mts …` also works,
+// but a relative --out then resolves under app/ — pass --out=../docs/screenshots.)
+// Type-check without launching Chrome (the local extends-config wires the app's
+// tsconfig + node types, since `tsc <file>` on the command line ignores tsconfig):
+//   cd app && npx tsc -p ../site/scripts/tsconfig.screenshots.json
 //
 // Flow: seed a demo profile → home (today's pick + "why this one") → start →
 // briefing → chat: one soft reply, the character pushes back → one clear
@@ -13,18 +29,40 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { t, pick } from "../../app/src/lib/i18n";
+import { M } from "../../app/src/lib/model-copy";
+import { SCENARIOS_A } from "../../app/src/data/corpus/scenarios-a";
+import type { Lang } from "../../app/src/data/taxonomy";
 
 const opt = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, v = "true"] = a.replace(/^--/, "").split("="); return [k, v]; }));
 const BASE = (opt.base || "https://socialcoach-ai.vercel.app").replace(/\/$/, "");
-const LANG = opt.lang || "zh";
+const LANG = (opt.lang || "zh") as Lang;
 const OUT = opt.out || "docs/screenshots";
 const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const zh = LANG === "zh";
 mkdirSync(join(OUT, "raw"), { recursive: true });
 
-const S = zh
-  ? { plan: "推荐今日练习", start: "开始练习", why: "为什么是这个", retry: "重试", checking: "正在检查模型连接", another: ["换一个", "再来一个"], enter: "进入对话", send: "发送", end: "收尾 / 复盘", endReview: "结束并复盘", toReport: "看复盘", writing: "教练正在写", stillWriting: "还在写", wantTitle: "拒绝临时加班" }
-  : { plan: "Recommend today's practice", start: "Start practice", why: "Why this one", retry: "Retry", checking: "Checking the model connection", another: ["One more", "Swap"], enter: "Enter the scene", send: "Send", end: "Finish / review", endReview: "End and review", toReport: "See the debrief", writing: "Coach is writing", stillWriting: "Still writing", wantTitle: "Declining Extra Hours" };
+// The demo lines below belong to this one scene; the daily pick is asked again
+// until it shows. Reading the title from the corpus keeps it in sync.
+const wantedScene = SCENARIOS_A.find((s) => s.id === "declining-extra-hours");
+if (!wantedScene) throw new Error("demo scene declining-extra-hours is missing from the corpus");
+
+const S = {
+  plan: t(LANG, "home_plan_action"),
+  start: t(LANG, "home_start"),
+  why: t(LANG, "home_why"),
+  retry: t(LANG, "retry"),
+  checking: pick(M.checking, LANG),
+  another: [t(LANG, "home_pick_other"), t(LANG, "home_another")],
+  enter: t(LANG, "pr_enter"),
+  send: t(LANG, "rp_send"),
+  end: t(LANG, "pr_review_action"),
+  endReview: t(LANG, "pr_end_review"),
+  toReport: t(LANG, "pr_reveal_to_report"),
+  writing: t(LANG, "rp_writing"),
+  stillWriting: t(LANG, "rp_writing_more"),
+  wantTitle: pick(wantedScene.title, LANG),
+} as const;
 
 const profile = zh
   ? { name: "小周", bio: "工作两年的产品经理，不太会拒绝别人，最近总被临时加活。", goals: ["seeking-help", "communication", "goal-setting"], contexts: ["workplace"], lang: "zh", createdAt: Date.now() }
@@ -44,8 +82,8 @@ const lines = zh
 
 /* ------------------------------ CDP plumbing ------------------------------ */
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const chrome = spawn(CHROME, [
   "--headless", "--remote-debugging-port=0", `--user-data-dir=/tmp/sc-shots-${Date.now()}`,
   "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--hide-scrollbars",
@@ -62,9 +100,9 @@ const cleanup = () => { shuttingDown = true; try { chrome.kill("SIGKILL"); } cat
 process.on("exit", cleanup);
 process.on("SIGINT", () => { cleanup(); process.exit(130); });
 
-const port = await new Promise((resolve, reject) => {
+const port = await new Promise<string>((resolve, reject) => {
   let buf = "";
-  const onData = (d) => { buf += d; const m = buf.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)/); if (m) { chrome.stderr.off("data", onData); resolve(m[1]); } };
+  const onData = (d: Buffer) => { buf += d; const m = buf.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)/); if (m) { chrome.stderr.off("data", onData); resolve(m[1]); } };
   chrome.stderr.on("data", onData);
   chrome.on("exit", (c) => reject(new Error("chrome exited " + c + "\n" + buf)));
   setTimeout(() => reject(new Error("no DevTools banner\n" + buf)), 20000);
@@ -72,8 +110,8 @@ const port = await new Promise((resolve, reject) => {
 
 // The DevTools socket occasionally drops (close 1006) mid-flow while Chrome and
 // the tab live on, so every command reconnects to the same tab if needed.
-let ws = null, wsClosed = true, seq = 0;
-const pending = new Map();
+let ws: WebSocket | null = null, wsClosed = true, seq = 0;
+const pending = new Map<number, { res: (v: unknown) => void; rej: (e: unknown) => void }>();
 const setupPage = async () => {
   await cdp("Page.enable");
   await cdp("Runtime.enable");
@@ -85,13 +123,13 @@ const connect = async () => {
   for (let attempt = 1; ; attempt++) {
     try {
       const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-      const page = targets.find((t) => t.type === "page");
+      const page = targets.find((t: { type: string; webSocketDebuggerUrl: string }) => t.type === "page");
       if (!page) throw new Error("no page target");
       const sock = new WebSocket(page.webSocketDebuggerUrl);
       await new Promise((r, j) => { sock.onopen = r; sock.onerror = () => j(new Error("ws open failed")); });
       ws = sock; wsClosed = false;
       sock.onclose = (e) => { if (ws !== sock) return; wsClosed = true; console.error(`devtools socket closed (${e.code})`); for (const { rej } of pending.values()) rej(new Error("devtools socket closed")); pending.clear(); };
-      sock.onmessage = (ev) => { const m = JSON.parse(ev.data); if (m.id && pending.has(m.id)) { const { res, rej } = pending.get(m.id); pending.delete(m.id); m.error ? rej(new Error(m.error.message)) : res(m.result); } };
+      sock.onmessage = (ev) => { const m = JSON.parse(ev.data); if (m.id && pending.has(m.id)) { const { res, rej } = pending.get(m.id)!; pending.delete(m.id); m.error ? rej(new Error(m.error.message)) : res(m.result); } };
       if (attempt > 1) log("reconnected to the tab");
       await setupPage();
       return;
@@ -101,24 +139,26 @@ const connect = async () => {
     }
   }
 };
-const cdp = async (method, params = {}) => {
+// CDP replies are loosely shaped JSON; `any` keeps the plumbing honest instead
+// of inventing a protocol schema here.
+const cdp = async (method: string, params: Record<string, unknown> = {}): Promise<any> => {
   if (chromeGone) throw new Error("chrome is gone");
   if (wsClosed && method !== "__noop") await connect();
-  return new Promise((res, rej) => { const id = ++seq; pending.set(id, { res, rej }); ws.send(JSON.stringify({ id, method, params })); });
+  return new Promise((res, rej) => { const id = ++seq; pending.set(id, { res, rej }); ws!.send(JSON.stringify({ id, method, params })); });
 };
 // setupPage runs inside connect(); guard against recursion on first connect.
 {
   const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-  const page = targets.find((t) => t.type === "page");
+  const page = targets.find((t: { type: string; webSocketDebuggerUrl: string }) => t.type === "page");
   const sock = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((r, j) => { sock.onopen = r; sock.onerror = () => j(new Error("ws open failed")); });
   ws = sock; wsClosed = false;
   sock.onclose = (e) => { if (ws !== sock) return; wsClosed = true; console.error(`devtools socket closed (${e.code})`); for (const { rej } of pending.values()) rej(new Error("devtools socket closed")); pending.clear(); };
-  sock.onmessage = (ev) => { const m = JSON.parse(ev.data); if (m.id && pending.has(m.id)) { const { res, rej } = pending.get(m.id); pending.delete(m.id); m.error ? rej(new Error(m.error.message)) : res(m.result); } };
+  sock.onmessage = (ev) => { const m = JSON.parse(ev.data); if (m.id && pending.has(m.id)) { const { res, rej } = pending.get(m.id)!; pending.delete(m.id); m.error ? rej(new Error(m.error.message)) : res(m.result); } };
   await setupPage();
 }
 
-const evaluate = async (expression) => {
+const evaluate = async (expression: string) => {
   const r = await cdp("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
   if (r.exceptionDetails) throw new Error("page error: " + (r.exceptionDetails.exception?.description || r.exceptionDetails.text));
   return r.result.value;
@@ -129,23 +169,23 @@ const $$ = (sel, text) => [...document.querySelectorAll(sel)].filter(e => !text 
 const $ = (sel, text) => $$(sel, text)[0] || null;
 const body = () => (document.body?.innerText || "").replace(/\\s+/g, " ");
 `;
-const ev = (js) => evaluate(`(() => { ${H} return (${js}); })()`);
-const waitFor = async (js, label, timeout = 60000, interval = 300) => {
+const ev = (js: string) => evaluate(`(() => { ${H} return (${js}); })()`);
+const waitFor = async (js: string, label: string, timeout = 60000, interval = 300) => {
   const t0 = Date.now(); let lastLog = 0, lastErr = "";
   for (;;) {
     if (chromeGone) throw new Error(`chrome gone while waiting: ${label}`);
-    let v = null; try { v = await ev(`!!(${js})`); } catch (e) { if (e.message !== lastErr) { lastErr = e.message; log(`  (${label}) eval error:`, e.message.slice(0, 160)); } }
+    let v = null; try { v = await ev(`!!(${js})`); } catch (e) { const msg = e instanceof Error ? e.message : String(e); if (msg !== lastErr) { lastErr = msg; log(`  (${label}) eval error:`, msg.slice(0, 160)); } }
     if (v) return v;
     if (Date.now() - t0 > timeout) throw new Error(`timeout: ${label}`);
     if (Date.now() - lastLog > 20000) { lastLog = Date.now(); log(`  waiting: ${label} …`, (await ev("body()").catch(() => "")).slice(0, 90)); }
     await sleep(interval);
   }
 };
-const click = (js) => ev(`(() => { const el = ${js}; if (!el) return false; el.scrollIntoView({block:"center"}); el.click(); return true; })()`);
-const goto = async (url) => { await cdp("Page.navigate", { url }); await waitFor(`document.readyState === "complete"`, "load " + url); await sleep(400); };
+const click = (js: string) => ev(`(() => { const el = ${js}; if (!el) return false; el.scrollIntoView({block:"center"}); el.click(); return true; })()`);
+const goto = async (url: string) => { await cdp("Page.navigate", { url }); await waitFor(`document.readyState === "complete"`, "load " + url); await sleep(400); };
 
-const shot = async (name, { full = false } = {}) => {
-  let params = { format: "png" };
+const shot = async (name: string, { full = false }: { full?: boolean } = {}) => {
+  let params: Record<string, unknown> = { format: "png" };
   if (full) {
     const { contentSize } = await cdp("Page.getLayoutMetrics");
     params = { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width: 390, height: Math.ceil(contentSize.height), scale: 1 } };
@@ -181,7 +221,7 @@ try {
   // The card is inert while the model connection check is still running, and a
   // schedule can fail as a task error and leave the request behind — asking
   // again is what a learner would do.
-  const todayCard = (ms) => waitFor(`$("button", ${JSON.stringify(S.start)})`, "today card", ms, 400);
+  const todayCard = (ms: number) => waitFor(`$("button", ${JSON.stringify(S.start)})`, "today card", ms, 400);
   for (let attempt = 1; attempt <= 3; attempt++) {
     if (await ev(`!!$("button", ${JSON.stringify(S.start)})`)) break;
     await waitFor(`!body().includes(${JSON.stringify(S.checking)})`, "model check settled", 60000);
@@ -227,8 +267,8 @@ try {
   await sleep(1500);
 
   // Chat: type a line, send, wait for the character to finish.
-  const replied = (label, ms = 120000) => waitFor(`!document.querySelector("textarea")?.disabled`, label, ms, 300);
-  const say = async (text) => {
+  const replied = (label: string, ms = 120000) => waitFor(`!document.querySelector("textarea")?.disabled`, label, ms, 300);
+  const say = async (text: string) => {
     await evaluate(`document.querySelector("textarea").focus(); "ok"`);
     await cdp("Input.insertText", { text });
     await waitFor(`(() => { const b = $('button[aria-label=${JSON.stringify(S.send)}]'); return b && !b.disabled; })()`, "send enabled", 10000);
@@ -259,7 +299,7 @@ try {
   await click(`$("button", ${JSON.stringify(S.end)})`);
   await waitFor(`$("button", ${JSON.stringify(S.endReview)})`, "end sheet", 15000);
   await click(`$("button", ${JSON.stringify(S.endReview)})`);
-  const reportReady = (ms) => waitFor(`(() => { const b = $("button", ${JSON.stringify(S.toReport)}); return b && !b.disabled; })()`, "report ready", ms, 500);
+  const reportReady = (ms: number) => waitFor(`(() => { const b = $("button", ${JSON.stringify(S.toReport)}); return b && !b.disabled; })()`, "report ready", ms, 500);
   try {
     await reportReady(180000);
   } catch (e) {
@@ -286,7 +326,7 @@ try {
   }
   }
 } catch (e) {
-  console.error("FAILED:", e.message);
+  console.error("FAILED:", e instanceof Error ? e.message : e);
   try { await shot(`failure-${LANG}`); await shot(`failure-${LANG}`, { full: true }); } catch {}
   process.exitCode = 1;
 } finally {
