@@ -53,8 +53,12 @@ const API_KEY =
  */
 const OPENAI_TOKEN_PARAM: TokenParam = process.env.LLM_OPENAI_TOKEN_PARAM === "max_completion_tokens" ? "max_completion_tokens" : "max_tokens";
 
-/** Some OpenAI-compatible reasoning models accept `thinking:{type:"disabled"}`; official OpenAI 400s on it. */
-const OPENAI_DISABLE_THINKING = process.env.LLM_OPENAI_THINKING === "disabled";
+/** Some OpenAI-compatible reasoning models accept `thinking:{type:"disabled"}`; official OpenAI 400s on it.
+ * `budget` goes further and sends the numeric `budget_tokens` the thinking tier asks for, on the endpoints
+ * measured to honour it — a deployment that does not set this keeps the old label-only shape. */
+const OPENAI_THINKING = (process.env.LLM_OPENAI_THINKING ?? "").trim().toLowerCase();
+const OPENAI_DISABLE_THINKING = OPENAI_THINKING === "disabled" || OPENAI_THINKING === "budget";
+const OPENAI_THINKING_BUDGET = OPENAI_THINKING === "budget";
 
 const DEFAULT_MODELS: Record<Provider, { fast: string; smart: string }> = {
   anthropic: { fast: "claude-sonnet-5", smart: "claude-opus-5" },
@@ -113,7 +117,7 @@ export function serverModelMetadata(): ModelMetadata {
 async function providerText(o: ChatOpts): Promise<{ text: string; tokens?: number }> {
   if (PROVIDER === "openai") {
     const res = await openai().chat.completions.create(
-      openaiArgs(o, SMART_MODEL, OPENAI_TOKEN_PARAM, OPENAI_DISABLE_THINKING) as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+      openaiArgs(o, SMART_MODEL, OPENAI_TOKEN_PARAM, OPENAI_DISABLE_THINKING, OPENAI_THINKING_BUDGET) as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
       { signal: o.signal },
     );
     const choice = res.choices[0];
@@ -145,7 +149,7 @@ export function chatStream(o: ChatOpts): TextRun {
     try{
     if (PROVIDER === "openai") {
       const stream = await openai().chat.completions.create({
-        ...openaiArgs(o, SMART_MODEL, OPENAI_TOKEN_PARAM, OPENAI_DISABLE_THINKING),
+        ...openaiArgs(o, SMART_MODEL, OPENAI_TOKEN_PARAM, OPENAI_DISABLE_THINKING, OPENAI_THINKING_BUDGET),
         stream: true,
         // Only the shared pool needs the trailing usage chunk. Endpoints that do
         // not know `stream_options` keep streaming exactly as before.

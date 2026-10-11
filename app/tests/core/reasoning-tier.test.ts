@@ -71,6 +71,18 @@ test('a compatible endpoint gets the effort label and the raised output ceiling'
   assert.equal(ceiling.max_tokens,1800+8192);
 });
 
+test('an endpoint that declares a numeric budget is given the number instead of the label',()=>{
+  for(const [tier,budget] of [['balanced',2048],['deep',8192]] as const){
+    const body=openaiArgs(applyReasoningTier(turn,tier),'test-chat','max_tokens',true,true) as unknown as OpenAIBody;
+    assert.deepEqual(body.thinking,{type:'enabled',budget_tokens:budget});
+    assert.equal('reasoning_effort' in body,false,'a number the endpoint honours must not be undercut by a label');
+    assert.ok(body.max_tokens>budget,'the answer keeps its own room on top of the thinking');
+  }
+  const noNumber=openaiArgs({system:'s',messages:[{role:'user',content:'hi'}],maxTokens:1800,effort:'low'},'test-chat','max_tokens',true,true) as unknown as OpenAIBody;
+  assert.equal('thinking' in noNumber,false,'without a budget there is nothing numeric to ask for');
+  assert.equal(noNumber.reasoning_effort,'low');
+});
+
 test('the learner’s choice reaches the wire',async()=>{
   const original=globalThis.fetch,bodies:Record<string,unknown>[]=[];
   globalThis.fetch=async(_input,init)=>{

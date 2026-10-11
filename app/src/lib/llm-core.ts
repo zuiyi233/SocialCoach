@@ -99,8 +99,9 @@ export function anthropicArgs(o: ChatOpts, fallbackModel: string) {
  * protocol. Prompt caching is automatic there so the `cache` hint is dropped,
  * and system parts are joined into one system message.
  */
-export function openaiArgs(o: ChatOpts, fallbackModel: string, tokenParam: TokenParam, disableThinking = false) {
+export function openaiArgs(o: ChatOpts, fallbackModel: string, tokenParam: TokenParam, disableThinking = false, numericBudget = false) {
   const nonThinking = disableThinking && o.thinking === false;
+  const budget = numericBudget && !nonThinking ? o.thinkingBudget : undefined;
   return {
     model: o.model ?? fallbackModel,
     [tokenParam]: o.maxTokens,
@@ -108,12 +109,15 @@ export function openaiArgs(o: ChatOpts, fallbackModel: string, tokenParam: Token
     // so a short budget can come back empty. Endpoints differ on how to turn it
     // off — GLM takes `thinking`, official OpenAI rejects the field outright —
     // hence the opt-in.
-    ...(nonThinking ? { thinking: { type: "disabled" as const } } : {}),
+    ...(nonThinking ? { thinking: { type: "disabled" as const } } : budget ? { thinking: { type: "enabled" as const, budget_tokens: budget } } : {}),
     messages: [
       { role: "system" as const, content: systemParts(o.system).map((p) => p.text).join("\n\n") },
       ...o.messages.map((m) => ({ role: m.role, content: m.content })),
     ],
-    ...(o.effort && !nonThinking ? { reasoning_effort: o.effort } : {}),
+    // On a gateway that honours `budget_tokens`, the number is the request. Sending
+    // the label too would undercut it: measured on the same task, `reasoning_effort:
+    // "high"` spent 22 reasoning tokens while `budget_tokens: 8192` spent 3480.
+    ...(budget || !o.effort || nonThinking ? {} : { reasoning_effort: o.effort }),
   };
 }
 

@@ -89,8 +89,11 @@ REALITY CHECK FOR THIS REPLY: Before saying anything was agreed or done, identif
   let complete: string;
   const repairNote = (error: unknown) => `${error instanceof ReplyRejected ? error.correction : "Your previous draft had invalid JSON or missing required fields."} No reply was accepted. Repair this SAME exchange, using the same facts, history and latest learner words. Return ONLY valid JSON with meta FIRST (objectives, ended, stance, revealed) and utterances AFTER, including every required field. Do not count this as a new turn or invent a transition.`;
   // Two tries, both invisible: a reply we refuse for breaking the fiction often
-  // comes back with its own contract damage (the real model drops meta in the
-  // repair). Beyond two the learner is already waiting too long for one turn.
+  // comes back with its own contract damage (the real model drops meta in the repair).
+  // Beyond two the learner is already waiting too long for one turn — and `TASK_LIMITS`
+  // gives roleplay three calls so these two repairs can actually run. Measured on the
+  // hosted model, every turn that ran out did so on its last allowed call with no NPC
+  // line shown yet, inside a fifth of the time budget.
   const repairTwice = async (first: unknown): Promise<string> => {
     let last = first;
     for (let attempt = 0; ; attempt++) {

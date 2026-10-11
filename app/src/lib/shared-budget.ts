@@ -2,6 +2,12 @@ import {pick} from './i18n';
 import {LLMError,systemParts,type ChatOpts} from './llm-core';
 import type {ModelCheck} from './model-status';
 export const DEFAULT_SHARED_DAILY_TOKENS=100000000;
+/** Measured on the hosted tier: 3 concurrent practice-sized requests ran clean over
+ * hundreds of calls, 4 started returning `429 rpm exhausted`. Refusing a visitor with
+ * "共享模型正在忙" is honest; letting the pool fan out past what the model answers is
+ * how a capacity limit turns into a wall of unexplained failures. A deployment on a
+ * higher tier raises this explicitly. */
+export const DEFAULT_SHARED_CONCURRENCY=3;
 
 /** Only anonymous counters live in the budget service. No prompt, identity,
  * transcript, model credential or archive is sent. Lua is atomic across hosts. */
@@ -66,7 +72,7 @@ export async function sharedBudgetHealth():Promise<ModelCheck|undefined>{
   const snapshot={resetAt,budgetRemaining,budgetLimit:cap};
   // Every permitted request has at least one output token and this framing.
   if(budgetRemaining<3*(4096+1))return {state:'unavailable',issue:'shared_quota',...snapshot};
-  if(active>=positive(process.env.LLM_BUDGET_CONCURRENCY,8))return {state:'unavailable',issue:'shared_busy',...snapshot};
+  if(active>=positive(process.env.LLM_BUDGET_CONCURRENCY,DEFAULT_SHARED_CONCURRENCY))return {state:'unavailable',issue:'shared_busy',...snapshot};
   return {state:'available',...snapshot};
  }catch{return {state:'unavailable',issue:'service'};}
 }
@@ -84,7 +90,7 @@ export async function reserveSharedBudget(o:ChatOpts):Promise<(actualTokens?:num
  }
  const id=crypto.randomUUID(),key='socialcoach:{model-budget}';
  let result:unknown;
- try{result=await budgetCommand(['EVAL',RESERVE_SCRIPT,1,key,reservedTokens(o),positive(process.env.LLM_BUDGET_DAILY_TOKENS,DEFAULT_SHARED_DAILY_TOKENS),positive(process.env.LLM_BUDGET_CONCURRENCY,8),id],o.signal);}
+ try{result=await budgetCommand(['EVAL',RESERVE_SCRIPT,1,key,reservedTokens(o),positive(process.env.LLM_BUDGET_DAILY_TOKENS,DEFAULT_SHARED_DAILY_TOKENS),positive(process.env.LLM_BUDGET_CONCURRENCY,DEFAULT_SHARED_CONCURRENCY),id],o.signal);}
  catch(error){if(o.signal?.aborted)throw error;throw new LLMError(pick({zh:'共享模型预算暂时无法核对。请稍后重试，或接入自己的模型。',en:'The shared model budget could not be checked. Use your own model or retry later.'},lang),503,false,'service');}
  if(result===0)throw Object.assign(new LLMError(pick({zh:'今天的共享池余量不足以处理这次任务，请在日额度更新后重试，或接入自己的模型。',en:'This task exceeds the remaining shared daily budget. Retry after renewal or connect your own model.'},lang),429,false,'shared_quota'),{retryAt:(Math.floor(Date.now()/86400000)+1)*86400000});
  if(result===-1)throw new LLMError(pick({zh:'共享模型正在忙，请稍后重试，或接入自己的模型。',en:'The shared model is busy. Retry shortly or connect your own model.'},lang),429,false,'shared_busy');

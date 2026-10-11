@@ -6,7 +6,7 @@ import {openaiArgs} from '../../src/lib/llm-core';
 
 test('an explicit non-thinking request does not also request reasoning effort',()=>{
  const options={system:'Return JSON.',messages:[{role:'user' as const,content:'Check the quoted evidence.'}],maxTokens:5000,thinking:false,effort:'low' as const};
- const disabled=openaiArgs(options,'deepseek-flash','max_tokens',true);
+ const disabled=openaiArgs(options,'deepseek-flash','max_tokens',true) as unknown as {thinking?:{type:string;budget_tokens?:number}};
  assert.deepEqual(disabled.thinking,{type:'disabled'});
  assert.equal('reasoning_effort' in disabled,false);
  const unchanged=openaiArgs(options,'test-chat','max_tokens',false);
