@@ -4,6 +4,7 @@ import {applyReasoningTier, reasoningTimeoutFactor, tierOf} from '../../src/lib/
 import {anthropicArgs, openaiArgs, type ChatOpts} from '../../src/lib/llm-core';
 import {taskLLM} from '../../src/lib/task-runtime';
 import {makeByokLLM} from '../../src/lib/llm-client';
+import {reservedTokens} from '../../src/lib/shared-budget';
 import type {ByokConfig} from '../../src/lib/byok';
 import type {LLM} from '../../src/lib/llm-core';
 
@@ -37,13 +38,23 @@ test('a higher tier adds thinking room instead of cutting into the answer',()=>{
   assert.ok(applyReasoningTier(analysis,'deep').maxTokens<=16000+32768);
 });
 
+test('the shared pool reserves against the raised ceiling',()=>{
+  const fast=reservedTokens(analysis),deep=reservedTokens(applyReasoningTier(analysis,'deep'));
+  assert.ok(deep>fast,'a thinking call cannot be reserved at the non-thinking ceiling');
+  assert.equal(deep-fast,3*32768,'the reservation grows by the three SDK attempts of the added budget');
+});
+
 type AnthropicBody={max_tokens:number;thinking?:{type:string;budget_tokens:number};output_config?:{effort:string}};
 test('Anthropic gets a numeric budget with room left for the text',()=>{
   for(const tier of ['balanced','deep'] as const){
-    const body=anthropicArgs(applyReasoningTier(turn,tier),'test-chat') as unknown as AnthropicBody;
-    assert.deepEqual(body.thinking,{type:'enabled',budget_tokens:tier==='balanced'?2048:8192});
-    assert.ok(body.max_tokens>body.thinking!.budget_tokens,'max_tokens must exceed the thinking budget');
-    assert.equal(body.output_config?.effort,tier==='deep'?'high':'low');
+    for(const step of [turn,analysis]){
+      const body=anthropicArgs(applyReasoningTier(step,tier),'test-chat') as unknown as AnthropicBody;
+      const budget=step===turn?(tier==='balanced'?2048:8192):(tier==='balanced'?4096:32768);
+      assert.deepEqual(body.thinking,{type:'enabled',budget_tokens:budget});
+      assert.ok(body.max_tokens>body.thinking!.budget_tokens,'max_tokens must exceed the thinking budget');
+      assert.equal(body.max_tokens,step.maxTokens+budget,'the answer keeps its own room on top of the thinking');
+      assert.equal(body.output_config?.effort,tier==='deep'?'high':'low');
+    }
   }
   const off=anthropicArgs({...turn,thinking:false},'test-chat') as unknown as AnthropicBody;
   assert.deepEqual(off.thinking,{type:'disabled'});

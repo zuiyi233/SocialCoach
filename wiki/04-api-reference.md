@@ -37,7 +37,7 @@
 
 Anthropic 得到 `thinking:{type:"enabled",budget_tokens}`（`max_tokens` 大于预算）与 `output_config.effort`；OpenAI 兼容端只得到 `reasoning_effort`（`low|high`）和抬高的 token 参数，不发送任何数字思考预算。`thinking:false` 的任务在高档位下被覆盖，因此「短对话关闭额外推理」与 `LLM_OPENAI_THINKING=disabled` 只在 `fast` 下有意义。
 
-任务 deadline 按客户端档位延长（×1 / ×2 / ×4）；档位从发起调用的客户端读取，服务端环境变量只描述共享池。无新增公开端点，`/api/health` 与 BYOK 检查口径不变。见 [思考档位与预算结算](./02-system-architecture.md)。
+任务 deadline 按客户端档位延长（×1 / ×2 / ×4）；档位从发起调用的客户端读取，服务端环境变量只描述共享池。Serverless 部署还有路由自身的 `maxDuration`（`assess` 180 秒、`roleplay` / `hint` 60 秒等）在更外层生效：共享池开高档位必须同步提高对应路由的 `maxDuration`，否则平台先中断，放大形同无效。无新增公开端点，`/api/health` 与 BYOK 检查口径不变。见 [思考档位与预算结算](./02-system-architecture.md)。
 
 ### NPC 语音 `GET /api/speech` / `POST /api/speech`（2026-10-08）
 

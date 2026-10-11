@@ -9,7 +9,9 @@ export function taskLLM(llm:LLM,task:ModelTask,signal?:AbortSignal,onCall?:(even
  const [timeout,maxCalls]=TASK_LIMITS[task];
  // A thinking tier is slower by design; the deadline has to move with it, or the
  // person who asked for a better answer only ever gets a timeout. The tier comes
- // off the client: the learner's own choice is invisible to the server.
+ // off the client: the learner's own choice is invisible to the server. On a
+ // serverless deployment the route's own `maxDuration` still caps this, so a
+ // hosted pool running a higher tier has to raise those numbers too.
  const deadline=AbortSignal.timeout(Math.round(timeout*reasoningTimeoutFactor(llm.thinkingTier??'fast'))),combined=signal?AbortSignal.any([signal,deadline]):deadline;
  let calls=0;
  const prepare=(o:ChatOpts)=>{
