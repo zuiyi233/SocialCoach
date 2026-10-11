@@ -30,7 +30,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const learning = path === "/learn";
   // Corpus landing pages are public, indexable static pages: a search visitor
   // arriving without a profile must read the article, not be pushed to onboarding.
-  const corpusLanding = path.startsWith("/scenarios/") || path.startsWith("/library/") || path.startsWith("/en/scenarios/") || path.startsWith("/en/library/");
+  // The bare prefixes cover the (future) index pages too; trailing-slash forms
+  // match the article routes.
+  const corpusLanding = path === "/scenarios" || path === "/library" || path.startsWith("/scenarios/") || path.startsWith("/library/") || path === "/en" || path.startsWith("/en/scenarios/") || path.startsWith("/en/library/");
   const canUseModel = useCanUseModel();
   const modelAccess = useModelAccess();
 

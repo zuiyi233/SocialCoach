@@ -21,8 +21,13 @@ export async function runEval(main: () => Promise<void>): Promise<void> {
     } catch (error) {
       const message = String((error as Error)?.message ?? error);
       const throttled = /429|rpm exhausted|rate.?limit|quota/i.test(message);
-      const retryable = error instanceof LLMError ? error.retryable : !/^AssertionError/.test((error as Error)?.name ?? "");
-      if (attempt === attempts || (!retryable && !throttled)) {
+      // Only model-side transience is worth a retry: a retryable LLMError (the
+      // repair chain already gave up, but the model may answer on a fresh call)
+      // or a gateway throttle. AssertionError fails the eval, and so does any
+      // other program error (TypeError & friends) — those are our bugs and
+      // retrying them just delays the red.
+      const retryable = (error instanceof LLMError && error.retryable) || throttled;
+      if (attempt === attempts || !retryable) {
         console.error(`[eval] attempt ${attempt}/${attempts} failed (final): ${message.slice(0, 300)}`);
         process.exitCode = 1;
         return;
