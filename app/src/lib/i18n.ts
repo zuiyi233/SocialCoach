@@ -270,7 +270,7 @@ const dict = {
   pr_turns_left: { zh: "还剩 {n} 回合", en: "{n} turns left" },
   pr_last_turn: { zh: "最后一回合", en: "Last turn" },
   pr_segment_budget: { zh: "先练 {n} 回合，可继续", en: "Start with {n} turns · extend anytime" },
-  pr_turn_progress: { zh: "已聊 {n} 回合 · 随时可收尾", en: "{n} turns · finish when ready" },
+  pr_turn_progress: { zh: "已聊 {n} 回合 · 随时可收尾", en: "Turn {n} · finish when ready" },
   pr_source_original: { zh: "SocialCoach 原创虚构练习 · {date}", en: "Original fictional practice by SocialCoach · {date}" },
   pr_review_action: { zh: "收尾 / 复盘", en: "Finish / review" },
   pr_checkpoint_segment: { zh: "这一段聊完了，还想接着说吗？", en: "A segment complete. Have more to say?" },

@@ -342,7 +342,10 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
             {rated && <Stars n={stars} of={quality ? 3 : sc.objectives.length} size={20} />}
             <span className="text-[12px] text-ink-3">{starLabel}</span>
           </div>
-          {quality&&!session.sceneContext && <p className="text-[12px] text-ink-3">{t(lang, "rp_stars_of", { n: session.objectiveDone.filter(Boolean).length, m: sc.objectives.length })}</p>}
+          {/* The in-scene tally is a simulation estimate. Once the debrief has
+              audited each goal against the transcript, a second "goals reached"
+              line with a different number reads as a contradiction, not an estimate. */}
+          {quality && !session.sceneContext && !report.objectiveResults?.length && <p className="text-[12px] text-ink-3">{t(lang, "rp_stars_of", { n: session.objectiveDone.filter(Boolean).length, m: sc.objectives.length })}</p>}
           {report.summary && <p className="text-[15px] leading-[1.65] text-ink-2 lg:max-w-[var(--measure)]">{report.summary}{streaming && !strengths.length && <Caret />}</p>}
           <OriginalAims results={report.objectiveResults} session={session} lang={lang} onInspect={setTranscriptSelection}/>
         </header>
