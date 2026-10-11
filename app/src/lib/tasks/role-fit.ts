@@ -26,12 +26,18 @@ compatible: the role, relationship and required authority/resources are supporte
 uncertain: relevant facts are unknown. A profession alone does not prove or disprove leadership, family relationships or ability. Do not invent facts to claim compatibility. Lack of experience in a skill is not a role conflict; it may be precisely what they want to practice.
 conflict: the role contradicts an explicit fact or stated boundary. Evidence MUST be a short exact biography quote (at most 80 characters); uncertainty is not a conflict. Never rewrite the scene to hide a mismatch.
 Consider what the learner can control, whose interests they represent, relationship and authority, and information available. Do not match only industry words. Prefer practicing desired weak skills in a compatible role over rehearsing their existing strengths. Unknown profiles stay uncertain, not stereotyped.
-Return ONLY JSON {"fits":[{"scenarioId":"...","characterId":"...","fit":"compatible|uncertain|conflict","evidence":"<exact biography quote supporting judgment, or empty if unknown>","reason":"<one short sentence in ${lang === "zh" ? "Simplified Chinese" : "English"}>"}]}.`,
+Return ONLY a JSON array — one row per scenario, in the same order as the input: [{"scenarioId":"...","characterId":"...","fit":"compatible|uncertain|conflict","evidence":"<exact biography quote supporting judgment, or empty if unknown>","reason":"<one short sentence in ${lang === "zh" ? "Simplified Chinese" : "English"}>"}]. No wrapper object, no prose.`,
     user: JSON.stringify({ biography: profile.bio, goals: profile.goals, scenarios: pool.map((s) => ({ id: s.id, background: pick(s.background, lang), roles: (playable(s).length ? playable(s) : [s.characters[0]]).map((c) => ({ id: c.id, role: pick(c.role, lang) })), objectives: s.objectives.map((o) => pick(o, lang)) })) }),
   }, llm);
-  if (!Array.isArray(raw?.fits)) throw new LLMError(pick(invalidFit, lang), 502, true);
+  // Measured on the hosted model (89-call sample): the wrapper object invited
+  // trailing-brace drift and half the failures were missing rows, while the array
+  // shape is what the model emits naturally. The parser accepts both, but the
+  // strict per-row checks below are untouched — a wrong row still fails loudly.
+  const rows0 = Array.isArray(raw) ? raw : (raw as { fits?: RoleFit[] } | null)?.fits;
+  if (!Array.isArray(rows0)) throw new LLMError(pick(invalidFit, lang), 502, true);
+  const rawFits = rows0;
   return pool.map((s) => {
-    const rows = raw.fits.filter((r) => r?.scenarioId === s.id);
+    const rows = rawFits.filter((r) => r?.scenarioId === s.id);
     const r = rows[0];
     const ids = (playable(s).length ? playable(s) : [s.characters[0]]).map((c) => c.id);
     if (rows.length !== 1 || !ids.includes(r.characterId) || !["compatible", "uncertain", "conflict"].includes(r.fit) || typeof r.reason !== "string") throw new LLMError(pick(invalidFit, lang), 502, true);

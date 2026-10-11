@@ -115,6 +115,8 @@ Tasks:
 4. Write "focus": one sentence of coach framing telling the learner what to pay attention to, tied to their target skill. Warm, direct, no fluff.
 5. Write "why": 1–2 sentences addressed to the learner explaining why THIS scenario, for THEM, now — grounded in the actual scenario you were given (never mention a different situation), their target skills, current estimates and history. If a scheduler rationale is provided, keep its intent but make it match the scenario.
 
+Skill names arrive as "Name [id] — estimate": the bracketed id is an internal key, never quote it. In every learner-facing sentence ("focus", "why", objectives) write skill names in ${lang === "zh" ? "Simplified Chinese" : "English"} only.
+
 ${LANG_RULE[lang]}
 Return ONLY JSON: { "learnerCharacterId": "...", "briefing": "...", "objectives": ["..."], "focus": "...", "why": "..." }`;
 }

@@ -525,6 +525,12 @@ const dict = {
   ln_bookmark: { zh: "收藏", en: "Save" },
   ln_bookmarked: { zh: "已收藏", en: "Saved" },
   ln_search_ph: { zh: "搜索视频、理论与案例", en: "Search videos, theories and cases" },
+  ln_phrases_title: { zh: "参考说法", en: "Reference lines" },
+  ln_phrases_count: { zh: "{n} 句参考说法", en: "{n} reference lines" },
+  ln_phrases_heading: { zh: "把现成句子，改写成自己的话。", en: "Rewrite ready-made lines in your own voice." },
+  ln_phrases_note: { zh: "这些句子是脚手架，不是剧本：记住结构，用自己改写的口吻说出来。背下漂亮话，不会让对方让步。", en: "These lines are scaffolding, not a script: keep the shape, say it in your own words. Memorizing smooth talk will not make the other person give in." },
+  ln_phrases_empty: { zh: "没有匹配的参考说法", en: "No matching reference lines" },
+  ln_phrases_general: { zh: "通用", en: "General" },
 
   // settings
   st_title: { zh: "我", en: "Me" },

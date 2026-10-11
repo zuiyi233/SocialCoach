@@ -190,8 +190,14 @@ export function chatStream(o: ChatOpts): TextRun {
  * deployment here; a learner using their own key decides that in
  * `llm-client.ts`. The tier is applied at this single seam — no task module
  * knows it exists, and the reservation still sees the raised ceiling.
+ *
+ * On serverless the tier is pinned to `fast`: measured 2026-10-12, balanced
+ * schedule calls ran 91–217s against a 110×2=220s task deadline and one hit it —
+ * route `maxDuration` cuts a higher tier off before the model finishes, so a
+ * slower pool is a wall of timeouts, not a quality knob. Longer routes are a
+ * separate decision (see backlog「共享池开高档位前要先核对路由 maxDuration」).
  */
-const SERVER_REASONING_TIER = tierOf(process.env.LLM_REASONING_TIER);
+const SERVER_REASONING_TIER = process.env.VERCEL ? "fast" : tierOf(process.env.LLM_REASONING_TIER);
 const SERVER_REASONING_CAPS = { canCapThinking: PROVIDER === "anthropic" || OPENAI_THINKING_BUDGET };
 export const serverLLM: LLM = {
   thinkingTier: SERVER_REASONING_TIER,
@@ -228,5 +234,8 @@ export function toHttpError(e: unknown): { status: number; message: string; mode
   const result = httpError(e);
   const issue = modelIssue(e) ?? ((e instanceof Anthropic.APIError || e instanceof OpenAI.APIError) && e.status === 400 ? "model" : undefined);
   // Model errors expose only a safe category. Provider payloads can echo keys.
-  return { ...result, message: issue ? `Model connection: ${issue}.` : result.message.replaceAll(API_KEY || "\u0000", "[redacted]"), modelIssue: issue,...(e instanceof LLMError&&Number.isFinite(e.retryAt)?{retryAt:e.retryAt}:{}) };
+  // The message is user-visible on paths that bypass the client's issue-based
+  // rewrap (model-access), so it stays a neutral bilingual line — the machine
+  // category travels in `modelIssue`, never in prose.
+  return { ...result, message: issue ? "暂时无法连接模型。/ Can't reach the model right now." : result.message.replaceAll(API_KEY || "\u0000", "[redacted]"), modelIssue: issue,...(e instanceof LLMError&&Number.isFinite(e.retryAt)?{retryAt:e.retryAt}:{}) };
 }

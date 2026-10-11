@@ -78,7 +78,9 @@ export function byokError(e: unknown): LLMError {
   const status = (e as { status?: number } | null)?.status;
   const issue = modelIssue(e) ?? (typeof status !== "number" ? "network" : status < 500 ? "model" : "service");
   // Never surface a provider payload, which can echo credentials or request text.
-  return new LLMError(`Model connection: ${issue}.`, status ?? 503, false, issue);
+  // The message is user-visible where the issue-based rewrap doesn't run, so it
+  // stays a neutral bilingual line; the machine category travels in `modelIssue`.
+  return new LLMError("暂时无法连接模型。/ Can't reach the model right now.", status ?? 503, false, issue);
 }
 
 export async function checkByokConnection(c: ByokConfig, signal?: AbortSignal) {
