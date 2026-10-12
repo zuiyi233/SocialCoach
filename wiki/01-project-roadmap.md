@@ -24,6 +24,10 @@
 |---|---|---|---|
 | E1 | 最新主线可靠性复核 | ✅ 相关回归通过 | 已修档案 / 密钥 / 额度 / 输出边界复测；真机与用户效果继续跟踪 |
 | E2 | 同条件独立重练的原话对照 | ✅ 双站已发布 | 333 项核心 / 3D（含 11 项对照）、主站 9 组与国内公开嵌入页验收；真机 / 用户效果待验 → [规格](./archive/specs/spec-practice-comparison.md)、[验收](./reviews/review-2026-10-12-practice-comparison.md) |
+| E3 | 缩短再练的距离：短分支练习 | 📋 Planned | 一个文字单 NPC 场景、一种具体动作；必要前情与独立分支记录。与 E6 相互独立 → [阶段表](./13-stage-e.md) |
+| E4 | 一个场景玩得更深 | 📋 Planned | 一个已有 3D 开局，六类回应可玩；真机体验与主动重玩分开验证 → [阶段表](./13-stage-e.md) |
+| E5 | 让急需的人找到入口 | 📋 Planned | 一个有反馈支持的主题 + 官网预览 + 对应文字 / 3D / 视频，与 C / D 联动 → [阶段表](./13-stage-e.md) |
+| E6 | 在场层：承诺—回访—触达通道 | 📋 方案已完成，未开工 | 2026-10-13 单列，原打算并入 E3 已改出。第一节零新基础设施（承诺对象 + 首页 3 秒回访），第二节通道抽象且 Web Push 只留空实现 → [规格](./specs/spec-presence-layer.md)、[差异研究](./reviews/review-2026-10-13-presence-layer-diff.md) |
 
 ### Stage A — 产品与语料建成
 
@@ -103,7 +107,7 @@
 
 | # | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| C1 | 语料落地页 SSG（`corpus` 349 条 × 双语 = 698 页，独立 `generateMetadata`） | ✅ 本地实现，线上未发布 | 条数按 `corpus/index.ts` 实测（142 场景 / 168 理论 / 39 案例 = 207 library 页/语言）。2026-10-12 正式构建路由表核对：`/scenarios/[slug]` 与 `/en/scenarios/[slug]` 各 142 SSG、`/library/[slug]` 与 `/en/library/[slug]` 各 207 SSG，合计 698。剧透四项（`hidden` / `success` / `failure` / `simulationFacts`）硬性不渲染。**同日复核发现原验收不合格**：`AppProviders` 的 hydration 闸门让 698 份产物都是空壳（去 `<script>` 后只剩 9 字），已改为公版语料路由直接渲染 `children`，并新增 `app/scripts/check-landing-ssr.ts` 接进 CI 构建之后——逐页断言正文可达与 1034 条剧透串零泄露。见 [坑记录](./80-known-pitfalls.md#hydration-闸门把-ssg-的正文吃掉了) |
+| C1 | 语料落地页 SSG（`corpus` 349 条 × 双语 = 698 页，独立 `generateMetadata`） | ✅ 本地实现，线上未发布 | 条数按 `corpus/index.ts` 实测（142 场景 / 168 理论 / 39 案例 = 207 library 页/语言）。2026-10-12 正式构建路由表核对：`/scenarios/[slug]` 与 `/en/scenarios/[slug]` 各 142 SSG、`/library/[slug]` 与 `/en/library/[slug]` 各 207 SSG，合计 698。剧透五项（`hidden` / `success` / `failure` / `simulationFacts` / `simulationDirection`）硬性不渲染（2026-10-13 更正：原写「四项」漏了 `simulationDirection`，而 `check-landing-ssr.ts:119` 实际遍历五个字段）。**同日复核发现原验收不合格**：`AppProviders` 的 hydration 闸门让 698 份产物都是空壳（去 `<script>` 后只剩 9 字），已改为公版语料路由直接渲染 `children`，并新增 `app/scripts/check-landing-ssr.ts` 接进 CI 构建之后——逐页断言正文可达与 1034 条剧透串零泄露。见 [坑记录](./80-known-pitfalls.md#hydration-闸门把-ssg-的正文吃掉了) |
 | C2 | `app/` 的 `sitemap.ts` / `robots.ts` / `metadataBase` | ✅ 本地实现，线上未发布 | 地基见 2026-10-10 记录（`NEXT_PUBLIC_SITE_URL` 默认 Vercel 直连域名）。现 sitemap 703 条（5 入口 + 349×2），`robots.txt` / `sitemap.xml` 在构建里是静态预渲染 ○ |
 | C3 | `app/` 的动态 OG 图（`opengraph-image.tsx`） | ✅ 本地实现，线上未发布 | `/og/[kind]/[slug]/route.tsx`（next/og，nodejs），1200×630 实测约 49KB，未知 slug 404；中文走 Noto Sans SC 按需子集，色板由 `globals.css` OKLCH 换算 hex；a720bd1 从 `force-dynamic` 改 ISR `revalidate 86400`（构建表显示 ƒ） |
 | C4 | `app/` 的 JSON-LD：`SoftwareApplication` + `ScholarlyArticle` | ✅ 本地实现，线上未发布 | 首页 `SiteJsonLd` 两类并挂；每张语料页内嵌自身 JSON-LD，`citation` 指向该条 theory 的 `source` |

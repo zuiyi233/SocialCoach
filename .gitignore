@@ -30,6 +30,9 @@ docs/screenshots/raw/
 # ZCode client artifacts (session data etc.)
 .zcode/
 
+# Workbuddy handoff/memory scratch
+.workbuddy/
+
 # External skill source material — extracted into corpus with citations, not vendored
 恋爱军师-skill/
 

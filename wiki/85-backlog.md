@@ -2,6 +2,14 @@
 
 # Backlog
 
+## 在场层：承诺—回访—触达通道（2026-10-13，方案已写，未开工）
+
+由「AIcove / 类酒馆陪伴框架能否与主项目结合」的方向讨论收敛而来。结论：**不建陪伴运行时，建在场层**——跨会话的承诺对象 + 会在下次出现时引用它的教练，情感落点在教练 IP 而非 NPC。方案与验收见 [spec-presence-layer.md](./specs/spec-presence-layer.md)，分两节独立验收；第一节零新基础设施，第二节只做通道抽象并把 Web Push 留成空实现。
+
+几条被反复确认、写下来免得再争的事实：主项目「没有插件位」不是拒绝理由（现状是待办，不是约束），但真正需要可插拔的是**投递**而不是**记忆**——记忆只有一个实现，通道有四个且平台覆盖互不相关；`shared-budget.ts:4,10` 的共享池是日 1 亿 tokens、**全局并发 3**，所以任何后台「每天替用户想一遍」的任务都会挤占真人开练；`prompts.ts:142` 的「不许编造过去」目前只靠提示约束（仓库现有代码里没有任何跨场次注入），跨场记忆必须先把它变成代码断言，而不是沿用提示。
+
+与排期的关系：**Stage E 单列 E6，不并入 E3**。原本写「与 E3 同轴、不新开阶段」，但 `13-stage-e.md` 的 E3 已有自己的范围（只针对一个卡点做短分支练习），并在进去会让 E3 变成两个 feature。2026-10-13 已按 → [差异研究](./reviews/review-2026-10-13-presence-layer-diff.md) 修订规格，其中三条是硬伤：`text` 原写成 `L`（凑双语对象只能机器翻译，直接破「零新增调用」）、`PresenceIntent` 原带 `text`（quote 来源的 text 就是转录，等于把转录送进通道）、`completeLovePlay` 被当成「不进能力分」的先例（它实际写了 `loveProficiency` 与 `practiceDays`）。人工项两条——Android 真机本地通知、iOS 侧记录为「通道不支持」而不得用模拟视口销账。
+
 ## 恋爱 Galgame 视觉模式（2026-10-10，P1-P3 已实施 ✅）
 
 用户提议恋爱模块加**可选**的 Galgame 游戏模式（有画面/剧情/选项，不替代教练主链）。方案见 [spec-love-visual-novel.md](./specs/spec-love-visual-novel.md)：双入口（教练模式 / 游戏模式）共用语料；`AvatarFigure` 扩展半身立绘；`Scenario.series` 承载多场景剧情线；游戏模式不写能力评估；验收沿用让步/拒绝/反问/玩笑/修复/续聊六项。P1 单场景试玩 → P2 剧情线，共 3-4.5 天。
@@ -31,7 +39,7 @@ practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（�
 
 - [x] 越狱指令可让 NPC 退出角色、原样吐出 `hidden` 并伪造目标达成。→ 2026-10-11 输出侧确定性拒绝 + 修复预算放宽到两次，三例真实模型攻击全部改判为剧情内回避。详见 [80-known-pitfalls](./80-known-pitfalls.md)。
 - [x] **3D 复盘稳定失败**：`runDinner` 把玩家整句（实测 148 字）塞进 `replyTo`，被 `src/features/dinner/lib/engine.ts:16` 的 `max(120)` 拒；zod 的 `too_big` 不含可执行指令，修复提示因此没重申「1–40 字符」，两次照抄同一个违规形状。→ 2026-10-11 `validateReply` 改为抛带规则的报错（`reactions` 数量不符同样只报字段名 + 复写规则），不可见修复从 2 次放宽到 3 次（仍在 `dinner:[110000,4]` 预算内）。V4 第四次实测：整回合失败 0 次，3 次形状拒绝全部当轮修复；V4 仍会犯形状错，但不再变成用户可见的死对话。
-- [x] **复盘引文核对过严导致假失败**：`hasQuote`（`practice-policy.ts:31`）只做 `trim()` + 连续子串，全/半角标点、多余空格、NBSP、大小写、照抄 `[n] 名字 (LEARNER):` 标签都会判「无法可靠核对原话」并抛 502。→ 2026-10-11 先折叠排版再要求**连续子串**：拼接、改词、跨句、换说话人仍然拒绝，红线要的是「引用用户原话」而不是字节相同。学习者侧对齐 NPC 侧剥标签。
+- [x] **复盘引文核对过严导致假失败**：`hasQuote`（`practice-policy.ts:39`）只做 `trim()` + 连续子串，全/半角标点、多余空格、NBSP、大小写、照抄 `[n] 名字 (LEARNER):` 标签都会判「无法可靠核对原话」并抛 502。→ 2026-10-11 先折叠排版再要求**连续子串**：拼接、改词、跨句、换说话人仍然拒绝，红线要的是「引用用户原话」而不是字节相同。学习者侧对齐 NPC 侧剥标签。
 - [ ] **roleplay 花括号滑位（已决定不做解析器手术）**：模型在 `objectiveEvidence` 之后多写一个 `}` 提前关掉 `meta`，`extractJSON` 在深度 0 处截断，把已写出的 NPC 台词整段丢掉（48 例 1 次 / 36 例 1 次）。曾考虑在 `checked()` 前加一次「滑位还原」。**决定：不加**——被拒后的回复常自己丢掉 meta，两次不可见修复已经覆盖用户可见失败，而对畸形 JSON 放宽容忍正是本仓已记录过的「兜底把协议失效伪装成正常」那条坑。留作观察项：若 V4 下发生率明显上升，再回到契约层（提示词/字段顺序）解决。契约拒绝现在会把缺失字段路径写进日志（只有字段名与长度）。
 - [ ] **`parseRoleplay` 的说话人兜底在掩盖协议失效**：`client-api.ts:290`/`:306` 把无 `@@` 标记的文本静默归给第一个 NPC，并经 `Chat.tsx:250` 变成持久 `characterId`。建议给 `ParsedTurn` 加 `speakerFallback` 标记、在 eval 里记 issue，不改渲染行为。
 - [ ] 验证模型已从 `deepseek-v3.2` 切到 **`deepseek-v4-flash`**（`deepseek-v4.1-flash` 不在该 token 套餐，403）。V4 下已实测通过：恋爱模式 21 回合六项验收（零红线告警，4 个回合因限流重试）、`eval-resistance` 三例越狱 3/3、`check-3d-debrief-live` 全量。上一轮「V4 撑不住恋爱契约」的判断是错的，那是我们的历史形状缺陷，不是模型问题。
@@ -67,7 +75,7 @@ practical 56 情境按归属分桶后，恋爱模块之外的两桶记这里（�
 - [ ] 语料读取方式：站点继续用正则读 TS，还是新增 `app/scripts/dump-corpus.mjs` 产 JSON 快照作为单一事实源。推荐后者——349 条里多行带引号的字段是 C1/C3 最大的工程风险，顺带彻底消掉换行与文件名口径两类漏计（今天就是 `^scenarios-[a-z]\.ts$` 漏掉了 84 条）。
 - [ ] 落地页基址域名：`site.content.mjs` 里 `appDeepUrl` 是 Vercel 直连域名、`appUrl` 是地域分流域名且**会丢子路径**（见 pitfall「地域分流短域名不保留深链接」）。`metadataBase` 与深链 CTA 必须选 Vercel 直连，否则爬虫拿到的是首页。
 - [ ] 双语 URL：推荐中文在根 + `/en/…`（与官网同构、改动最小）；备选是 `[lang]` 全前缀，需要重写现在 9 条 `use client` 路由与全部内链。
-- [ ] 剧透边界：`characters[].hidden` / `success` / `failure` / `simulationFacts` 是否公开。推荐四项全部不进公开页，差异化交给 theory 页（无剧透且自带 `source`，可直接映射 JSON-LD citation）。
+- [ ] 剧透边界：`characters[].hidden` / `success` / `failure` / `simulationFacts` / **`simulationDirection`** 是否公开。推荐**五项**全部不进公开页——此前写「四项」漏了 `simulationDirection`，而 `check-landing-ssr.ts:119` 实际遍历五个字段，按四项写的导出 / 卡包断言会漏测它。差异化交给 theory 页（无剧透且自带 `source`，可直接映射 JSON-LD citation）。
 
 ## 官网构建检查（2026-10-08）
 
