@@ -89,7 +89,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <MotionConfig reducedMotion="user">
     <div className={dinner ? "sheet sheet-immersive" : "sheet"}>
-      {hydrated ? storageIssue ? <><SaveNotice lang={lang}/><StorageRecovery issue={storageIssue} /></> : <><SaveNotice lang={lang}/>{children}</> : <div className="min-h-dvh" />}
+      {/* The hydration gate exists so archive-backed pages never paint before the
+          device store settles. Corpus landings have no archive to wait for, and
+          waiting costs their entire purpose: hydrated is false on the server, so
+          gating them too ships an empty <body> to crawlers that do not run JS. */}
+      {corpusLanding ? children : hydrated ? storageIssue ? <><SaveNotice lang={lang}/><StorageRecovery issue={storageIssue} /></> : <><SaveNotice lang={lang}/>{children}</> : <div className="min-h-dvh" />}
       <ModelSheet open={hydrated && !storageIssue && byok.sheetOpen} onClose={byok.closeSheet} lang={lang} />
       {hydrated && !storageIssue && !dinner && <FeedbackWidget />}
       <DinnerAnnouncement enabled={hydrated && !storageIssue && !!profile && path === "/" && canUseModel && !byok.sheetOpen && !unfinished} />

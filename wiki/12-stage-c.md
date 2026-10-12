@@ -1,8 +1,12 @@
-<!-- Last verified: 2026-10-12 | Current stage: C -->
+<!-- Last verified: 2026-10-12 | Current stage: E -->
 
 # Stage C — 可索引化与 GEO
 
 > 2026-10-12：C1–C6 已全部实现并通过运行时验收——349 条语料 × 中英 = 698 张落地页 SSG、sitemap 703 条、动态中文 OG、首页与每页 JSON-LD、llms.txt、hreflang 互指。官网 `site/` 的五个双语预览页并存，语料页 canonical 指向自身。下文原始方案保留作决策记录。
+>
+> **验收范围只到本地**：这一批在 `pnpm build` 的路由表与构建产物抽查上通过，但线上直连域名 `socialcoach-ai.vercel.app` 实测 `/robots.txt`、`/sitemap.xml`、`/scenarios/refuse-overtime` 均 404（旧构建）。生产发布走 `upstream/main`，本线只推 `origin` 二开分支，所以「爬虫真的读到 698 页」这条还没成立——发布后要按 [roadmap 的发布边界](./01-project-roadmap.md#里程碑) 重新 `curl` 一遍才算收口。
+>
+> **2026-10-12 复核实测：原来的「运行时验收」漏掉了正文。** 把产物 HTML 去掉 `<script>` 后只剩 9 个字符——`AppProviders` 在 `hydrated` 为假时渲染占位 `div` 而非 `children`，而 `hydrated` 初值是 false，于是 SSG 把**空壳**预渲染了 698 份，head 里的 title / canonical / hreflang / JSON-LD 全对，正文只在 flight payload 里，不执行 JS 的爬虫读不到。已修：`corpusLanding` 路由直接渲染 `children`，档案相关页面闸门保持不变。新增 `app/scripts/check-landing-ssr.ts` 并接在 CI 的 `pnpm build` 之后，实测结果：**698 页**（`scenarios` 142 + `library` 207 + `/en` 两份）逐页含自己的标题与背景 / 原则 / 结论，**1034 条**剧透串（`hidden` / `success` / `failure` / `simulationFacts` / `simulationDirection` 的 zh+en）零出现，应用页仍保留占位，sitemap **703** 条 `<url>`、robots 含绝对 Sitemap 与 `Disallow: /api/`。现象与教训见 [80-known-pitfalls](./80-known-pitfalls.md#hydration-闸门把-ssg-的正文吃掉了)。
 
 ## 问题陈述
 

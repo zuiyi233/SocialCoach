@@ -207,6 +207,18 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **解决方案：** 官网首页继续使用品牌分享域名；场景目录和专题页等深链接直接使用 Vercel 正式域名，截图脚本默认同样使用 Vercel 域名。
 - **教训：** 验证分享域名时不能只测根路径的 200；有深链接 CTA 时要实测带路径和查询参数的最终落点。
 
+### 文档写「✅ 已落地」，线上却还是旧构建
+- **现象：** 2026-10-12 roadmap 与 `12-stage-c.md` 都把 C1–C6 记为「全部落地并过运行时验收」，同日实测 `https://socialcoach-ai.vercel.app` 的 `/robots.txt`、`/sitemap.xml`、`/scenarios/refuse-overtime` 全部 404，首页仍 200；`git fetch upstream` 后发现本地 main 领先 upstream **73** 个提交、落后 **10** 个。
+- **原因：** 产品发布只跟 `upstream/main`（Vercel 与 ModelScope 的部署源），而开发提交落在 `origin` 二开分支；「验收通过」在文档里指的是本地 `pnpm build` 产物与运行时抽查，两者被同一个 ✅ 符号混为一谈。
+- **解法：** 文档里的完成标记必须带范围——本轮改成「✅ 本地实现，线上未发布」，并在里程碑保留一条未达线上收口的行；判断线上状态一律 `curl` 直连域名，不看 aurax 分流域名（它丢子路径）。开工先 `git fetch upstream` 报 ahead / behind。见 [AGENTS.md 仓库与发布线](../AGENTS.md#仓库与发布线)。
+- **教训：** 工程证据、合并状态与线上结果是三件事；任何「已发布 / 已落地」的说法都要能用一个公开 URL 证明，否则就写清楚它止步于哪一步。
+
+### hydration 闸门把 SSG 的正文吃掉了
+- **现象：** 2026-10-12 落地页已按 C1 建好并通过「构建 698 页 SSG」，但把产物里的 `scenarios/asking-for-help-overloaded.html` 去掉 `<script>` 之后只剩 **9 个字符**（`<title>` 那句），`<body>` 实为 `<div class="sheet"><div class="min-h-dvh"></div></div>`。head 里的 title / description / canonical / hreflang / 两张 JSON-LD 全都正常，所以只看 metadata 的检查全绿。
+- **原因：** 根 layout 用客户端组件 `AppProviders` 包住整棵树，它在 `hydrated` 为假时渲染占位 `div` 而不是 `children`；`hydrated` 初值 false（`src/store/useApp.ts:123`），只有设备档案在客户端读完才置真。SSG 因此把**空壳**预渲染了 698 份，正文只存在于同文件的 RSC flight payload，必须执行 JS 才出现——不执行 JS 的爬虫（GPTBot / ClaudeBot / PerplexityBot，正是 GEO 的目标）拿不到。
+- **解法：** `AppProviders` 里让公版语料路由（`corpusLanding`）直接渲染 `children`，绕过闸门；档案相关页面（`/`、`/practice/*`、`/3d`、存储损坏时的恢复屏）保持原闸门，坏档案仍然不会闪出真实数据。回归挂在 `app/scripts/check-landing-ssr.ts`，接在 CI 的 `pnpm build` 之后：698 页逐页断言自己的标题 / 背景 / 理论原则 / 案例结论确实出现在去 script 文本里，1034 条剧透串一条都不出现，应用页仍保留占位。
+- **教训：** 验证 SSG 不能只看「构建产物里有这个 HTML」或 metadata 正确；要把脚本和标签剥掉，确认去掉 JS 之后正文还在。闸门类组件（等 hydration、等 store）会同时影响所有路由，加静态页时必须单独确认它在哪一侧。
+
 ### GitHub Pages 返回 HTTP 的 `base_url`
 - **现象：** 官网通过 HTTPS 正常打开，GitHub Pages 的构建步骤却输出 `http://tianfuwang.tech/SocialCoach`；线上 HTML 的 canonical / hreflang 被 Pages 改写为 HTTPS，而 sitemap、OG URL 和 JSON-LD 仍是 HTTP。
 - **原因：** 仓库 Pages 的 `https_enforced` 为 `false`，`actions/configure-pages` 返回 HTTP `base_url`。尝试通过 Pages API 开启强制 HTTPS 时返回「The certificate does not exist yet」，因此不能依赖该设置来修正构建地址。

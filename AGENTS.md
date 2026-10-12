@@ -8,6 +8,13 @@ SocialCoach —— LLM 社交技能教练。应用在 `app/`（Next.js），仓�
 2. 动 `app/` 里的代码前，读 `app/AGENTS.md` —— Next.js 16 与训练数据差异较大，该文件由 `next dev` 自动维护。
 3. 不要一次加载 `wiki/archive/`、`wiki/refs/`、`wiki/reviews/`。
 
+## 仓库与发布线
+
+- 两个远端：`origin` = `zuiyi233/SocialCoach`（本工作区的二开分支），`upstream` = `GeminiLight/SocialCoach`（生产仓库）。Vercel `socialcoach-ai.vercel.app` 与 ModelScope 国内镜像都从 `upstream/main` 发布。
+- **本线只同步到 `origin`，不向 `upstream` 开 PR。** 官方合并由 owner 那条 `codex/*` 线负责；这里做完的批次只推自己分支。
+- **`wiki` 里的「已落地 / ✅」不是线上证据。** 判断发布状态要 `curl` 直连域名（`socialcoach.aurax.live` 地域分流会丢子路径，不能验深链）。
+- 开工先 `git fetch upstream` 并报 ahead / behind；分叉本身就是候选下一步。合并上游后用 `app/` 的 `pnpm check` + `pnpm build` 验证语义一致，再推 `origin`（确认是 fast-forward 才推）。
+
 ## 3D 版本维护
 
 - **主仓库是唯一开发主线。** 3D 饭局的功能、人物、交互与修复优先在 `app/src/features/dinner/` 和主站 `/3d` 完成、验证和发布。

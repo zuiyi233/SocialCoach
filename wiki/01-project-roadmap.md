@@ -8,7 +8,7 @@
 |---|---|---|---|
 | A | 产品与语料建成 | ✅ Done | [10-stage-a](./10-stage-a.md) |
 | B | 定位与对外物料 | 🚧 In Progress | [11-stage-b](./11-stage-b.md) |
-| C | 可索引化与 GEO | 📋 Planned | [12-stage-c](./12-stage-c.md) |
+| C | 可索引化与 GEO | 🟡 本地实现并验收，线上未发布 | [12-stage-c](./12-stage-c.md) |
 | D | 发布与增长 | 📋 Planned | — 尚未开卡 |
 | E | 持续练习与可验证成长 | 🚧 In Progress | [13-stage-e](./13-stage-e.md) |
 
@@ -103,12 +103,12 @@
 
 | # | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| C1 | 语料落地页 SSG（`corpus` 349 条 × 双语 = 698 页，独立 `generateMetadata`） | 📋 | 条数按 `corpus/index.ts` 实测（142 场景 / 168 理论 / 39 案例），旧稿的 118 / 130 / 236 都已失真；当前 9 条路由 `use client`，爬虫拿到空壳 |
-| C2 | `app/` 的 `sitemap.ts` / `robots.ts` / `metadataBase` | 🟡 地基已就位 | 2026-10-10：`NEXT_PUBLIC_SITE_URL`（默认 Vercel 直连域名）+ 根 layout `metadataBase` + `robots.ts`（设备数据页与 `/api/` 禁止抓取）+ `sitemap.ts`（5 条公开路由）。逐页 canonical 要等落地页那轮——`/arena`、`/love`、`/learn` 是 `use client`，导出不了 metadata。官网已有静态 sitemap 和 robots |
-| C3 | `app/` 的动态 OG 图（`opengraph-image.tsx`） | 📋 | 官网已有静态 OG 图 |
-| C4 | `app/` 的 JSON-LD：`SoftwareApplication` + `ScholarlyArticle` | 📋 | 官网已有产品与 arXiv 预印本结构化数据 |
-| C5 | `app/` 的 `llms.txt` 与可直接读取的语料结构 | 📋 | 官网已有产品和论文摘要；应用内语料待开放 |
-| C6 | `app/` 的 hreflang（zh / en） | 📋 | 官网已有双语 hreflang，应用内需 i18n 路由方案 |
+| C1 | 语料落地页 SSG（`corpus` 349 条 × 双语 = 698 页，独立 `generateMetadata`） | ✅ 本地实现，线上未发布 | 条数按 `corpus/index.ts` 实测（142 场景 / 168 理论 / 39 案例 = 207 library 页/语言）。2026-10-12 正式构建路由表核对：`/scenarios/[slug]` 与 `/en/scenarios/[slug]` 各 142 SSG、`/library/[slug]` 与 `/en/library/[slug]` 各 207 SSG，合计 698。剧透四项（`hidden` / `success` / `failure` / `simulationFacts`）硬性不渲染。**同日复核发现原验收不合格**：`AppProviders` 的 hydration 闸门让 698 份产物都是空壳（去 `<script>` 后只剩 9 字），已改为公版语料路由直接渲染 `children`，并新增 `app/scripts/check-landing-ssr.ts` 接进 CI 构建之后——逐页断言正文可达与 1034 条剧透串零泄露。见 [坑记录](./80-known-pitfalls.md#hydration-闸门把-ssg-的正文吃掉了) |
+| C2 | `app/` 的 `sitemap.ts` / `robots.ts` / `metadataBase` | ✅ 本地实现，线上未发布 | 地基见 2026-10-10 记录（`NEXT_PUBLIC_SITE_URL` 默认 Vercel 直连域名）。现 sitemap 703 条（5 入口 + 349×2），`robots.txt` / `sitemap.xml` 在构建里是静态预渲染 ○ |
+| C3 | `app/` 的动态 OG 图（`opengraph-image.tsx`） | ✅ 本地实现，线上未发布 | `/og/[kind]/[slug]/route.tsx`（next/og，nodejs），1200×630 实测约 49KB，未知 slug 404；中文走 Noto Sans SC 按需子集，色板由 `globals.css` OKLCH 换算 hex；a720bd1 从 `force-dynamic` 改 ISR `revalidate 86400`（构建表显示 ƒ） |
+| C4 | `app/` 的 JSON-LD：`SoftwareApplication` + `ScholarlyArticle` | ✅ 本地实现，线上未发布 | 首页 `SiteJsonLd` 两类并挂；每张语料页内嵌自身 JSON-LD，`citation` 指向该条 theory 的 `source` |
+| C5 | `app/` 的 `llms.txt` 与可直接读取的语料结构 | ✅ 本地实现，线上未发布 | `app/public/llms.txt` 约 53KB（定位 / 论文 / 边界 / 全部语料 URL），由 `app/scripts/gen-llms-txt.ts` 生成，语料变动后需重跑 |
+| C6 | `app/` 的 hreflang（zh / en） | ✅ 本地实现，线上未发布 | 中文在根 + `/en/` 前缀（与官网同构）；每页 `metadata.alternates` 与 sitemap `alternates.languages` 互指，x-default 指中文 |
 
 ## 里程碑
 
@@ -118,6 +118,9 @@
 | 2026-09-03 | 定位定稿 + 主句三处对齐 + README 重排 + banner | ✅ |
 | 2026-09-03 | wiki 体系建立 | 🚧 |
 | — | 线上可访问 + LICENSE + 截图（Stage B 收口） | 📋 |
-| — | 698 个落地页可被 LLM 爬虫读到（Stage C 收口） | ✅ 2026-10-12 | C1–C6 全部落地并过运行时验收；见 [12-stage-c](./12-stage-c.md) |
+| 2026-10-12 | Stage C 工程收口：C1–C6 本地实现，正式构建 698 页 SSG 与运行时验收通过 | ✅ |
+| — | 698 个落地页真正被搜索与 LLM 爬虫读到（Stage C 线上收口） | 🟡 未发布，见下方边界 |
+
+**Stage C 的发布边界（2026-10-12 实测）**：本地 main 已含全部 C1–C6，但线上直连域名 `https://socialcoach-ai.vercel.app` 对 `/robots.txt`、`/sitemap.xml`、`/scenarios/refuse-overtime` 三个请求都返回 404（首页仍 200，是旧构建）——`socialcoach.aurax.live` 会丢掉子路径，不能用来验深链。也就是说**工程 ✅ 不等于爬虫可读**，上面那行里程碑保持 🟡 直到线上核对通过。本线只同步到自己的二开分支 `origin`（`zuiyi233/SocialCoach`，2026-10-12 已推 `c2e9722`），不向 `upstream`（`GeminiLight/SocialCoach`）开 PR；Vercel 与 ModelScope 从 upstream 主线发布，所以下一步的线上验收要等那次合并之后再做。同一口径已写进 [AGENTS.md](../AGENTS.md) 的「仓库与发布线」。
 
 2026-10-08 全仓复核与修订：中央共享日政策 1 亿、跨窗口记录/密钥、备份故障隔离、能力窗口、模拟公开投影、接入与双语、依赖/PWA；PR #13 / #14 已合并、两站已发布，293 个程序检查通过，真实回放及保留边界见 [修订记录](./reviews/review-2026-10-08-repo-refinement.md)。

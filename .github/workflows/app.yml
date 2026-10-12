@@ -39,6 +39,8 @@ jobs:
           retention-days: 7
       - run: pnpm check
       - run: pnpm build
+      # Stage C is only worth shipping if a crawler that never runs JS reads it.
+      - run: pnpm exec tsx scripts/check-landing-ssr.ts
   settlement:
     name: shared budget settlement against a real Redis
     runs-on: ubuntu-latest
