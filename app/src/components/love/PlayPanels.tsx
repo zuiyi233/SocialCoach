@@ -6,6 +6,7 @@ import type { Lang, L } from "@/data/taxonomy";
 import type { TKey } from "@/lib/i18n";
 import type { LovePlayOutcome } from "@/lib/love-play-client";
 import { t } from "@/lib/i18n";
+import { PlayCarryCapture, type LoveCarryTarget } from "./PlayCarryCapture";
 
 /** 本回合的选项列表：按钮普通样式，不提示对错，点选即作为 learner 发言。台词打字未完时禁用。 */
 export function PlayOptions({ options, busy, ready, lineKey, lang, onPick }: { options: L[]; busy: boolean; ready: boolean; lineKey: string | undefined; lang: Lang; onPick: (o: L) => void }) {
@@ -109,12 +110,13 @@ export function LoveRevealBadge({ lang }: { lang: Lang }) {
   );
 }
 
-/** 收束界面：结局标题 + 场景 success/failure 文案 + 记入统计 / 重新开始 / 返回。 */
+/** 收束界面：结局标题 + 场景 success/failure 文案 + 带走一句话 + 记入统计 / 重新开始 / 返回。 */
 export function PlayEnding({
   lang,
   outcome,
   endingText,
   recorded,
+  carry,
   onRecord,
   onRestart,
   onBack,
@@ -123,6 +125,8 @@ export function PlayEnding({
   outcome: LovePlayOutcome;
   endingText: string;
   recorded: boolean;
+  /** 这一幕可以把承诺带给谁。每一场都有——跟进卡按说话人归属，与这条线连不连续无关。 */
+  carry: LoveCarryTarget;
   onRecord: () => void;
   onRestart: () => void;
   onBack: () => void;
@@ -154,6 +158,8 @@ export function PlayEnding({
             </button>
           </div>
         </div>
+        {/* 带走承诺是可选项，排在主操作之后；不记也走得掉。 */}
+        {carry && <PlayCarryCapture lang={lang} target={carry} />}
       </motion.div>
     </AnimatePresence>
   );

@@ -423,3 +423,16 @@ AppProviders 在确认默认 API 不可用时自动打开可关闭的配置弹�
 - 思考按设计就是更慢，所以任务 deadline 随档位放大（×1 / ×2 / ×4），而档位从 `LLM.thinkingTier` 读取而不是服务端环境变量：浏览器里个人模型的选择对服务端不可见，超时必须跟着真正要花时间的那份客户端走。输入字节与任务自身 16,000 输出上限的校验发生在抬升之前，口径不变。
 - 预算从“只预留”改成“预留—结算”（`shared-budget.ts`）：调用拿到 usage 后按 `reserved - actual` 退还差额，退款夹在 `[0, 已用计数]` 内；拿不到 usage 只解除并发占位，不作折扣——没核对过的调用不能变成优惠券。抬高 `maxTokens` 不再永久抽干日额度，这是敢开放思考档位的前置条件。
 - 契约由 `app/tests/core/reasoning-tier.test.ts`（档位→请求形状→deadline）与 `app/tests/core/budget-settlement.test.ts`（预留 / 退款 / 无 usage 释放）钉住。结算另有**真 Redis** 的一条：`app/scripts/check-budget-settlement-redis.ts` 经 `redis-http-shim.mjs` 把预留/退款 Lua 打到真实 Redis（CI 里带 redis:7 service 跑；`--live` 才会发一次真模型调用核对计数下降量）。真实网关上的 `reasoning_effort` 接受度与大 `max_tokens` 上限仍需巡检，见 [backlog](./85-backlog.md)。
+
+## 恋爱承接：跨幕记忆、承诺与回访卡（2026-10-13，本地实现）
+
+方向与判据见 [review-2026-10-13-love-companionship.md](./reviews/review-2026-10-13-love-companionship.md) §10，红线写法见 [spec-love-visual-novel.md](./specs/spec-love-visual-novel.md) §5.4 第 6–7 条。这一节只记模块与数据流。
+
+- **新增模块。** `lib/love-carryover.ts`（幕内开场：上一幕 `outcome` → 一句承接，或引用一条待答承诺）、`lib/love-carry-store.ts`（承诺对象、设备端 slot、节流表）、`lib/love-play-voice.ts`（把 dinner 的 `SpeechSession` 包成 love-play 的识别 hook）、`data/corpus/love-carry-lines.ts`（16 格闭合台词库，每条带 `source`）、`components/love/PlayCarryCapture.tsx`（收束面板里记承诺）、`components/love/LoveCarryFollowUp.tsx`（恋爱页回访卡）。
+- **两条独立的状态存储，都不进 persist archive。** `socialcoach.love-play.series.<id>`（`completed` / `lastScene` / `outcome`）与 `socialcoach.love-play.carry`（承诺数组，上限 20，只挤终态）。沿用 `love-series-progress.ts:3` 的既有决定「不进 store，避免 persist 版本迁移」，代价是导出与擦除两条义务要自己做——本批补齐：`LOVE_PLAY_PREFIX` / `LOVE_CARRY_KEY` 由 store 单点持有，`archive.ts` 出 schema、`backup.ts` 按前缀快照进导出（两条导出路径 `downloadArchive()` 与设置页 `exportData()` 都带），`clearLovePlaySlots()` 接进「重置全部数据」。坑记录：[「不进 persist 把导出和擦除转嫁给每个新 slot」](./80-known-pitfalls.md)。
+- **提问路径零模型调用，也零新 API。** 回访卡与幕内开场的每一句都来自 `love-carry-lines.ts`：`CARRY_LINES[类别][问法]` + `{{quote}}` 由学习者原话逐字替换。`/api/love-play` 的契约**一个字段都没改**——承接句是拼进本地 opening 文本的，而 opening 本来就在 `SCRIPT SO FAR` 里，模型顺带就读到了（`PlayScene.tsx` 的 `startScene`）。
+- **两道门必须分开。** NPC 开口声称「记得上一幕」按 `series.continuous` 门禁（每幕同一 NPC 才成立，否则是对「谁在说话」造假，撞 `prompts.ts` 不许编造过去）；**记录承诺不按这道门**——异地那条线 8 幕 8 个人，若采集也被门禁包住，功能就恰好排除了它的动机来源。两道方向都由测试反向钉住（删掉任一边就变红）。
+- **NPC 归属用快照名。** 承诺存 `npcName: L` 而非只存 `npcId`：实查发现 `tess` 在语料里是两个不同的人共用一个 id 与一张立绘，按 id 反查会把承诺安到错的人头上。立绘按 id 取图（撞名两边本来同图，无害），署名一律用存的快照名。
+- **`askCount` 同时是三样东西的根据**：台词选 `ask` 还是 `askAgain`（凡宣称「从没催过你」的句子在第二次浮现时都可被计数证伪）、单条承诺 24 小时间隔、以及 3 次上限后 `retireExhaustedLoveCarries` 转 `dropped`。幕内开场**引用照引、计数按天**（`markLoveCarryAsked` 在同一天内只加一次），否则连打三幕就把 3 次问满、跟进卡再也轮不到。全局另加日上限 2 次 / 间隔 240 分钟 / 免打扰 22:00–08:00，数值比评审从 AIcove 借来的 3 次 / 120 分钟更严，依据是 2026 年公开指引，写在 `LOVE_CARRY_ASK` 的注释里。
+- **共享语音链路的两处修复**（同时影响文字对练与 3D）：`lib/speech.ts` 的 `pickDeviceVoice()` 缓存音色表并监听 `voiceschanged`（原实现在 Chrome/Safari 首次同步 `getVoices()` 返回空时，每场第一句都会落到默认音色）；`lib/speech-playback.ts` 新增 `deviceChunks(text, lang)`，设备音色按句末切块依序朗读、看门狗逐块重置、`onStart` 只在首块触发（3D 口型同步依赖此时机语义），中文预算 80 字、英文 200 字——按秒而不是按字符算，因为 Chrome 会把长 utterance 静默掐在 ~15 秒。
+- **承接收口是「一句可删的实验」**：P1 的 6 句承接硬编码在 `love-carryover.ts`，删掉那个对象等于删掉实验。玩家到底有没有感觉到承接仍未验证，见评审 §11。

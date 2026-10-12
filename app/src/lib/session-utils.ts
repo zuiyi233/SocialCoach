@@ -1,4 +1,4 @@
-import type { Scenario } from "@/data/corpus/types";
+import type { Character, Scenario } from "@/data/corpus/types";
 import { COMPETENCIES, skillById, type CompetencyId, type Lang, type SkillId } from "@/data/taxonomy";
 import type { ScheduleResult } from "./client-api";
 import { uid } from "./format";
@@ -12,6 +12,16 @@ export function defaultLearnerId(s: Scenario): string {
 /** Characters the learner talks to (everyone except the learner's role). */
 export function npcsOf(s: Scenario, learnerId: string) {
   return s.characters.filter((c) => c.id !== learnerId);
+}
+
+/**
+ * 这一幕在说话的角色：后端固定用开场人，缺省取第一个非学习者角色。
+ * 定义只有这一处 —— 承接要按「谁在说话」去匹配学习者留下的承诺，
+ * 而那个口径必须和立绘/台词用的是同一个，否则会是另一个人声称记得你的话。
+ */
+export function speakerOf(scenario: Scenario, learnerId: string): Character {
+  const npcs = npcsOf(scenario, learnerId);
+  return npcs.find((c) => c.id === scenario.opening.characterId) ?? npcs[0] ?? scenario.characters[0];
 }
 
 export function buildSession(scenario: Scenario, origin: Session["origin"], lang: Lang, res?: Partial<ScheduleResult>): Session {

@@ -77,6 +77,8 @@ test('backup preview accepts both export formats, strips credentials and rejects
  const session=practice(1,2);
  const old=await decodeBackup(JSON.stringify({profile:null,sessions:[session],proficiency:{communication:2.5},apiKey:'must-not-import'}));assert.equal(old.archive.sessions.length,1);assert.equal('apiKey' in old.archive,false);
  const current=await decodeBackup(JSON.stringify({state:{sessions:[session],settings:{tts:false,apiKey:'must-not-import'}},version:0}));assert.equal('apiKey' in current.archive.settings,false);
+ // 新增的持久化字段必须同时进 ArchiveSchema：Zod 会静默 strip 未知键，rehydrate 后设置就丢了。
+ assert.equal(parseArchive({sessions:[],settings:{tts:true,loveCarry:false}}).settings.loveCarry,false);
  await assert.rejects(decodeBackup(JSON.stringify({state:{sessions:[]},version:99})));
  await assert.rejects(decodeBackup(JSON.stringify({state:{sessions:null},version:0})));
 });

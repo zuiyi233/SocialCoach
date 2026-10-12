@@ -2,7 +2,7 @@
 import type { Lang } from "@/data/taxonomy";
 import { useApp } from "@/store/useApp";
 import { useByok } from "@/lib/byok";
-import { startStreamSpeech, type PcmSink, type SpeechHandle } from "./speech-playback";
+import { deviceChunks, startStreamSpeech, type PcmSink, type SpeechHandle } from "./speech-playback";
 
 /**
  * Web Speech helpers. Every call is guarded: these APIs are absent in some
@@ -47,26 +47,60 @@ export function unlockSpeech() {
   }
 }
 
+/**
+ * `getVoices()` is asynchronous in every engine: Chrome's network list and Safari both
+ * return [] on the first synchronous call, so the first line of a session silently took the
+ * browser default voice instead of a matching one. Read the list on `voiceschanged` too.
+ */
+let voiceList: SpeechSynthesisVoice[] = [];
+let voicesWired = false;
+function pickDeviceVoice(lang: Lang): SpeechSynthesisVoice | null {
+  if (typeof speechSynthesis === "undefined") return null;
+  if (!voicesWired) {
+    voicesWired = true;
+    try { speechSynthesis.addEventListener("voiceschanged", readVoices); } catch { /* engines without the listener keep the sync read */ }
+  }
+  readVoices();
+  const matches = voiceList.filter(v => v.lang.toLowerCase().startsWith(lang));
+  return matches.find(v => v.localService) ?? matches[0] ?? null;
+}
+function readVoices() {
+  try { const next = speechSynthesis.getVoices(); if (next.length) voiceList = next; } catch { /* keep the last list seen */ }
+}
+
 function deviceSpeech(text: string, lang: Lang, speaker: SpeakerVoice | undefined, onStart?: () => void): SpeechHandle {
   let finish!: () => void, paused = false, started = false, elapsed = 0, settled = false;
   const done = new Promise<void>(resolve => { finish = resolve; });
   let utterance: SpeechSynthesisUtterance | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
+  const pending = deviceChunks(text, lang);
   const end = () => { if (settled) return; settled = true; clearInterval(timer); finish(); };
-  const cancel = () => { if (settled) return; if (utterance) { utterance.onstart = utterance.onend = utterance.onerror = null; try { speechSynthesis.cancel(); } catch {} } end(); };
-  try {
-    if (typeof speechSynthesis === "undefined") throw new Error("No device speech");
-    const u = new SpeechSynthesisUtterance(text);
+  const cancel = () => {
+    if (settled) return;
+    if (utterance) { utterance.onstart = utterance.onend = utterance.onerror = null; }
+    utterance = undefined;
+    try { speechSynthesis.cancel(); } catch { /* already idle */ }
+    end();
+  };
+  const speakNext = () => {
+    if (settled) return;
+    const chunk = pending.shift();
+    if (chunk === undefined) { end(); return; }
+    const u = new SpeechSynthesisUtterance(chunk);
     utterance = u;
     u.lang = lang === "zh" ? "zh-CN" : "en-US";
     u.rate = speaker?.age === "mature" ? .96 : 1.02;
     u.pitch = speaker?.feminine ? 1.04 : speaker?.age === "mature" ? .94 : 1;
-    const voices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith(lang));
-    u.voice = voices.find(v => v.localService) ?? voices[0] ?? null;
-    u.onstart = () => { if (!settled) { started = true; elapsed = 0; onStart?.(); } };
-    u.onend = u.onerror = end;
-    speechSynthesis.speak(u);
+    u.voice = pickDeviceVoice(lang);
+    u.onstart = () => { elapsed = 0; if (!started) { started = true; onStart?.(); } };
+    u.onend = () => speakNext();
+    u.onerror = end;
+    try { speechSynthesis.speak(u); } catch { end(); }
+  };
+  try {
+    if (typeof speechSynthesis === "undefined") throw new Error("No device speech");
     timer = setInterval(() => { if (!paused) elapsed += 100; if (elapsed > (started ? 45000 : 4000)) cancel(); }, 100);
+    speakNext();
   } catch { end(); }
   return { done, cancel, pause(v) { paused = v; try { if (v) speechSynthesis.pause(); else speechSynthesis.resume(); } catch {} } };
 }

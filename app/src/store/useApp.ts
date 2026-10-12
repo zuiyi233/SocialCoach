@@ -46,6 +46,11 @@ export interface Settings {
    * Settings is the way out, and About says what leaves the device.
    */
   telemetry?: boolean;
+  /**
+   * Love follow-up cards on /love. Undefined means on; off only stops the asking —
+   * the carries themselves stay on the device untouched.
+   */
+  loveCarry?: boolean;
 }
 
 export type Patience = 10 | 15 | 20;

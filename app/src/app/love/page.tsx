@@ -8,6 +8,7 @@ import { Chip, Empty, Page } from "@/components/ui";
 import { SkillTag } from "@/components/SkillBits";
 import { ScenarioCover } from "@/components/ScenarioCover";
 import { LoveProficiency } from "@/components/LoveProficiency";
+import { LoveCarryFollowUp } from "@/components/love/LoveCarryFollowUp";
 import { SCENARIOS, THEORIES, CASES } from "@/data/corpus";
 import type { Scenario } from "@/data/corpus/types";
 import { LOVE_TOPICS, loveTopicById, type LoveTopicId } from "@/data/corpus/love-topics";
@@ -101,6 +102,9 @@ export default function Love() {
           <h1 className="display text-[29px] md:text-[34px] lg:text-[38px] leading-tight whitespace-pre-line">{t(lang, "love_heading")}</h1>
           <p className="text-[14px] text-ink-3 mt-3 max-w-[var(--measure)]">{t(lang, "love_sub")}</p>
         </header>
+
+        {/* 跟进卡排在最上面：这一趟来访要问的那一句，比列表里还有什么可练更近。 */}
+        <LoveCarryFollowUp lang={lang} />
 
         {LOVE_SERIES.length > 0 && (
           <section aria-label={t(lang, "love_mode_title")} className="flex flex-col gap-3">

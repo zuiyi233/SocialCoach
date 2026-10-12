@@ -1,8 +1,14 @@
 import {z} from 'zod';
 import {ScenarioSchema,SkillSchema,ContextSchema,AdaptationSchema,LoveTopicSchema} from './runtime-contracts';
 import {SceneContextSchema} from './scene-context';
+import type {CarryPromiseClass} from '@/data/corpus/love-carry-lines';
+import {LOVE_CARRY_CAP, LOVE_CARRY_KEY, LOVE_CARRY_TEXT_MAX, LOVE_PLAY_PREFIX, type LoveCarryState} from './love-carry-store';
 
 const text=z.string(),strings=z.array(text),num=z.number().finite();
+// 枚举值写死在这里，但用 satisfies 扣回真正的类型：语料或 store 改了取值，这一行就编译不过
+// （`origin` 少一个 'love-play' 曾让整个档案解析失败，见 wiki/80-known-pitfalls.md）。
+const carryClasses={call:true,visit:true,ritual:true} satisfies Record<CarryPromiseClass,true>;
+const carryStates={pending:true,kept:true,open:true,dropped:true} satisfies Record<LoveCarryState,true>;
 export const ProficiencySchema=z.partialRecord(SkillSchema,num.min(1).max(5));
 export const LoveProficiencySchema=z.partialRecord(LoveTopicSchema,num.min(1).max(5));
 export const ProfileSchema=z.object({name:text,bio:text,goals:z.array(SkillSchema),contexts:z.array(ContextSchema),lang:z.enum(['zh','en']),createdAt:num});
@@ -28,7 +34,7 @@ const SessionSchema=z.object({
 }).superRefine((s,ctx)=>{if(!s.scenario.characters.some(c=>c.id===s.learnerCharacterId))ctx.addIssue({code:'custom',path:['learnerCharacterId'],message:'Learner must belong to the saved cast'});});
 export const ArchiveSchema=z.object({
  profile:ProfileSchema.nullable().default(null),onboardingLang:z.enum(['zh','en']).optional(),proficiency:ProficiencySchema.default({}),loveProficiency:LoveProficiencySchema.default({}),sessions:z.array(SessionSchema).default([]),customScenarios:z.array(ScenarioSchema).default([]),bookmarks:strings.default([]),practiceDays:strings.default([]),todaySessionId:text.nullable().default(null),todayDate:text.nullable().default(null),
- settings:z.object({tts:z.boolean(),voiceEngine:z.enum(['natural','system']).optional(),theme:z.enum(['system','light','dark']).optional(),voiceNoticeSeen:z.boolean().optional(),avatarSeed:num.optional(),avatarPortrait:text.optional(),avatarImage:text.optional(),timed:z.boolean().optional(),patience:z.union([z.literal(10),z.literal(15),z.literal(20)]).optional(),telemetry:z.boolean().optional()}).default({tts:true}),
+ settings:z.object({tts:z.boolean(),voiceEngine:z.enum(['natural','system']).optional(),theme:z.enum(['system','light','dark']).optional(),voiceNoticeSeen:z.boolean().optional(),avatarSeed:num.optional(),avatarPortrait:text.optional(),avatarImage:text.optional(),timed:z.boolean().optional(),patience:z.union([z.literal(10),z.literal(15),z.literal(20)]).optional(),telemetry:z.boolean().optional(),loveCarry:z.boolean().optional()}).default({tts:true}),
  // Old cached conclusions lack verified identity pointers. Recompute, never
  // erase the practice transcripts on which they were based.
  patternInsight:z.object({result:z.object({found:z.boolean(),pattern:text,why:text,evidence:z.array(z.object({sessionId:text,messageId:text,title:text,quote:text})),skill:SkillSchema.optional(),nextStep:text}),from:strings,at:num}).nullable().catch(null).default(null),
@@ -44,3 +50,46 @@ export function checkArchiveEnvelope(raw:string){
  if(!envelope.success)throw new SyntaxError('The archive version or structure is invalid');
  return envelope.data;
 }
+/**
+ * 恋爱玩法的设备端 slot：`socialcoach.love-play.carry` 与 `socialcoach.love-play.series.<id>`。
+ * 它们按设计不进 persist archive（避开版本迁移），但必须跟着导出走，否则「状态留在设备上、可导出」
+ * 这条红线只覆盖了半个应用。键名与前缀都由 `love-carry-store.ts` 持有，这里只写校验；
+ * 任何一处再私自补一份字符串，都会被 `love-play-archive.test.ts` 的前缀断言抓出来。
+ */
+const loveId=text.min(1).max(100);
+const loveOutcome=z.enum(['success','partial','failure']);
+/** 承诺原话逐字保存，但导出不是无底洞；上限与采集/存储共用 `LOVE_CARRY_TEXT_MAX` 一个数——
+ *  两边各写一份的话，玩家自己打的一句话就会因为「比校验多一个字」把整个承诺槽拖进隔离。 */
+const loveCarryText=text.min(1).max(LOVE_CARRY_TEXT_MAX);
+export const LoveCarrySchema=z.object({
+ id:loveId,text:loveCarryText,lang:z.enum(['zh','en']),cls:z.enum(Object.keys(carryClasses) as [CarryPromiseClass,...CarryPromiseClass[]]).nullable(),
+ npcId:loveId,npcName:z.object({zh:text,en:text}),scenarioId:loveId,seriesId:loveId.nullable(),
+ createdAt:num,updatedAt:num,askCount:z.number().int().nonnegative(),lastAskedAt:num.optional(),
+ state:z.enum(Object.keys(carryStates) as [LoveCarryState,...LoveCarryState[]]),
+});
+/** 恢复不允许 mint 出一个 store 自己写不出来的形状：上限直接取 `LOVE_CARRY_CAP`。
+ *  否则一份 21–100 条的外来/改档备份落盘后，每一次新增承诺都会被「已经带了 20 句」挡掉——
+ *  那个数字在此刻是假话，而玩家没有任何办法删掉多余的那几条。 */
+export const LoveCarryListSchema=z.array(LoveCarrySchema).max(LOVE_CARRY_CAP);
+export const LoveSeriesProgressSchema=z.object({
+ completed:z.array(loveId).max(200),
+ // 空字符串是「还没玩过任何一幕」的合法值，不能按 loveId 的 min(1) 拒掉。
+ lastScene:text.max(100),outcome:z.record(loveId,loveOutcome),
+});
+/** 采集时读不出来的 slot 原文照存，一个字节都不丢（`dinnerBackup` 同口径）。 */
+const LovePlayUnreadableSchema=z.object({unreadable:text});
+const LoveCarrySlotSchema=z.union([LoveCarryListSchema,LovePlayUnreadableSchema]);
+const LoveSeriesSlotSchema=z.union([LoveSeriesProgressSchema,LovePlayUnreadableSchema]);
+export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveSeriesProgressSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
+ // 键名决定形状：线进度放进 carry 键（或反过来）形状各自都合法，写回去只会把用户的承诺清单变成空档。
+ for(const [key,slot] of Object.entries(slots)){
+  if('unreadable' in slot)continue;
+  if((key===LOVE_CARRY_KEY)!==Array.isArray(slot))ctx.addIssue({code:'custom',path:[key],message:'Love-play slot shape does not match its key'});
+ }
+});
+/** 逐 slot 复验用的形状选择器：键名前缀不对就谁都不选——导出与恢复都不越界碰别的命名空间的 slot。 */
+export function parseLovePlaySlot(key:string,value:unknown){
+ if(!key.startsWith(LOVE_PLAY_PREFIX)||key.length>140)return {success:false as const};
+ return key===LOVE_CARRY_KEY?LoveCarrySlotSchema.safeParse(value):LoveSeriesSlotSchema.safeParse(value);
+}
+

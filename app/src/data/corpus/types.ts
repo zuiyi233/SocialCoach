@@ -54,7 +54,7 @@ export interface Scenario {
   /** Romance-track topic; only set for scenarios in the romantic context (love module). */
   loveTopic?: LoveTopicId;
   /** Belongs to a multi-scene storyline (same cast or theme); play in order for the arc. */
-  series?: { id: string; name: L };
+  series?: { id: string; name: L; /** Narrative slot inside the line. Absent = fall back to corpus order. */ order?: number };
   /** Set for scenarios the user generated with /rehearse. */
   custom?: boolean;
 }

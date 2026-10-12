@@ -6,6 +6,7 @@ import { SkillTag } from "@/components/SkillBits";
 import { Shell } from "@/components/Shell";
 import { GitHubLink } from "@/components/GitHubLink";
 import { dinnerBackup, DINNER_SAVE_KEY, DINNER_LAUNCH_KEY } from "@/features/dinner/storage";
+import { clearLovePlaySlots } from "@/lib/love-carry-store";
 import { Button, Chip, Page, SectionTitle, Sheet, Switch, useToast } from "@/components/ui";
 import { useModelAccess } from "@/lib/model-access";
 import { M } from "@/lib/model-copy";
@@ -57,11 +58,14 @@ export default function Settings() {
     });
   const contexts = profile.contexts ?? [];
 
-  const exportData = () => {
+  // 备份载荷有两条导出路径（这里和恢复前的自动下载），恋爱槽必须两边都在，
+  // 否则用户在「导出数据」里拿到的文件恰好缺掉剧情线进度与他记下的那句原话。
+  const exportData = async () => {
+    const { lovePlayBackup } = await import("@/lib/backup");
     const blob = new Blob(
       [
         JSON.stringify(
-          { profile, proficiency, sessions, customScenarios, bookmarks, practiceDays, dinner3d: dinnerBackup(), avatar: { seed: settings.avatarSeed, portrait: settings.avatarPortrait, image: settings.avatarImage }, exportedAt: new Date().toISOString() },
+          { profile, proficiency, sessions, customScenarios, bookmarks, practiceDays, dinner3d: dinnerBackup(), lovePlay: lovePlayBackup(), avatar: { seed: settings.avatarSeed, portrait: settings.avatarPortrait, image: settings.avatarImage }, exportedAt: new Date().toISOString() },
           null,
           2,
         ),
@@ -260,6 +264,9 @@ export default function Settings() {
               <Row label={t(lang, "st_telemetry")} hint={t(lang, "st_telemetry_hint")}>
                 <Switch checked={settings.telemetry !== false} onChange={(v) => setSettings({ telemetry: v })} label={t(lang, "st_telemetry")} />
               </Row>
+              <Row label={t(lang, "st_love_carry")} hint={t(lang, "st_love_carry_hint")}>
+                <Switch checked={settings.loveCarry !== false} onChange={(v) => setSettings({ loveCarry: v })} label={t(lang, "st_love_carry")} />
+              </Row>
               <button
                 onClick={exportData}
                 className="press w-full flex items-center gap-3 px-4 min-h-16 py-3.5 text-left text-[14px] font-medium"
@@ -415,6 +422,9 @@ export default function Settings() {
                 byok.clear();
                 localStorage.removeItem(DINNER_SAVE_KEY);
                 localStorage.removeItem(DINNER_LAUNCH_KEY);
+                // 恋爱剧情线与承接承诺按设计不进 persist archive，store 的 reset() 碰不到它们；
+                // 承诺里存的是用户亲手打的一句话，所以「删除所有数据」必须显式覆盖这一半。
+                clearLovePlaySlots();
               } catch {toast(pick({zh:'设备未能清除数据，请保留备份并重试。',en:'Device data could not be cleared. Keep your backup and retry.'},lang));return;}
               reset();
               setConfirm(false);

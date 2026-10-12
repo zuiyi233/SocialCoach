@@ -1,9 +1,58 @@
 import {dinnerBackup} from '@/features/dinner/storage';
-import {parseArchive} from './archive';
+import {LovePlaySchema,parseArchive,parseLovePlaySlot} from './archive';
+import {LOVE_PLAY_PREFIX} from './love-carry-store';
 import {validAvatarImage} from './avatar-image';
 import {estimateProficiency} from './proficiency';
 import type {Session} from './types';
 export type Archive=ReturnType<typeof parseArchive>;
+/**
+ * 按前缀采集，将来新增的 love-play slot 不用回来改这里。
+ * 读不出 JSON 的原样留 `{unreadable}`：那是学习者唯一的副本，不能因为解析失败就当它不存在。
+ */
+export function lovePlayBackup():Record<string,unknown>|null{
+ const slots:Record<string,unknown>={};
+ try{
+  for(let i=0;i<localStorage.length;i++){
+   const key=localStorage.key(i);
+   if(!key||!key.startsWith(LOVE_PLAY_PREFIX))continue;
+   const raw=localStorage.getItem(key);
+   if(raw===null)continue;
+   try{slots[key]=JSON.parse(raw);}catch{slots[key]={unreadable:raw};}
+  }
+ }catch{return null;}
+ return Object.keys(slots).length?slots:null;
+}
+/**
+ * 正常路径就一次整表校验（键名前缀 + 每个 slot 的形状都由 `LovePlaySchema` 说了算）。
+ * 被拒才逐 slot 复验：一条坏掉的线不该让其余进度一起不能恢复。
+ * `invalid` 优先于 `unreadable`——原文没存住是意料之中，形状对不上才是要查的。
+ */
+export type LovePlayDecode={lovePlay?:Record<string,string>;lovePlayOriginal?:string;lovePlayIssue?:'unreadable'|'invalid'};
+function decodeLovePlay(value:unknown):LovePlayDecode{
+ // 旧备份没有这个字段：一个键都不加，解码结果与引入本字段之前逐字一致。
+ if(value===undefined||value===null)return {};
+ const restored:Record<string,string>={};
+ const entries=value&&typeof value==='object'&&!Array.isArray(value)?Object.entries(value as Record<string,unknown>):null;
+ let invalid=entries===null,unreadable=false;
+ if(entries){
+  const whole=LovePlaySchema.safeParse(value);
+  if(whole.success)for(const [key,slot] of Object.entries(whole.data)){
+   if('unreadable' in slot){unreadable=true;continue;}
+   restored[key]=JSON.stringify(slot);
+  }
+  else for(const [key,slot] of entries){
+   const parsed=parseLovePlaySlot(key,slot);
+   if(!parsed.success){invalid=true;continue;}
+   if('unreadable' in parsed.data){unreadable=true;continue;}
+   restored[key]=JSON.stringify(parsed.data);
+  }
+ }
+ return {
+  lovePlay:Object.keys(restored).length?restored:undefined,
+  lovePlayOriginal:invalid||unreadable?JSON.stringify(value):undefined,
+  lovePlayIssue:invalid?'invalid':unreadable?'unreadable':undefined,
+ };
+}
 export async function decodeBackup(text:string){
  if(text.length>20*1024*1024)throw new Error('backup-size');
  const raw=JSON.parse(text) as Record<string,unknown>;
@@ -26,7 +75,7 @@ export async function decodeBackup(text:string){
    dinnerIssue=unreadable?'unreadable':'invalid';
   }
  }
- return {archive,dinner,dinnerOriginal,dinnerIssue};
+ return {archive,dinner,dinnerOriginal,dinnerIssue,...decodeLovePlay(raw.lovePlay)};
 }
 /** Different records sharing an ID are ambiguous. Preserve both input files
  * and require explicit replacement rather than silently choosing a branch. */
@@ -38,5 +87,5 @@ export function mergeArchives(current:Archive,incoming:Archive):Archive{
  return {...current,profile:current.profile??incoming.profile,sessions,customScenarios:combine(current.customScenarios,incoming.customScenarios),bookmarks:[...new Set([...current.bookmarks,...incoming.bookmarks])],practiceDays:[...new Set([...current.practiceDays,...incoming.practiceDays])],proficiency:estimateProficiency(sessions as Session[],{...incoming.proficiency,...current.proficiency}),patternInsight:null};
 }
 export function downloadArchive(archive:Archive){
- const url=URL.createObjectURL(new Blob([JSON.stringify({state:archive,version:0,dinner3d:dinnerBackup()},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`socialcoach-before-restore-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ const url=URL.createObjectURL(new Blob([JSON.stringify({state:archive,version:0,dinner3d:dinnerBackup(),lovePlay:lovePlayBackup()},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`socialcoach-before-restore-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }

@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { Lang, L } from "@/data/taxonomy";
 import type { Scenario, Character } from "@/data/corpus/types";
 import type { ChatMessage } from "@/lib/types";
-import { npcsOf } from "@/lib/session-utils";
 import { AvatarFigure } from "@/data/avatars";
 import { scenarioIconName } from "@/data/scenario-icons";
 import { uid } from "@/lib/format";
@@ -18,12 +17,6 @@ export function scenarioTone(scenario: Scenario) {
   if (["heart", "heart-crack", "coffee", "moon", "wine"].includes(icon)) return "rose";
   if (["split", "clock", "calendar-x", "clipboard-list", "package", "scale", "briefcase", "battery-low"].includes(icon)) return "olive";
   return "teal";
-}
-
-/** 本回合配音的角色：后端固定用开场人，缺省取第一个非学习者角色。 */
-export function speakerOf(scenario: Scenario, learnerId: string) {
-  const npcs = npcsOf(scenario, learnerId);
-  return npcs.find((c) => c.id === scenario.opening.characterId) ?? npcs[0] ?? scenario.characters[0];
 }
 
 /** 场景开场作为第一条 NPC 台词（本地展示 + 进历史，与 Chat 的开场一致）。 */
@@ -95,10 +88,8 @@ function portraitSrcOf(manifest: LovePortraitManifest | null, characterId: strin
   return file ? `/love-portraits/${file}` : null;
 }
 
-/** 立绘台：角色有 AI 生成的 PNG 立绘（manifest 命中）就用竖版立绘；否则回退 SVG 占位。
- *  emphasize 用于 hidden 揭示回合：把说话人轻微推近（scale 1.06+）并加一圈 rose 描边，
- *  只影响视觉，不碰立绘管线与表情判定。 */
-export function AvatarStand({ character, lang, emotion, active, emphasize = false, size = 216 }: { character: Character; lang: Lang; emotion: LovePlayEmotion; active: boolean; emphasize?: boolean; size?: number }) {
+/** manifest 读一次给多个组件用：立绘台与恋爱首页的跟进卡都要同一份角色表。 */
+function usePortraitManifest(): LovePortraitManifest | null {
   const [manifest, setManifest] = useState<LovePortraitManifest | null>(null);
   useEffect(() => {
     let alive = true;
@@ -109,6 +100,28 @@ export function AvatarStand({ character, lang, emotion, active, emphasize = fals
       alive = false;
     };
   }, []);
+  return manifest;
+}
+
+/**
+ * 跟进卡用：按 character id 取那张立绘与它的主色，manifest 没这个角色（例如自定义排练里
+ * 的人物）就返回 null，调用方回退 AvatarFigure。
+ * **只有图按 id 取**：卡片上「这是谁说的」永远读存储里那份 `npcName` 快照——语料里 `tess`
+ * 同时是两个人，按 id 反查会把承诺安到错误的人头上，而图本来就是同一个人共享的。
+ */
+export function useLovePortrait(characterId: string): { src: string | null; hue: number } {
+  const manifest = usePortraitManifest();
+  return {
+    src: portraitSrcOf(manifest, characterId, "neutral"),
+    hue: manifest?.characters[characterId]?.hue ?? 40,
+  };
+}
+
+/** 立绘台：角色有 AI 生成的 PNG 立绘（manifest 命中）就用竖版立绘；否则回退 SVG 占位。
+ *  emphasize 用于 hidden 揭示回合：把说话人轻微推近（scale 1.06+）并加一圈 rose 描边，
+ *  只影响视觉，不碰立绘管线与表情判定。 */
+export function AvatarStand({ character, lang, emotion, active, emphasize = false, size = 216 }: { character: Character; lang: Lang; emotion: LovePlayEmotion; active: boolean; emphasize?: boolean; size?: number }) {
+  const manifest = usePortraitManifest();
   const portraitSrc = portraitSrcOf(manifest, character.id, emotion);
   const highlight = emphasize && active;
   const ring = "0 0 0 3px color-mix(in oklch, var(--rose) 55%, transparent)";

@@ -499,6 +499,34 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **解法：** 额度 2→3，让预算与代码声明的修复链一致。补这一次不违反「已经显示的台词不能改写成另一份证据」：失败样本的 `streamedChars` 全是 0；深度档实测有 2/5 失败发生在台词已露出之后，那类由 `roleplay.ts:113` 直接拒绝，加额度也不会把它们变成可重写。
 - **教训：** 有界重试的额度要按 `1 次主调用 + N 次修复` 与循环上限逐条核对。「看起来有两次重试」和「实际只跑得成一次」的区别只有在失败样本里才看得见。
 
+### 同步调用 getVoices() 会把每场练习的第一句交给默认音色（2026-10-13）
+
+- **现象：** 角色台词在**每场的第一句**经常不是预期音色，从第二句起又正常。文字对练、3D 饭局、恋爱模式三条链路一起命中，因为它们共用 `lib/speech.ts`。
+- **原因：** `speechSynthesis.getVoices()` 在所有引擎上都是异步填充的——Chrome 的网络音色表、Safari、Electron 首次同步调用都返回空数组或残缺列表。`deviceSpeech()` 原先直接同步 `getVoices().filter(...)` 再挑 `localService`，第一句于是落到 `u.voice = null`，由浏览器默认音色接手；等第二句时表已经填好，故障「自己好了」，所以一直没人当缺陷记。
+- **解法：** 音色表缓存在模块级，注册一次 `voiceschanged` 监听刷新，取音色前再补一次同步读；仍然为空时按「没有指定音色」走（原代码本就容忍 `null`）。见 `app/src/lib/speech.ts` 的 `pickDeviceVoice()` / `readVoices()`。
+- **教训：** 凡是「第一次不对、后面正常」的浏览器现象，第一嫌疑是没被监听的异步缓存。写 Web API 时先问这个 getter 有没有配套的 `*changed` 事件，而不是先加延迟或重试。
+
+### Chrome 把长 utterance 掐在 15 秒且不报错，看门狗只会把它变成静默（2026-10-13）
+
+- **现象：** 设备音色念长台词念到一半就没声音了，既没有 `onend` 也没有 `onerror`；45 秒看门狗最后把它 cancel 掉，用户听到的是一段突然的沉默，而且这句台词在队列里占着后面所有句。
+- **原因：** 桌面 Chrome 的预置（网络）音色有 ~15 秒硬截断且不发事件（Chromium issue 41346274，2026 年仍未修）。自然音色那条路早就靠 `speech-synthesis.ts` 的 `text ≤ 500` 与首声 3.5 秒期限兜住，唯独**退化到设备音色时**没有任何长度控制。
+- **解法：** `speech-playback.ts` 新增 `deviceChunks()`：设备音色按句末边界切块依序朗读，看门狗改为**逐块重新计时**，`onStart` 只在首块触发（3D 的口型同步依赖这个时机语义）。切块必须无损——`deviceChunks(t).join("")` 保留 `t` 的每个非空白字符，这条由 `tests/core/speech-playback.test.ts` 断言，因为分句逻辑出错等于**吞台词**。
+- **教训：** 看门狗只让失败可结束，不让失败可察觉；超时之外还要问「这段内容在引擎的舒适区里吗」。另外 `pause()/resume()` 在 Android 各引擎上会把朗读**直接结束**而不是暂停，`deviceSpeech` 里那个 `paused` 标志加不停表的写法是必需的，不要顺手改成依赖引擎 pause。
+
+### 「不进 persist 存档」把导出和擦除两条义务转嫁给了每个新 slot（2026-10-13）
+
+- **现象：** 设置页「重置全部数据」跑完之后，`socialcoach.love-play.*` 仍然留在 localStorage 里，包括用户在这批新功能中**亲手打下的那句承诺**。同一批还发现另一半缺口：导出载荷只有 `{state, dinner3d}`，恋爱剧情线进度从来没被带走得过——即「练过什么、答应过什么」在「可导出」这条红线上是漏的，在「可删除」上也是漏的。
+- **原因：** 恋爱进度按 `love-series-progress.ts:3` 的设计**故意**不进 store（避开 persist 版本迁移），于是 `reset()` 天然覆盖不到它；而重置处理器只显式删了 dinner 的两个 key。决定「用独立 slot」的那一刻就同时产生了两条新义务——**它怎么被带走**和**它怎么被删掉**——两条都在做 slot 时没人想起来写。dinner 之所以没露馅，只因为它把两条都补过（`dinnerBackup()` + `localStorage.removeItem(DINNER_SAVE_KEY)`）。
+- **解法：** 前缀只有一个拥有者：`LOVE_PLAY_PREFIX` / `LOVE_CARRY_KEY` 由 `love-carry-store.ts` 导出，`archive.ts`（校验）与 `backup.ts`（导出扫描）都引它，不再各写一份字符串；导出加 `lovePlayBackup()` 按前缀扫，两条导出路径（`downloadArchive()` 与设置页 `exportData()`）都带上；擦除加 `clearLovePlaySlots()` 并接进重置；`love-play-archive.test.ts` 同时断言「两个 slot 都被删干净」和「不越界删到 `socialcoach.dinner`」。
+- **教训：** 新增一个不进主存档的设备端 slot，那个 PR 就要把 **读写 / 导出 / 擦除** 三件事一起交付，缺一件就是数据事故而不是风格问题。另外别给这类函数加 `typeof window` 守卫——本仓对只碰 `localStorage` 的库函数（`dinnerBackup()`）的口径是 try/catch；加了守卫，它在 node 测试里直接返回 0，等于把擦除函数写成静默 no-op 而测试还是绿的。
+
+### Next 16 的错误码帧会在多字节中文上 panic，直接把 dev server 带走（2026-10-13）
+
+- **现象：** 编辑一个中文注释密集的文件（`app/src/app/settings/page.tsx`）期间，dev 服务器不是报编译错而是**整个进程消失**，页面变成 `ERR_CONNECTION_REFUSED`、端口上再无监听。日志尾部是一条 Rust panic：`next-code-frame/src/highlight.rs: end byte index 93 is not a char boundary; it is inside '档' (bytes 91..94)`，而它前面最后一次编译仍是 `✓ Compiled`。
+- **原因：** Next 16.3.8 的错误浮层渲染 code frame 时按**字节偏移**切字符串，行宽换算与多字节字符边界不一致；只要被高亮那一行里有一个中文字，切片就会落在字符中间并 panic。本仓几乎每个文件都有中文注释与中文文案，等于每条诊断都在射程内。上游 [vercel/next.js#92641](https://github.com/vercel/next.js/issues/92641) 仍未修（另一条 [#98714](https://github.com/vercel/next.js/issues/98714) 关闭时标签是 `invalid link`，不是 fixed）。
+- **解法：** 当环境事实处理：dev 服务器「无故消失」时先读日志尾部有没有 panic，有就重启，不要回头回滚刚做的改动；本次重启后同一批文件继续正常编译与热更。需要定位问题时看终端日志与 `pnpm check` 输出，别依赖浮层。升 Next 版本时顺手确认这条是否已修。
+- **教训：** 中文注释密度极高的仓库对「按字节切字符串」的诊断代码是天然触发器。**开发工具的崩溃路径不属于产品回归**：`pnpm check` / `pnpm build` 走的是另一条代码路径，它们全绿不能证明 dev 浮层安全，反过来 dev 崩了也不能推断代码有问题。
+
 ### 把某一台网关的模型行为写成长期产品事实（2026-10-12）
 
 - **现象：** 两条记录一直在指导档位设计。`src/lib/tasks/assessment-check.ts:42` 写着「sensenova 开着推理时复盘事实核验更差：裁决落在 reasoning 文本里，`extractJSON` 拿不到东西」；backlog 写着「共享池换到这档模型后排程与回合的契约失败率明显高于 DeepSeek 档」。

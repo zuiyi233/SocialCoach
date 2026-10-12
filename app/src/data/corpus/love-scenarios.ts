@@ -275,6 +275,7 @@ export const LOVE_SCENARIOS: Scenario[] = [
   },
   {
     id: "love-long-distance",
+    series: { id: "love-arc-long-distance", name: L("两座城市，八种异地", "Two Cities, Eight Ways to Be Apart"), order: 1 },
     title: L("异地恋里没人回的消息", "The Unanswered Message in a Long-Distance Relationship"),
     hook: L("你上午发的消息，他凌晨才回：「刚下班。先睡了。」", "Your message from this morning gets one reply at 1am: ’Just off work. Going to sleep.’"),
     background: L(
@@ -502,6 +503,7 @@ export const LOVE_SCENARIOS: Scenario[] = [
   },
   {
     id: "love-ld-routine",
+    series: { id: "love-arc-long-distance", name: L("两座城市，八种异地", "Two Cities, Eight Ways to Be Apart"), order: 3 },
     title: L("每天都视频，却越来越没话说", "Nightly Video Calls, Nothing Left to Say"),
     hook: L("三年来每晚的视频，今晚又只剩「吃了没」「今天忙吗」，然后沉默。", "Three years of nightly calls — tonight again it’s ‘ate yet?’, ‘busy day?’, then silence."),
     background: L(
@@ -552,6 +554,7 @@ export const LOVE_SCENARIOS: Scenario[] = [
   },
   {
     id: "love-ld-visit-plan",
+    series: { id: "love-arc-long-distance", name: L("两座城市，八种异地", "Two Cities, Eight Ways to Be Apart"), order: 6 },
     title: L("异地见面的计划，总是对不上", "A Visit That Never Lines Up"),
     hook: L("假期天数是固定的，你们要的日期对不上——谁都不肯先松口。", "The holiday days are fixed; the dates you each want don’t overlap — and neither will bend first."),
     background: L(

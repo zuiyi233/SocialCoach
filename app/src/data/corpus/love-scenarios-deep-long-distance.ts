@@ -10,6 +10,7 @@ import type { Scenario } from "./types";
 export const LOVE_SCENARIOS_DEEP_LONG_DISTANCE: Scenario[] = [
   {
     id: "love-ld-milestone-remote",
+    series: { id: "love-arc-long-distance", name: L("两座城市，八种异地", "Two Cities, Eight Ways to Be Apart"), order: 2 },
     title: L("纪念日在两个城市", "An Anniversary in Two Cities"),
     hook: L("今天是你们的纪念日，你们在两个城市，视频里的祝福总差一口气。", "It's your anniversary today — two cities apart, and a video-call wish feels a beat short."),
     background: L(
@@ -60,6 +61,7 @@ export const LOVE_SCENARIOS_DEEP_LONG_DISTANCE: Scenario[] = [
   },
   {
     id: "love-ld-low-mood-remote",
+    series: { id: "love-arc-long-distance", name: L("两座城市，八种异地", "Two Cities, Eight Ways to Be Apart"), order: 4 },
     title: L("隔着屏幕的低谷", "A Low Day Across the Screen"),
     hook: L("她面试被拒的第二天，视频里眼眶红红的，还在笑着说「没事」。", "The day after her interview flopped, her eyes are red on the call and she's smiling through an 'I'm fine'."),
     background: L(
@@ -110,6 +112,7 @@ export const LOVE_SCENARIOS_DEEP_LONG_DISTANCE: Scenario[] = [
   },
   {
     id: "love-ld-social-media-rumor",
+    series: { id: "love-arc-long-distance", name: L("两座城市，八种异地", "Two Cities, Eight Ways to Be Apart"), order: 5 },
     title: L("一条动态引发的追问", "A Post, Then the Questions"),
     hook: L("你发了一张和异性朋友的合照，没提前告诉她；当晚视频就弹了过来。", "You post a photo with a friend of the opposite sex, without telling her first; the video call pops up that very night."),
     background: L(
@@ -160,6 +163,7 @@ export const LOVE_SCENARIOS_DEEP_LONG_DISTANCE: Scenario[] = [
   },
   {
     id: "love-ld-fight-over-phone",
+    series: { id: "love-arc-long-distance", name: L("两座城市，八种异地", "Two Cities, Eight Ways to Be Apart"), order: 8 },
     title: L("电话里吵崩之后", "The Call That Ended in a Hang-Up"),
     hook: L("你话还没说完，那头就挂了。再打过去，只有忙音和一条冷冰冰的「睡了」。", "The line dies mid-sentence. You call back: busy tone, then one cold text — 'going to sleep.'"),
     background: L(
@@ -210,6 +214,7 @@ export const LOVE_SCENARIOS_DEEP_LONG_DISTANCE: Scenario[] = [
   },
   {
     id: "love-ld-visit-plan-hard",
+    series: { id: "love-arc-long-distance", name: L("两座城市，八种异地", "Two Cities, Eight Ways to Be Apart"), order: 7 },
     title: L("第三次落空的见面", "The Visit That Fell Through — Again"),
     hook: L("见面已经推迟过两次，这次又临时落空。你低声说了一句「你说了算」，空气冻住了。", "The visit already got postponed twice; this time it collapses at the last minute. You mutter 'whatever you say', and the air freezes."),
     background: L(
