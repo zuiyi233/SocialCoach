@@ -1,0 +1,11 @@
+{
+  "entry": "https://modelscope.cn/studios/GeminiLight/SocialCoach?mode=full",
+  "publicIframe": true,
+  "width": 375,
+  "lang": "zh",
+  "theme": "dark",
+  "comparisonRows": 1,
+  "previousTranscript": true,
+  "errors": [],
+  "fixture": "Synthetic records; app API and telemetry intercepted. Platform APIs remain available."
+}

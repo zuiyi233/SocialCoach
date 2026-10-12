@@ -1,0 +1,19 @@
+✔ a repeated scene compares two genuine learner quotations before any rating interpretation (0.934333ms)
+✔ the nearest earlier eligible practice is selected without rewriting historical records (0.166292ms)
+✔ same and lower estimates remain visible rather than manufacturing improvement (0.1455ms)
+✔ NPC text, missing quotation and unrelated skills cannot support a comparison (0.186542ms)
+✔ a changed NPC information boundary does not silently become the same practice conditions (0.086583ms)
+✔ changed identity, difficulty, briefing, goals and scene facts are not treated as equal conditions (0.507333ms)
+✔ one 3D practice and its continuation are excluded; a different opening is also excluded (0.130292ms)
+✔ latest snapshot of the earlier 3D practice supplies its own evidence (0.075917ms)
+✔ legacy, unfinished, unscored and duplicate skill ratings are excluded (0.084166ms)
+✔ imported finite but unrenderable dates cannot crash the comparison view (0.090166ms)
+✔ accepted padded quotations still locate the exact learner line without modifying the report (0.073417ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 197.943

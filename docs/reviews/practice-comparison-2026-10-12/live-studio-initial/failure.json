@@ -1,0 +1,7 @@
+{
+  "message": "Error: Command failed: agent-browser --session socialcoach-comparison-66317 --json wait --fn document.querySelector('#review-comparison')!==null",
+  "page": {
+    "text": "未知错误",
+    "url": "https://www.modelscope.cn/studios/GeminiLight/SocialCoach?mode=full&app_path=%2Fpractice%2Fcomparison-current"
+  }
+}

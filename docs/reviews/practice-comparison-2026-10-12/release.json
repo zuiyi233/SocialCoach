@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-12",
+  "sourceCommit": "53777513d828b02003f4240d3549d764c459f6c5",
+  "mergedPRs": [
+    31,
+    32,
+    33
+  ],
+  "quality": {
+    "core": 77,
+    "dinner": 256,
+    "comparison": 11,
+    "passed": true
+  },
+  "vercel": {
+    "id": "dpl_24khXyV813ziGsYbx6S1rjdubaVo",
+    "url": "socialcoach-b7fwu4ap3-geminilights-projects.vercel.app",
+    "readyState": "READY",
+    "target": "production",
+    "aliases": [
+      "socialcoach-ai.vercel.app",
+      "socialcoach-app.vercel.app",
+      "socialcoach-geminilights-projects.vercel.app",
+      "socialcoach-git-main-geminilights-projects.vercel.app"
+    ]
+  },
+  "modelscope": {
+    "source": "53777513d828b02003f4240d3549d764c459f6c5",
+    "studioCommit": "974f3143dfd36aa2e50b2696a923455189c5d8b0",
+    "files": 427,
+    "deployAccepted": true,
+    "status": "Running",
+    "runtimeStatus": "Running",
+    "createdAt": "2026-10-11T19:11:12.000Z",
+    "hardware": "platform/2v-cpu-16g-mem",
+    "visibility": "public"
+  },
+  "validation": {
+    "mainMatrix": 9,
+    "studioPublicIframe": true,
+    "fixturesOnly": true,
+    "realDeviceTested": false,
+    "userEffectMeasured": false
+  }
+}

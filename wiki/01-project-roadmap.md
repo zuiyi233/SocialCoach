@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-06 | Current stage: B -->
+<!-- Last verified: 2026-10-12 | Current stage: E -->
 
 # 项目路线图
 
@@ -10,8 +10,20 @@
 | B | 定位与对外物料 | 🚧 In Progress | [11-stage-b](./11-stage-b.md) |
 | C | 可索引化与 GEO | 📋 Planned | [12-stage-c](./12-stage-c.md) |
 | D | 发布与增长 | 📋 Planned | — 尚未开卡 |
+| E | 持续练习与可验证成长 | 🚧 In Progress | [13-stage-e](./13-stage-e.md) |
+
+## 阶段性更新
+
+每周六 14:00（北京时间）复盘当前交付、提出三个候选并推荐一个重点。产品更新按可靠练习 → 原话对照 → 关键回合重练 → 单场景精修 → 获客入口推进，以验收结果调整次序。→ [阶段计划](./13-stage-e.md)
 
 ## 功能索引
+
+### Stage E — 持续练习与可验证成长
+
+| # | 功能 | 状态 | 备注 |
+|---|---|---|---|
+| E1 | 最新主线可靠性复核 | ✅ 相关回归通过 | 已修档案 / 密钥 / 额度 / 输出边界复测；真机与用户效果继续跟踪 |
+| E2 | 同条件独立重练的原话对照 | ✅ 双站已发布 | 333 项核心 / 3D（含 11 项对照）、主站 9 组与国内公开嵌入页验收；真机 / 用户效果待验 → [规格](./archive/specs/spec-practice-comparison.md)、[验收](./reviews/review-2026-10-12-practice-comparison.md) |
 
 ### Stage A — 产品与语料建成
 

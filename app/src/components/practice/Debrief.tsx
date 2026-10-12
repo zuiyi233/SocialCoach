@@ -29,6 +29,7 @@ import {SceneReview,sceneReviewCopy} from './SceneReview';
 import {TranscriptReader} from './TranscriptReader';
 import {ReviewSplit} from './ReviewSplit';
 import {OriginalAims} from './OriginalAims';
+import {PracticeComparison,comparisonCopy} from './PracticeComparison';
 import {hasQuote} from '@/lib/practice-policy';
 import dynamic from 'next/dynamic';
 import {defaultShareCard} from '@/lib/share-card';
@@ -352,6 +353,7 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
 
         {!streaming && (
           <nav aria-label={t(lang, "rp_reading_guide")} className="review-index sticky top-0 z-10 flex gap-1 overflow-x-auto bg-paper py-2 border-y border-line">
+            <a href="#review-comparison" className="press shrink-0 inline-flex items-center justify-center rounded-full px-3 min-h-11 text-[13px] text-ink-2 hover:bg-inset">{pick(comparisonCopy.tab,lang)}</a>
             {[
               { id: "review-strengths", label: "rp_strengths" as const, show: strengths.length > 0 },
               { id: "review-weaknesses", label: "rp_weaknesses" as const, show: weaknesses.length > 0 },
@@ -370,6 +372,8 @@ function ReportView({ session, report, streaming, onAgain }: { session: Session;
             <p className="text-[13px] leading-relaxed">{t(lang, "rp_repeat_note")}</p>
           </section>
         )}
+
+        {!streaming && <PracticeComparison session={session} />}
 
         {(session.stanceTrail?.length ?? 0) > 0 && (
           <Section title={t(lang, "rp_map_title")}>

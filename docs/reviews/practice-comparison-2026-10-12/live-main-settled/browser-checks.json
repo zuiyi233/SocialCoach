@@ -1,0 +1,143 @@
+[
+  {
+    "lang": "zh",
+    "theme": "light",
+    "width": 375,
+    "quotations": true,
+    "sourceTranscripts": true,
+    "previousReview": true,
+    "refresh": true,
+    "preservedArchive": true,
+    "noOverflow": true,
+    "a11y": {
+      "inapplicable": 48,
+      "incomplete": 0,
+      "passes": 11,
+      "violations": 0
+    }
+  },
+  {
+    "lang": "zh",
+    "theme": "light",
+    "width": 1440,
+    "quotations": true,
+    "sourceTranscripts": true,
+    "previousReview": true,
+    "refresh": true,
+    "preservedArchive": true,
+    "noOverflow": true,
+    "a11y": {
+      "inapplicable": 48,
+      "incomplete": 0,
+      "passes": 11,
+      "violations": 0
+    }
+  },
+  {
+    "lang": "zh",
+    "theme": "dark",
+    "width": 375,
+    "quotations": true,
+    "sourceTranscripts": true,
+    "previousReview": true,
+    "refresh": true,
+    "preservedArchive": true,
+    "noOverflow": true,
+    "a11y": {
+      "inapplicable": 48,
+      "incomplete": 0,
+      "passes": 11,
+      "violations": 0
+    }
+  },
+  {
+    "lang": "zh",
+    "theme": "dark",
+    "width": 1440,
+    "quotations": true,
+    "sourceTranscripts": true,
+    "previousReview": true,
+    "refresh": true,
+    "preservedArchive": true,
+    "noOverflow": true,
+    "a11y": {
+      "inapplicable": 48,
+      "incomplete": 0,
+      "passes": 11,
+      "violations": 0
+    }
+  },
+  {
+    "lang": "en",
+    "theme": "light",
+    "width": 375,
+    "quotations": true,
+    "sourceTranscripts": true,
+    "previousReview": true,
+    "refresh": true,
+    "preservedArchive": true,
+    "noOverflow": true,
+    "a11y": {
+      "inapplicable": 48,
+      "incomplete": 0,
+      "passes": 11,
+      "violations": 0
+    }
+  },
+  {
+    "lang": "en",
+    "theme": "light",
+    "width": 1440,
+    "quotations": true,
+    "sourceTranscripts": true,
+    "previousReview": true,
+    "refresh": true,
+    "preservedArchive": true,
+    "noOverflow": true,
+    "a11y": {
+      "inapplicable": 48,
+      "incomplete": 0,
+      "passes": 11,
+      "violations": 0
+    }
+  },
+  {
+    "lang": "en",
+    "theme": "dark",
+    "width": 375,
+    "quotations": true,
+    "sourceTranscripts": true,
+    "previousReview": true,
+    "refresh": true,
+    "preservedArchive": true,
+    "noOverflow": true,
+    "a11y": {
+      "inapplicable": 48,
+      "incomplete": 0,
+      "passes": 11,
+      "violations": 0
+    }
+  },
+  {
+    "lang": "en",
+    "theme": "dark",
+    "width": 1440,
+    "quotations": true,
+    "sourceTranscripts": true,
+    "previousReview": true,
+    "refresh": true,
+    "preservedArchive": true,
+    "noOverflow": true,
+    "a11y": {
+      "inapplicable": 48,
+      "incomplete": 0,
+      "passes": 11,
+      "violations": 0
+    }
+  },
+  {
+    "threeDComparison": true,
+    "continuationExcluded": true,
+    "lowerEstimateVisible": true
+  }
+]

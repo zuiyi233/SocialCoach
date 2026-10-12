@@ -1,0 +1,7 @@
+{
+  "message": "Error: Command failed: agent-browser --session socialcoach-comparison-83410 --json wait --fn document.querySelectorAll('#review-comparison article').length===1",
+  "page": {
+    "text": "SocialCoach\n暂时无法连接\n\n已保存的练习记录仍在这台设备上。连接网络后重新打开即可，无需清除数据。\n\n重新打开\nEnglish",
+    "url": "https://socialcoach-ai.vercel.app/practice/comparison-current"
+  }
+}

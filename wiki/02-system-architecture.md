@@ -70,6 +70,8 @@ SocialCoach/
 
 ## 数据流
 
+2026-10-12：复盘内 `PracticeComparison` 从设备上的 `sessions` 派生同条件、独立场次的原话对照；`lib/practice-comparison.ts` 核验各场 learner 引文、评分格式与历史时间，3D 按 `practiceId` 去重。复用完整对话阅读器，不新增模型请求、接口、持久化字段或统计事件。→ [阶段与边界](./13-stage-e.md)
+
 一轮练习是一条单向链，客户端在 `useApp` 里累积 `Session`：
 
 ```
