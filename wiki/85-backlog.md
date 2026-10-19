@@ -4,7 +4,9 @@
 
 ## 恋爱承接 P0–P4 落地后剩下的账（2026-10-13）
 
-按 [评审 §10](./reviews/review-2026-10-13-love-companionship.md) 的四步一次做完（语音欠债 → 一句开场承接 → 结构化承诺对象 → 异地编线 → 台词库回访）。**注意：评审原本把 P3/P4 排在 P1 验证之后，这次是按「全做完」的指令越过闸门的，P1 的停止信号仍然有效**——玩家没感觉到承接，就该停的是整条方向，不是代码已经写了所以算投资。
+按 [评审 §10](./reviews/review-2026-10-13-love-companionship.md) 的四步一次做完（语音欠债 → 一句开场承接 → 结构化承诺对象 → 异地编线 → 台词库回访）。
+
+> 2026-10-20：以下条目已并入 [GALGAME 基本盘规格](./specs/spec-love-galgame-foundation.md) 的 G01–G24（`tess` → G01，speaker 双实现 → G02，双 builder → G03，slot/A21 → G04，按人配音 → G07，真机语音 → §8.3）。本段保留原始上下文，不再单独派工。**注意：评审原本把 P3/P4 排在 P1 验证之后，这次是按「全做完」的指令越过闸门的，P1 的停止信号仍然有效**——玩家没感觉到承接，就该停的是整条方向，不是代码已经写了所以算投资。
 
 - [ ] **`tess` 是两个不同的人共用一个 id**：`love-approach-hobby-event` 里的兴趣活动陌生人与 `love-ld-social-media-rumor` 里的异地伴侣同名同 id，立绘 manifest 按 id 取图，于是同一张脸（4 张表情 + hue 300/92）演两个人；两条线现在在恋爱主页同时可见。改名会让其中一方退回 SVG 占位，属于内容生产（要重出立绘），不在本批。**承接与回访一律用捕获当时存下的 `npcName` 快照，绝不按 `npcId` 反查角色**——这条已由 `love-carry-store.ts` 与跟进卡实现，后续任何 NPC 归属都要遵守。
 - [ ] **`leadingNpc()`（`lib/tasks/love-play.ts`，服务端）与 `speakerOf()`（`lib/session-utils.ts`，客户端）是同一逻辑的两份实现**。客户端用它决定承接挂在谁身上，服务端用它决定模型给谁配音；只改一边就会出现「A 的话由 B 来记得」。要么合并，要么加一条两侧一致断言。
@@ -14,6 +16,20 @@
 - [ ] **恋爱模式的角色台词没有按人配音**：`Character` 类型没有 `feminine` / `age`，`playNpcLine` 只能走默认音色（与文字练习同口径）。50 个角色 4 表情的立绘都在，唯独声音是同一个。
 - [ ] **语音需要真机自测**：内嵌浏览器没有可见视口也没有可用的 `speechSynthesis` / 麦克风设备，按 `project-device-verification-limits` 那条口径，这项**不能用模拟视口销账**。待用户真机验：开场白是否出声、iOS 首次手势解锁、麦克风授权与拒绝文案、朗读中按麦克风是否会把 TTS 念回去、长台词分块后是否还有断句。
 
+
+## GALGAME 基本盘 + Rio 六幕（2026-10-20，方案已写，未开工）
+
+需求与验收见 [spec-love-galgame-foundation.md](./specs/spec-love-galgame-foundation.md) 和 [spec-love-rio-route.md](./specs/spec-love-rio-route.md)。这一批把**存档、回想、外部 TTS 配音**与引擎债清单一起处理；完整的 G01–G24 表在 foundation spec §6，这里只列执行顺序。**P1 停止信号仍然有效**：玩家没感觉到承接，停的是整条方向，不是「基本盘做完就该继续加幕」。
+
+- [ ] P0 身份/声线前置：G01 `characterKey`（`tess` 撞 id）、G02 speaker 单一实现、G07 `LOVE_VOICES` + `speak(..., speaker)` 透传
+- [ ] P0 记录/存档：G14 不再写空壳练习 Session、G15 `LoveStoryStore`、G21 统计改读 records、G23 `historyFor` 排除
+- [ ] P0 数据正门：G03 一个 `buildBackupPayload()`、G05 story slot 校验/恢复、G04 跨标签/raw 保留、G16 reset 收口
+- [ ] P1 引擎：G08 请求 generation、G09 承接纯读、G20 承诺逐字、G10 系列 v2、G12 `ended`/`terminal`/`maxTurns`、G22 每幕承接/order
+- [ ] P1 测试闸门：G11 不写分、G13 回归
+- [ ] 存档/续玩 + 回想 sheet + 单句重播
+- [ ] 外部 TTS 配音同步 + 54/63 声线覆盖 + 真机清单
+- [ ] Rio 第 4 幕 + 3–5 人试玩闸门；通过后才写第 5–6 幕与两结局
+- [ ] 下批/只记录：G06 其他 NPC 承接台词、G17 `extractJSON`、G18 `retryAt`/响应校验、G19 `parseRoleplay`、G24 非 series 入口
 
 ## 在场层：承诺—回访—触达通道（2026-10-13，方案已写，未开工）
 

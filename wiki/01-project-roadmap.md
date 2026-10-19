@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-12 | Current stage: E -->
+<!-- Last verified: 2026-10-20 | Current stage: E -->
 
 # 项目路线图
 
@@ -29,6 +29,8 @@
 | E5 | 让急需的人找到入口 | 📋 Planned | 一个有反馈支持的主题 + 官网预览 + 对应文字 / 3D / 视频，与 C / D 联动 → [阶段表](./13-stage-e.md) |
 | E6 | 在场层：承诺—回访—触达通道 | 📋 方案已完成，未开工 | 2026-10-13 单列，原打算并入 E3 已改出。第一节零新基础设施（承诺对象 + 首页 3 秒回访），第二节通道抽象且 Web Push 只留空实现 → [规格](./specs/spec-presence-layer.md)、[差异研究](./reviews/review-2026-10-13-presence-layer-diff.md) |
 | E7 | 恋爱承接：跨幕记忆与承诺回访 | ✅ 本地实现，线上未发布 | P0 love-play 语音（TTS + 麦克风）/ P1 一句开场承接 / P2 结构化承诺对象（只收用户自己打的那句）/ P3 异地 8 场编线并给 `series` 加显式 `order` / P4 台词库回访卡（提问路径零模型调用）。**评审 §10.1 本把 P3/P4 排在 P1 验证之后，本批按「全做完」的指令越过闸门，P1 的停止信号（玩家没感觉到 → 整条方向不成立）仍未销账**；语音项按真机自测清单销账，不得用模拟视口 → [验收依据](./reviews/review-2026-10-13-love-companionship.md)、[落地记录](./reviews/review-2026-10-13-love-companionship.md#11-实施记录2026-10-13)、[待办](./85-backlog.md) |
+| E8 | GALGAME 基本盘：存档、回想、外部 TTS 与引擎债 | 📋 方案已写，未开工 | 幕内自动存档/续玩 + 回想 + 按角色外部 TTS 同步；先修 G01/G02/G07、G14/G15、G03/G05/G04/G16、G10/G12/G22 等前置。**P1 停止信号仍有效**；语音真机项不得用模拟视口销账 → [规格](./specs/spec-love-galgame-foundation.md) |
+| E9 | Rio 六幕 vertical slice 与关系账本 | 📋 方案已写，未开工（第 4 幕后有 3–5 人试玩闸门） | 3 幕扩到 6 幕、`RioRelationshipState`、E1「说清楚」/E2「体面收场」两个事实谓词结局、前 3 幕复用清单与验收；**玩家说不出哪一幕改变了第 6 幕就停整条方向** → [规格](./specs/spec-love-rio-route.md) |
 
 ### Stage A — 产品与语料建成
 
