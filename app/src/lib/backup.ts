@@ -86,6 +86,14 @@ export function mergeArchives(current:Archive,incoming:Archive):Archive{
  const sessions=combine(current.sessions,incoming.sessions).sort((a,b)=>b.startedAt-a.startedAt);
  return {...current,profile:current.profile??incoming.profile,sessions,customScenarios:combine(current.customScenarios,incoming.customScenarios),bookmarks:[...new Set([...current.bookmarks,...incoming.bookmarks])],practiceDays:[...new Set([...current.practiceDays,...incoming.practiceDays])],proficiency:estimateProficiency(sessions as Session[],{...incoming.proficiency,...current.proficiency}),patternInsight:null};
 }
+/**
+ * 导出信封只有这一个构造点：设置页「导出数据」与恢复前自动下载必须逐字同形，
+ * 顶层键与 archive 字段（settings / loveProficiency / onboardingLang / patternInsight…）
+ * 都跟着 `parseArchive` 的结果走，页面不得再手拼一份（G03）。
+ */
+export function buildBackupPayload(archive:Archive){
+ return {state:archive,version:0 as const,dinner3d:dinnerBackup(),lovePlay:lovePlayBackup()};
+}
 export function downloadArchive(archive:Archive){
- const url=URL.createObjectURL(new Blob([JSON.stringify({state:archive,version:0,dinner3d:dinnerBackup(),lovePlay:lovePlayBackup()},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`socialcoach-before-restore-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ const url=URL.createObjectURL(new Blob([JSON.stringify(buildBackupPayload(archive),null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`socialcoach-before-restore-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }

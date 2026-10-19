@@ -62,6 +62,18 @@ async function main() {
   useApp.setState({ sessions: [{ ...session, status: "active" }] });
   useApp.getState().applyReport(session.id, report);
   check("a late report cannot assess an active conversation", () => assert.equal(useApp.getState().sessions[0].status, "active"));
+  // G16: "delete all data" must reach the love-play slots that never enter the
+  // main archive, including the story save, while leaving other modes alone.
+  const { DINNER_SAVE_KEY } = await import("../src/features/dinner/storage");
+  entries.set("socialcoach.love-play.carry", "[]");
+  entries.set("socialcoach.love-play.series.love-arc-rio-clarify", "{\"completed\":[]}");
+  entries.set("socialcoach.love-play.story", "{\"v\":1}");
+  entries.set(DINNER_SAVE_KEY, "{\"v\":1}");
+  useApp.getState().reset();
+  check("reset clears every love-play slot but leaves dinner untouched", () => {
+    assert.deepEqual([...entries.keys()].filter((key) => key.startsWith("socialcoach.love-play.")), []);
+    assert.equal(entries.get(DINNER_SAVE_KEY), "{\"v\":1}");
+  });
   process.exitCode = failures ? 1 : 0;
 }
 void main();

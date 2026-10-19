@@ -429,6 +429,28 @@ export function latestPlayingSaveForSeries(seriesId: string): LovePlaySave | nul
   return latest;
 }
 
+/**
+ * 关系账本（第一章 Rio 用）：按 seriesId 存在同一条 story slot 的 `routes` 里。
+ * 读的是已提交状态；没有、损坏或版本不兼容都返回 null，由调用方走迁移/中性开场。
+ */
+export function readLovePlayRoute(seriesId: string): unknown | null {
+  const read = readLoveStoryStore();
+  if (read.status !== "ok") return null;
+  return read.store.routes[seriesId] ?? null;
+}
+
+/** 写关系账本；revision 语义与 `saveLovePlayScene` 相同，损坏 slot 拒绝覆盖。 */
+export function writeLovePlayRoute(seriesId: string, routeState: unknown, expectedRevision?: number): LoveStoryWrite {
+  if (!seriesId) return { ok: false, reason: "invalid" };
+
+  const current = loadForWrite();
+  if (!current.ok) return current.result;
+  return writeLoveStoryStore(
+    { ...current.store, routes: { ...current.store.routes, [seriesId]: routeState } },
+    expectedRevision,
+  );
+}
+
 export function hasLovePlaySave(scenarioId: string): boolean {
   return readLovePlaySave(scenarioId).status === "ok";
 }

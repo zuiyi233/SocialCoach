@@ -14,7 +14,7 @@ import { Level, SkillTag } from "@/components/SkillBits";
 import { computeStreak, todayKey, useApp, useLang } from "@/store/useApp";
 import { t, tList } from "@/lib/i18n";
 import { schedule } from "@/lib/client-api";
-import { buildSession, historyFor } from "@/lib/session-utils";
+import { buildSession, historyFor, isResumableSession } from "@/lib/session-utils";
 import { skillById, contextById } from "@/data/taxonomy";
 import { compColor, relDate } from "@/lib/format";
 import { ScenarioCover } from "@/components/ScenarioCover";
@@ -37,7 +37,9 @@ export default function Home() {
     [sessions, todaySessionId, todayDate, today],
   );
   const streak = computeStreak(practiceDays);
-  const unfinished = orderedSessions.find((s) => s.status === "active" || s.status === "ended");
+  // Romance runs are story records, not practice sessions. An empty ended
+  // `love-play` session left by older builds must not become a review prompt.
+  const unfinished = orderedSessions.find(isResumableSession);
   /** Last session's verdict, to fill today's wait with something worth reading. */
   const lastVerdict = useMemo(() => {
     const last = orderedSessions.find((x) => x.status === "assessed" && x.report?.verdict && x.report.verdictEvidence);

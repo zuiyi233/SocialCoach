@@ -110,12 +110,33 @@ export function LoveRevealBadge({ lang }: { lang: Lang }) {
   );
 }
 
-/** 收束界面：结局标题 + 场景 success/failure 文案 + 带走一句话 + 记入统计 / 重新开始 / 返回。 */
+/**
+ * 收尾标题：命名结局优先（第 6 幕预留），其次区分「自然收尾」与三种目标结果。
+ * 未知 endingId 静默回退，不崩、也不把 partial 冒充 success。
+ */
+export function loveEndingTitleKey(
+  outcome: LovePlayOutcome,
+  endingKind: "terminal" | "ended" | null,
+  endingId: string | null,
+): TKey {
+  if (endingId === "said-it-plain") return "love_play_ending_said_it_plain";
+  if (endingId === "clean-parting") return "love_play_ending_clean_parting";
+  if (endingKind === "ended") return "love_play_outcome_ended";
+  if (outcome === "success") return "love_play_outcome_success";
+  if (outcome === "partial") return "love_play_outcome_partial";
+  return "love_play_outcome_failure";
+}
+
+/** 收束界面：结局标题 + 本幕收尾文案 + 带走一句话 + 记入统计 / 重新开始 / 返回。 */
 export function PlayEnding({
   lang,
   outcome,
+  endingKind,
+  endingId,
   endingText,
   recorded,
+  recording,
+  recordFailed,
   carry,
   onRecord,
   onRestart,
@@ -123,8 +144,14 @@ export function PlayEnding({
 }: {
   lang: Lang;
   outcome: LovePlayOutcome;
+  /** terminal = 目标结果；ended = 没有判定，自然收尾。 */
+  endingKind: "terminal" | "ended" | null;
+  /** 第 6 幕的命名结局；当前场景为 null。 */
+  endingId: string | null;
   endingText: string;
   recorded: boolean;
+  recording: boolean;
+  recordFailed: boolean;
   /** 这一幕可以把承诺带给谁。每一场都有——跟进卡按说话人归属，与这条线连不连续无关。 */
   carry: LoveCarryTarget;
   onRecord: () => void;
@@ -141,14 +168,24 @@ export function PlayEnding({
         className="mt-4 rounded-[var(--radius)] border border-line-strong bg-card px-5 py-6 flex flex-col gap-4 max-w-[var(--measure)]"
       >
         <div>
-          <p className="eyebrow">{t(lang, outcome === "success" ? "love_play_outcome_success" : outcome === "partial" ? "love_play_outcome_partial" : "love_play_outcome_failure")}</p>
+          <p className="eyebrow">{t(lang, loveEndingTitleKey(outcome, endingKind, endingId))}</p>
           <p className="text-[15px] leading-relaxed text-ink mt-2">{endingText}</p>
           <p className="text-[12px] text-ink-3 mt-2">{t(lang, "love_play_ending_hint")}</p>
         </div>
         <div className="flex flex-col gap-2.5">
-          <button onClick={onRecord} disabled={recorded} className="press min-h-12 rounded-[var(--radius-sm)] bg-ink text-paper text-[15px] font-semibold disabled:opacity-60">
-            {recorded ? t(lang, "love_play_recorded") : t(lang, "love_play_record")}
+          <button
+            onClick={onRecord}
+            disabled={recorded || recording}
+            aria-busy={recording || undefined}
+            className="press min-h-12 rounded-[var(--radius-sm)] bg-ink text-paper text-[15px] font-semibold disabled:opacity-60"
+          >
+            {recorded ? t(lang, "love_play_recorded") : recording ? t(lang, "love_play_recording") : t(lang, "love_play_record")}
           </button>
+          {recordFailed && (
+            <p role="alert" className="text-[12px] leading-relaxed text-danger">
+              {t(lang, "love_play_record_failed")}
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2.5">
             <button onClick={onRestart} className="press min-h-11 rounded-[var(--radius-sm)] border border-line-strong bg-card text-[14px] text-ink">
               {t(lang, "love_play_restart")}

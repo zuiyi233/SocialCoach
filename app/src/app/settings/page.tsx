@@ -5,8 +5,9 @@ import { Check, Download, Monitor, Moon, Pencil, Sun, Trash2, ChevronRight, Hard
 import { SkillTag } from "@/components/SkillBits";
 import { Shell } from "@/components/Shell";
 import { GitHubLink } from "@/components/GitHubLink";
-import { dinnerBackup, DINNER_SAVE_KEY, DINNER_LAUNCH_KEY } from "@/features/dinner/storage";
-import { clearLovePlaySlots } from "@/lib/love-carry-store";
+import { DINNER_SAVE_KEY, DINNER_LAUNCH_KEY } from "@/features/dinner/storage";
+import { clearLovePlaySlots, LOVE_PLAY_PREFIX } from "@/lib/love-carry-store";
+import { parseArchive } from "@/lib/archive";
 import { Button, Chip, Page, SectionTitle, Sheet, Switch, useToast } from "@/components/ui";
 import { useModelAccess } from "@/lib/model-access";
 import { M } from "@/lib/model-copy";
@@ -28,17 +29,12 @@ export default function Settings() {
   const modelAccess = useModelAccess();
   const {
     profile,
-    proficiency,
-    sessions,
     settings,
     saveIssue,
     setSettings,
     setLang,
     updateProfile,
     reset,
-    customScenarios,
-    bookmarks,
-    practiceDays,
   } = useApp();
   const toast = useToast((s) => s.show);
   const [edit, setEdit] = useState(false);
@@ -58,26 +54,35 @@ export default function Settings() {
     });
   const contexts = profile.contexts ?? [];
 
-  // 备份载荷有两条导出路径（这里和恢复前的自动下载），恋爱槽必须两边都在，
-  // 否则用户在「导出数据」里拿到的文件恰好缺掉剧情线进度与他记下的那句原话。
+  // 备份载荷有两条导出路径（这里和恢复前的自动下载），两条都只走 `buildBackupPayload()`：
+  // 手拼字段会漏掉 `loveProficiency` / `settings` / `onboardingLang`，恢复时这些进度就凭空消失。
   const exportData = async () => {
-    const { lovePlayBackup } = await import("@/lib/backup");
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          { profile, proficiency, sessions, customScenarios, bookmarks, practiceDays, dinner3d: dinnerBackup(), lovePlay: lovePlayBackup(), avatar: { seed: settings.avatarSeed, portrait: settings.avatarPortrait, image: settings.avatarImage }, exportedAt: new Date().toISOString() },
-          null,
-          2,
-        ),
-      ],
-      { type: "application/json" },
-    );
+    const { buildBackupPayload } = await import("@/lib/backup");
+    // getState() 带 store 的完整快照；parseArchive 负责 strip 掉 hydrated 等非档案字段。
+    const payload = buildBackupPayload(parseArchive(useApp.getState()));
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `socialcoach-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  /** 扫描 love 前缀的现存 key 数；读不了返回 null——「一条不剩」与「没法确认」必须分开。 */
+  const countLovePlaySlots = () => {
+    try {
+      let count = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(LOVE_PLAY_PREFIX)) count++;
+      }
+      return count;
+    } catch {
+      return null;
+    }
+  };
+  const clearFailed = () =>
+    toast(pick({ zh: "设备数据未能清除，请保留备份并重试。", en: "Device data could not be cleared. Keep your backup and retry." }, lang));
 
   const toggleGoal = (id: SkillId) => {
     const has = profile.goals.includes(id);
@@ -418,14 +423,23 @@ export default function Settings() {
             block
             variant="danger"
             onClick={() => {
+              const before = countLovePlaySlots();
               try {
                 byok.clear();
                 localStorage.removeItem(DINNER_SAVE_KEY);
                 localStorage.removeItem(DINNER_LAUNCH_KEY);
                 // 恋爱剧情线与承接承诺按设计不进 persist archive，store 的 reset() 碰不到它们；
                 // 承诺里存的是用户亲手打的一句话，所以「删除所有数据」必须显式覆盖这一半。
+                // clearLovePlaySlots() 内部吞异常，删除是否真的生效只能靠前后扫描前缀验证。
                 clearLovePlaySlots();
-              } catch {toast(pick({zh:'设备未能清除数据，请保留备份并重试。',en:'Device data could not be cleared. Keep your backup and retry.'},lang));return;}
+              } catch {
+                clearFailed();
+                return;
+              }
+              if (before === null || countLovePlaySlots() !== 0) {
+                clearFailed();
+                return;
+              }
               reset();
               setConfirm(false);
             }}

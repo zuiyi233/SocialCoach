@@ -9,13 +9,13 @@ const romantic = SCENARIOS.filter((s) => s.context === "romantic");
 const npcIds = (s: Scenario) => s.characters.filter((c) => c.id !== "you").map((c) => c.id);
 
 test("the base table covers exactly the 54 unique romantic NPC ids", () => {
-  assert.equal(romantic.length, 63, "corpus drift: the romantic line is 63 scenes");
+  assert.equal(romantic.length, 64, "corpus drift: the romantic line is 64 scenes");
   const ids = new Set(romantic.flatMap(npcIds));
   assert.equal(ids.size, 54, "corpus drift: the romantic line has 54 unique NPC ids");
   assert.deepEqual(Object.keys(LOVE_VOICES_BASE).sort(), [...ids].sort(), "every id has a base voice, and nothing extra");
 });
 
-test("every one of the 63 scene slots resolves to a voice", () => {
+test("every one of the 64 scene slots resolves to a voice", () => {
   let slots = 0;
   for (const s of romantic) {
     for (const characterId of npcIds(s)) {
@@ -26,7 +26,7 @@ test("every one of the 63 scene slots resolves to a voice", () => {
       assert.ok(["young", "adult", "mature"].includes(voice.age), `${loveVoiceKey(s.id, characterId)} has no known age`);
     }
   }
-  assert.equal(slots, 63, "63 cast positions, not 54: repeated ids still resolve per scene");
+  assert.equal(slots, 64, "64 cast positions, not 54: repeated ids still resolve per scene");
 });
 
 test("scene overrides win over the shared base; unknown casts stay undefined", () => {
@@ -52,10 +52,12 @@ test("the two Sam characters are not forced into one voice", () => {
   assert.notDeepEqual(partner, friend, "the partner and the confessing friend are different people");
 });
 
-test("Rio and Eve keep one voice across each three-act series", () => {
+test("Rio and Eve keep one voice across their series", () => {
+  // Rio 第 4 幕已落语料；第 5–6 幕仍被真人试玩闸门挡着。Eve 仍是三幕。
+  const actCounts: Record<string, number> = { rio: 4, eve: 3 };
   for (const characterId of ["rio", "eve"]) {
     const scenes = romantic.filter((s) => npcIds(s).includes(characterId));
-    assert.equal(scenes.length, 3, `${characterId} still has three acts`);
+    assert.equal(scenes.length, actCounts[characterId], `${characterId} act count`);
     for (const scene of scenes) {
       assert.deepEqual(resolveLoveVoice(scene.id, characterId), { feminine: true, age: "adult" }, `${loveVoiceKey(scene.id, characterId)} drifts from the series voice`);
     }

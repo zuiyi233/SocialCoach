@@ -18,6 +18,7 @@ import { LOVE_SCENARIOS_DEEP_BOUNDARY } from "../src/data/corpus/love-scenarios-
 import { LOVE_SCENARIOS_DEEP_TRUST } from "../src/data/corpus/love-scenarios-deep-trust";
 import { LOVE_SCENARIOS_DEEP_LONG_DISTANCE } from "../src/data/corpus/love-scenarios-deep-long-distance";
 import { LOVE_SCENARIOS_DEEP_FAMILY } from "../src/data/corpus/love-scenarios-deep-family";
+import { LOVE_SCENARIOS_DEEP_RIO_ROUTE } from "../src/data/corpus/love-scenarios-deep-rio-route";
 import { LOVE_THEORIES } from "../src/data/corpus/love-theories";
 import { LOVE_CASES } from "../src/data/corpus/love-cases";
 import { SKILLS, COMPETENCIES, CONTEXTS, RELATIONSHIPS } from "../src/data/taxonomy";
@@ -59,7 +60,7 @@ for (const s of SCENARIOS) {
   for (const relationship of s.relationship) assert(relationship in RELATIONSHIPS, `${s.id}: relationship`);
   for (const skill of s.relatedSkills ?? []) assert(skills.has(skill), `${s.id}: related skill`);
 }
-for (const item of [...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_WF, ...SCENARIOS_FRIENDSHIP, ...THEORIES_C, ...CASES_C, ...LOVE_SCENARIOS, ...LOVE_THEORIES, ...LOVE_CASES, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY]) {
+for (const item of [...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_WF, ...SCENARIOS_FRIENDSHIP, ...THEORIES_C, ...CASES_C, ...LOVE_SCENARIOS, ...LOVE_THEORIES, ...LOVE_CASES, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY, ...LOVE_SCENARIOS_DEEP_RIO_ROUTE]) {
   bilingual(item, item.id);
   for (const skill of item.skills) assert(item.competencies.includes(skills.get(skill)!), `${item.id}: missing competency for ${skill}`);
   assert(
@@ -84,7 +85,7 @@ for (const s of [...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_WF, ...SCENARIOS_F
 // Deep love-module scenarios (practical 场景化批次): original fictional
 // practices with an authored facts/unknowns brief, visible NPC resistance and
 // their own icon — the same bar as the C/D batches.
-for (const s of [...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY]) {
+for (const s of [...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY, ...LOVE_SCENARIOS_DEEP_RIO_ROUTE]) {
   assert(s.icon && s.icon in SCENARIO_ICONS, `${s.id}: unknown icon`);
   assert(s.simulationFacts?.zh && s.simulationFacts.en, `${s.id}: missing simulationFacts`);
   assert(
@@ -119,6 +120,50 @@ for (const s of SCENARIOS) {
   assert(!seen || seen === key, `${s.id}: series ${s.series.id} name mismatch`);
   seriesNames.set(s.series.id, key);
 }
+/** 最长公共子串长度（中文按字、英文按字符）；用来判断 hidden 是否漏进 opening。 */
+function longestSharedRun(a: string, b: string): number {
+  const short = a.length <= b.length ? a : b;
+  const long = a.length <= b.length ? b : a;
+  for (let len = short.length; len > 0; len -= 1) {
+    for (let start = 0; start + len <= short.length; start += 1) {
+      if (long.includes(short.slice(start, start + len))) return len;
+    }
+  }
+  return 0;
+}
+// Rio 六幕线（spec-love-rio-route §6.1）：第 1–4 幕 order 连续、同一 seriesId、
+// 每幕只挂 Rio 一个 NPC；第 5–6 幕在 3–5 人真人试玩闸门通过前不得出现。
+const rioLine = SCENARIOS
+  .filter((s) => s.series?.id === "love-arc-rio-clarify")
+  .sort((a, b) => (a.series?.order ?? 0) - (b.series?.order ?? 0));
+assert.deepEqual(
+  rioLine.map((s) => s.series?.order),
+  [1, 2, 3, 4],
+  "Rio line: only acts 1-4 may be authored before the playtest gate, with contiguous orders",
+);
+for (const s of rioLine) {
+  assert(s.source.trim(), `${s.id}: missing source`);
+  assert.equal(s.series?.id, "love-arc-rio-clarify", `${s.id}: series id drift`);
+  assert.deepEqual(
+    s.characters.filter((c) => c.id !== "you").map((c) => c.id),
+    ["rio"],
+    `${s.id}: Rio line must stay single-NPC`,
+  );
+}
+const rioAct4 = SCENARIOS.find((s) => s.id === "love-rio-secondment-deadline");
+assert(rioAct4, "Rio act 4 is not registered in SCENARIOS");
+assert.equal(rioAct4.series?.order, 4, "Rio act 4 must carry order 4");
+const rioHidden = rioAct4.characters.find((c) => c.id === "rio")?.hidden;
+assert(rioHidden?.zh && rioHidden.en, "Rio act 4 hidden must be bilingual");
+// hidden 的开场探针：不是关键词黑名单，而是最长公共片段（zh ≥ 8 字 / en ≥ 20 字符即算泄露）。
+assert(
+  longestSharedRun(rioHidden.zh, rioAct4.opening.text.zh) < 8,
+  "Rio act 4 opening leaks a fragment of hidden (zh)",
+);
+assert(
+  longestSharedRun(rioHidden.en, rioAct4.opening.text.en) < 20,
+  "Rio act 4 opening leaks a fragment of hidden (en)",
+);
 for (const c of CASES_C) {
   assert(c.title.zh.startsWith("示例") && c.title.en.startsWith("Illustration"), `${c.id}: fictional case not labelled`);
 }

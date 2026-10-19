@@ -19,6 +19,7 @@ import { LOVE_SCENARIOS_DEEP_BOUNDARY } from "./love-scenarios-deep-boundary";
 import { LOVE_SCENARIOS_DEEP_TRUST } from "./love-scenarios-deep-trust";
 import { LOVE_SCENARIOS_DEEP_LONG_DISTANCE } from "./love-scenarios-deep-long-distance";
 import { LOVE_SCENARIOS_DEEP_FAMILY } from "./love-scenarios-deep-family";
+import { LOVE_SCENARIOS_DEEP_RIO_ROUTE } from "./love-scenarios-deep-rio-route";
 import { LOVE_THEORIES } from "./love-theories";
 import { LOVE_CASES } from "./love-cases";
 import { THEORIES_DEEP_FAMILY } from "./love-theories-deep-family";
@@ -150,6 +151,7 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "love-family-marriage-pressure": L("被催婚伴侣的另一半", "The partner of someone under marriage pressure"),
   "love-family-expectation-clash": L("夹在两家人之间的人", "The one caught between two families"),
   "love-family-decision-pressure": L("被家长拍板的人", "The one whose family decided for them"),
+  "love-rio-secondment-deadline": L("面对外派期限的人", "The one facing the secondment deadline"),
   // power & family relations (2026-10-09)
   "jm-feedback-deflected": L("带新人三个月的组长", "Lead coaching a new hire"),
   "jm-misread-request": L("把需求交给下属对接的负责人", "Lead who handed the requirement to a junior"),
@@ -197,7 +199,7 @@ export function withLearner(s: Scenario): Scenario {
   return { ...s, characters: [you, ...s.characters] };
 }
 
-export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_WF, ...SCENARIOS_FRIENDSHIP, ...SCENARIOS_JUNIOR, ...SCENARIOS_FAMILY, ...LOVE_SCENARIOS, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY].map(withLearner);
+export const SCENARIOS: Scenario[] = [...SCENARIOS_A, ...SCENARIOS_B, ...SCENARIOS_C, ...SCENARIOS_D, ...SCENARIOS_WF, ...SCENARIOS_FRIENDSHIP, ...SCENARIOS_JUNIOR, ...SCENARIOS_FAMILY, ...LOVE_SCENARIOS, ...LOVE_SCENARIOS_DEEP_APPROACH, ...LOVE_SCENARIOS_DEEP_DEFINE, ...LOVE_SCENARIOS_DEEP_REJECTION, ...LOVE_SCENARIOS_DEEP_BREAKUP, ...LOVE_SCENARIOS_DEEP_BOUNDARY, ...LOVE_SCENARIOS_DEEP_TRUST, ...LOVE_SCENARIOS_DEEP_LONG_DISTANCE, ...LOVE_SCENARIOS_DEEP_FAMILY, ...LOVE_SCENARIOS_DEEP_RIO_ROUTE].map(withLearner);
 export const THEORIES: Theory[] = [...THEORIES_BASE, ...THEORIES_C, ...LOVE_THEORIES, ...THEORIES_DEEP_FAMILY, ...THEORIES_DEEP_BREAKUP_TRUST, ...THEORIES_DEEP_BOUNDARY, ...THEORIES_DEEP_APPROACH, ...THEORIES_DEEP_REJECTION, ...THEORIES_DEEP_LONG_DISTANCE];
 export const CASES: Case[] = [...CASES_BASE, ...CASES_C, ...LOVE_CASES];
 export type { Case, Scenario, Theory };

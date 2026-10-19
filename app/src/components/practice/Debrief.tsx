@@ -5,9 +5,10 @@ import { pick } from "@/lib/i18n";
 import { FeedbackPrompt } from "@/components/Feedback";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { clsx } from "clsx";
-import { Bookmark, ChevronDown, RotateCcw, Share2, Send, MessageSquareText } from "lucide-react";
+import { Bookmark, ChevronDown, RotateCcw, Share2, Send, MessageSquareText, ArrowRight } from "lucide-react";
 import { BottomBar, Button, IconButton, Marginalia, Stages, Stars, Spinner } from "@/components/ui";
 import { SlowModelNotice } from "@/components/SlowModelNotice";
 import { SkillTag, Level } from "@/components/SkillBits";
@@ -37,7 +38,49 @@ const SharePractice=dynamic(()=>import('./SharePractice').then(m=>m.SharePractic
 
 const skillIds = new Set(SKILLS.map((s) => s.id));
 
+/**
+ * 剧情模式的收尾不是一次练习复盘。旧版本却把它写成一条空壳 `ended` session，
+ * 首页据此提示「待复盘」，点进来先摊开 hidden，再对空转录跑 assess（G14）。
+ * 分流放在组件最外层：恋爱来源不挂任何评分/复盘 hook，也绝不请求 assessStream。
+ */
 export function Debrief({ session }: { session: Session }) {
+  if (session.origin === "love-play") return <LoveStoryNotice session={session} />;
+  return <PracticeDebrief session={session} />;
+}
+
+function LoveStoryNotice({ session }: { session: Session }) {
+  const lang = useLang();
+  const router = useRouter();
+  return (
+    <div className="min-h-dvh pt-safe px-5 flex flex-col lg:mx-auto lg:w-full lg:max-w-[var(--form-max)] lg:px-6">
+      <PracticeJourney phase={2} onBack={() => router.push("/love")} backLabel={t(lang, "love_play_back_love")} />
+      <div className="flex-1 flex flex-col justify-center gap-3 py-14">
+        <p className="eyebrow text-accent-deep">{pick({ zh: "剧情模式", en: "Story mode" }, lang)}</p>
+        <h1 className="display text-[26px] leading-tight">{session.scenario.title[lang]}</h1>
+        <p className="text-[14px] text-ink-2 leading-relaxed max-w-[var(--measure)]">
+          {pick(
+            {
+              zh: "这是一条剧情记录，不走教练复盘：这里没有评分，也不会把对方没说出口的设定摊开。剧情进度、结局与完成数都在「恋爱剧情」里。",
+              en: "This is a story record, not a coached review: there is no score here, and nothing the other side kept unsaid is revealed. Your progress, endings and completion count live in Love Story.",
+            },
+            lang,
+          )}
+        </p>
+        <div className="pt-2">
+          <Link
+            href="/love"
+            className="press inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-full bg-action text-accent-ink text-[13px] font-semibold"
+          >
+            {t(lang, "love_play_back_love")}
+            <ArrowRight size={16} aria-hidden />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PracticeDebrief({ session }: { session: Session }) {
   const lang = useLang();
   const canUseModel = useCanUseModel();
   const router = useRouter();

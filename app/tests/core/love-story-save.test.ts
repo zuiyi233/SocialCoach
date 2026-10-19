@@ -10,9 +10,11 @@ import {
   emptyLoveStoryStore,
   hasLovePlaySave,
   latestPlayingSaveForSeries,
+  readLovePlayRoute,
   readLovePlaySave,
   readLoveStoryStore,
   saveLovePlayScene,
+  writeLovePlayRoute,
   writeLoveStoryStore,
   type LovePlayRecord,
   type LovePlaySave,
@@ -415,4 +417,33 @@ test("an invalid store passed to writeLoveStoryStore is rejected without persist
   const res = writeLoveStoryStore(store);
   assert.equal(res.ok, true);
   assert.deepEqual(stored().routes, { "love-arc-rio-clarify": { act: 2 } });
+});
+
+test("route state round-trips through the same story slot and respects revision", () => {
+  reset();
+  assert.equal(readLovePlayRoute("love-arc-rio-clarify"), null, "no route yet");
+
+  const first = writeLovePlayRoute("love-arc-rio-clarify", { v: 1, lastAct: 4 });
+  assert.equal(first.ok, true);
+  assert.deepEqual(readLovePlayRoute("love-arc-rio-clarify"), { v: 1, lastAct: 4 });
+  const revision = first.ok ? first.store.revision : 0;
+
+  assert.deepEqual(writeLovePlayRoute("love-arc-rio-clarify", { v: 9 }, revision - 1), {
+    ok: false,
+    reason: "conflict",
+    diskRevision: revision,
+  });
+  assert.deepEqual(readLovePlayRoute("love-arc-rio-clarify"), { v: 1, lastAct: 4 }, "a conflict does not overwrite");
+
+  const second = writeLovePlayRoute("love-arc-rio-clarify", { v: 2 }, revision);
+  assert.equal(second.ok, true);
+  assert.deepEqual(readLovePlayRoute("love-arc-rio-clarify"), { v: 2 });
+});
+
+test("a corrupt story slot exposes no route and is never silently overwritten", () => {
+  reset();
+  slots.set(KEY, "{broken");
+  assert.equal(readLovePlayRoute("love-arc-rio-clarify"), null);
+  assert.deepEqual(writeLovePlayRoute("love-arc-rio-clarify", { v: 1 }), { ok: false, reason: "invalid" });
+  assert.equal(slots.get(KEY), "{broken");
 });

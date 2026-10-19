@@ -42,6 +42,16 @@ export function buildSession(scenario: Scenario, origin: Session["origin"], lang
   };
 }
 
+/**
+ * 首页「继续 / 待复盘」只认可练习。恋爱剧情把进度存在 story save 与记录里，
+ * 旧版本留下的空壳 ended `love-play` session 不能把人送进 Debrief（G14），
+ * 也不能让首页以为有一场待复盘。
+ */
+export function isResumableSession(session: Session): boolean {
+  if (session.origin === "love-play") return false;
+  return session.status === "active" || session.status === "ended";
+}
+
 export function historyFor(sessions: Session[], lang: Lang) {
   const latest = new Map<string, Session>();
   // Keep each practice's newest completed snapshot in recency order. Updating

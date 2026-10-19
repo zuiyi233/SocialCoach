@@ -112,8 +112,8 @@ export const LOVE_SCENARIOS_DEEP_FAMILY: Scenario[] = [
     title: L("两家都等着你们「按规矩来」", "Two Families, Two Rulebooks"),
     hook: L("「我妈说婚礼必须按老规矩走。」「我爸那边说旅行结婚最好。」——两个人头都大了。", "’My mom says the wedding has to follow the old customs.’ ’My dad says travel-marriage is best.’ — both of you are spinning."),
     background: L(
-      "你们的家人第一次同时递来了期待：你家坚持传统流程——双方父母先见面、订婚仪式、按老规矩办；Rio 家则希望一切从简、旅行结婚、各自负担。两边都在催，你们夹在中间，已经为「谁家更该被理解」吵过一轮。任务：你们俩先对齐成一支口径，再各自去跟自己父母谈——不替对方答应，也别让对方替自己答应；把两家的话翻译成你们俩真正想定的「打算」。",
-      "Your families have handed you their expectations in the same breath: yours insists on the traditional route — a formal parents meeting, an engagement ceremony, everything by the old rules; Rio’s side wants it lean — travel wedding, each family covering its own. Both are pushing, and you two have already fought one round over whose family ’deserves more understanding’. The task: get aligned with Rio into one shared position first, then each of you talks to your own family — don’t commit for Rio and don’t let Rio commit for you; translate both families’ words into a plan you two actually own.",
+      "你们的家人第一次同时递来了期待：你家坚持传统流程——双方父母先见面、订婚仪式、按老规矩办；Rio 家则希望一切从简、旅行结婚、各自负担。两边都在催，你们夹在中间，连「谁家更该被理解」这件事都还没说清。任务：你们俩先对齐成一支口径，再各自去跟自己父母谈——不替对方答应，也别让对方替自己答应；把两家的话翻译成你们俩真正想定的「打算」。",
+      "Your families have handed you their expectations in the same breath: yours insists on the traditional route — a formal parents meeting, an engagement ceremony, everything by the old rules; Rio’s side wants it lean — travel wedding, each family covering its own. Both are pushing, and you two are caught in the middle with ’whose family deserves more understanding’ still unresolved. The task: get aligned with Rio into one shared position first, then each of you talks to your own family — don’t commit for Rio and don’t let Rio commit for you; translate both families’ words into a plan you two actually own.",
     ),
     simulationFacts: L(
       "两种家庭期待是两家分别亮出的立场，「哪条老规矩」「预算多少」等具体内容未核实，不要替两家编细节。Rio 转述她家的态度可能夹着她的加工；你们对齐的口径是各自要拿回家谈的草案，不代表两家已经接受。你说「我爸妈那边我来谈」不等于你爸妈已经同意，也不等于她家已经松口。隐藏事实：Rio 已经背着你先答应了她妈「婚礼先按她们的意思攒着」，怕你生气一直不敢说——只有你单独、用不指责的口吻直接问她「你是不是已经先答应了你妈什么」，她才可能坦白这句越界的话；她不说破，不等于你们俩的立场已经替她应承了什么。你的一个动作永远不等于对方已经同意什么。",
@@ -150,12 +150,12 @@ export const LOVE_SCENARIOS_DEEP_FAMILY: Scenario[] = [
     maxTurns: 8,
     opening: {
       characterId: "rio",
-      text: L("我妈今天又打电话来，说订婚宴「按老规矩，先看日子」。你爸妈不是也定了下周六见家长？我们俩……到底听谁的？", "Mom called again today — ’the engagement dinner, by the old rules, first pick a date.’ And your parents locked next Saturday for the family meet, right? So… which family do we listen to?"),
+      text: L("我妈今天又打电话来，问我们到底算不算对象、什么时候见家长。你爸妈不是也定了下周六见家长？我们俩……到底听谁的？", "Mom called again today, asking whether we’re even a couple and when she gets to meet your family. And your parents locked next Saturday for the family meet, right? So… which family do we listen to?"),
     },
     source: "Original fictional practice — SocialCoach, 2026-10-09, app/src/data/corpus/love-scenarios-deep-family.ts#love-family-expectation-clash",
     keywords: ["期待冲突", "婚礼", "对齐口径", "见家长", "expectation clash", "wedding", "aligned front"],
     loveTopic: "family",
-    series: { id: "love-arc-rio-clarify", name: L("暧昧到说清楚", "From Ambiguous to Explicit") },
+    series: { id: "love-arc-rio-clarify", name: L("暧昧到说清楚", "From Ambiguous to Explicit"), order: 3 },
     icon: "split",
   },
   {

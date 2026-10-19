@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, notFound } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowUp, Mic, MicOff } from "lucide-react";
+import { ArrowLeft, ArrowUp, History, Mic, MicOff } from "lucide-react";
 import { clsx } from "clsx";
 import type { L } from "@/data/taxonomy";
 import type { Scenario } from "@/data/corpus/types";
@@ -18,11 +18,28 @@ import { canListen, pauseSpeaking, speak, stopSpeaking, unlockSpeech } from "@/l
 import { useLoveVoice, withInterim } from "@/lib/love-play-voice";
 import { lovePlayTurn, type LovePlayEmotion, type LovePlayOutcome } from "@/lib/love-play-client";
 import { writeLoveSeriesProgress } from "@/lib/love-series-progress";
-import { loveCarryoverForScene } from "@/lib/love-carryover";
+import { loveSeriesById } from "@/data/corpus/love-series";
+import { markLoveCarryoverShown, peekLoveCarryoverForScene } from "@/lib/love-carryover";
 import { loveCarryCandidates, type LoveCarryTurn } from "@/lib/love-carry-store";
+import {
+  deleteLovePlayScene,
+  readLovePlaySave,
+  readLoveStoryStore,
+  saveLovePlayScene,
+  type LovePlaySave,
+} from "@/lib/love-story";
+import {
+  buildLovePlaySave,
+  canSubmitLovePlayRecord,
+  lovePlaySaveSignature,
+  planLovePlayRestore,
+  type LovePlayResumeState,
+} from "@/lib/love-play-save-view";
+import { resolveLoveVoice } from "@/lib/love-voices";
 import { useLoveTyping } from "@/lib/love-play-typing";
 import { AvatarStand, scenarioTone, startHistory } from "./PlaySceneFigure";
 import { LoveStanceBar, LoveRevealBadge, PlayOptions, PlayEnding } from "./PlayPanels";
+import { LoveRecap } from "./LoveRecap";
 import type { LoveCarryTarget } from "./PlayCarryCapture";
 
 /** SpeechNotice 码 → 用户可见文案（口径对齐 DinnerApp 的 speechCopy）。 */
@@ -39,6 +56,38 @@ const speechCopy: Record<SpeechNotice, TKey> = {
   empty: "love_play_voice_empty",
   unavailable: "love_play_voice_unavailable",
 };
+
+/** 自动存档的非阻塞提示；resumed 单独显示，因为它是正常路径。 */
+type SaveNotice =
+  | "conflict"
+  | "quota"
+  | "invalid"
+  | "unavailable"
+  | "corrupt"
+  | "incompatible"
+  | "restart_failed";
+
+const SAVE_NOTICE_KEY: Record<SaveNotice, TKey> = {
+  conflict: "love_play_save_conflict",
+  quota: "love_play_save_quota",
+  invalid: "love_play_save_invalid",
+  unavailable: "love_play_save_unavailable",
+  corrupt: "love_play_save_corrupt",
+  incompatible: "love_play_save_incompatible",
+  restart_failed: "love_play_save_restart_failed",
+};
+
+type PendingTurn = { history: ChatMessage[]; showLine: boolean; pending?: LoveCarryTurn };
+type EndingKind = "terminal" | "ended";
+
+/** 幕号（1 起），供 series v2 的 `lastAct`；缺省由线内顺序推出。 */
+function actNumberOf(scenario: Scenario): number | undefined {
+  if (!scenario.series) return undefined;
+  if (scenario.series.order && scenario.series.order >= 1) return scenario.series.order;
+  const series = loveSeriesById(scenario.series.id);
+  const index = series?.scenarios.findIndex((s) => s.id === scenario.id) ?? -1;
+  return index >= 0 ? index + 1 : undefined;
+}
 
 export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null; scenarioId: string }) {
   const lang = useLang();
@@ -62,10 +111,16 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const [err, setErr] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [outcome, setOutcome] = useState<LovePlayOutcome | null>(null);
+  /** terminal = 本幕目标有了结果；ended = 没有目标判定，自然收尾。两者文案不同。 */
+  const [endingKind, setEndingKind] = useState<EndingKind | null>(null);
+  /** 第 6 幕的命名结局；当前场景为 null。 */
+  const [endingId, setEndingId] = useState<string | null>(null);
   const [recorded, setRecorded] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordError, setRecordError] = useState(false);
   const [learnerTurns, setLearnerTurns] = useState(0);
-  /** 上一幕结局带过来的承接句；null 表示这条线这场没有可承接的前一幕。 */
-  const [carryover, setCarryover] = useState<string | null>(null);
+  /** 开场是否拼过承接句；恢复时只读 save 的布尔值，不再重算。 */
+  const [carryoverMark, setCarryoverMark] = useState(false);
   /**
    * 本场学习者的每次发言 + 来源。收束时按 `via` 筛出「自己打的那几句」当承接候选：
    * 点选项 ≠ 用户真实表达，所以选项文本永远不会变成「你上次说过的话」。
@@ -77,14 +132,36 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const { typing, skip, putLine: typeLine, skipNow } = useLoveTyping();
   /** 首次用麦克风前的一次性隐私提示；与 Chat 共用 settings.voiceNoticeSeen。 */
   const [voiceNotice, setVoiceNotice] = useState(false);
+  /** 自动存档的状态提示：不阻塞剧情，只在台词框上方占一行。 */
+  const [saveNotice, setSaveNotice] = useState<SaveNotice | null>(null);
+  const [resumed, setResumed] = useState(false);
+  const [canRecap, setCanRecap] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
+  const [recapSave, setRecapSave] = useState<LovePlaySave | null>(null);
 
   /** 已确认入库的历史（失败的那次尝试不写入，重试用 cmdRef 找回）。 */
   const historyRef = useRef<ChatMessage[]>([]);
-  const cmdRef = useRef<{ history: ChatMessage[]; showLine: boolean } | null>(null);
+  const cmdRef = useRef<PendingTurn | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const startedRef = useRef<string | null>(null);
   /** 已朗读过的台词 key：换场景/重试都会给新 key，逐句只读一次。 */
   const spokenRef = useRef<Set<string>>(new Set());
+  /** 每次开局递增：旧 generation 的响应/abort 不得再写 state 或历史。 */
+  const generationRef = useRef(0);
+  /** 开局时间只在 startScene / 恢复时写入，渲染期不取时钟（保持组件纯）。 */
+  const startedAtRef = useRef(0);
+  const endedAtRef = useRef<number | null>(null);
+  const recordedRef = useRef(false);
+  const recordingRef = useRef(false);
+  /** story slot 的 revision；null = 本局不自动存档。 */
+  const revisionRef = useRef<number | null>(null);
+  const autosaveRef = useRef(true);
+  const lastSavedSignatureRef = useRef<string | null>(null);
+  const currentSaveRef = useRef<LovePlaySave | null>(null);
+  const routeStateRef = useRef<unknown>(undefined);
+  /** 开场承接句的 carryId：台词真正显示后只 mark 一次。 */
+  const carryIdRef = useRef<string | null>(null);
+  const carryMarkedRef = useRef(false);
 
   const voice = useLoveVoice(lang, !busy && !outcome && !!sc, setInput);
   // startScene / send 是稳定回调，用 ref 拿到最新语音方法，避免依赖抖动。
@@ -106,6 +183,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   useEffect(
     () => () => {
       requestRef.current?.abort();
+      requestRef.current = null;
       stopSpeaking();
     },
     [],
@@ -113,12 +191,13 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
 
   // 每条可见台词朗读一次：新台词都是新 key，失败重试也重新生成，不会重读。
   // 首回合模型响应被丢弃（showLine=false 不落到 npcLine），所以也不会被朗读。
+  // 声线按「场景 + 说话人」解析，同一个 tess 在两条线里是两个声音。
   useEffect(() => {
-    if (!tts || !npcLine || !npcLine.text) return;
+    if (!tts || !npcLine || !npcLine.text || !sc) return;
     if (spokenRef.current.has(npcLine.key)) return;
     spokenRef.current.add(npcLine.key);
-    speak(npcLine.text, lang);
-  }, [npcLine, tts, lang]);
+    speak(npcLine.text, lang, resolveLoveVoice(sc.id, npcLine.characterId));
+  }, [npcLine, tts, lang, sc]);
 
   // 隐私弹窗打开或切到后台时暂停朗读，不丢队列。
   useEffect(() => {
@@ -140,13 +219,25 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     };
   }, [tts]);
 
-  // 一回合请求：成功才把 history 写入 historyRef；失败保留在 cmdRef 供重试。AbortController 防过期响应。
+  // 恢复后「已回到上次停下的地方」只出现一次；不占交互。
+  useEffect(() => {
+    if (!resumed) return;
+    const timer = window.setTimeout(() => setResumed(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [resumed]);
+
+  /**
+   * 一回合请求：成功才把 history 写入 historyRef；失败保留在 cmdRef 供重试。
+   * 学习者台词在请求成功后才进入 learnerLines / 回合数——失败的半回合不能变成
+   * 「你上次说过的话」，否则承接候选会漂移。
+   */
   const requestTurn = useCallback(
-    async (s: Scenario, history: ChatMessage[], showLine: boolean) => {
+    async (s: Scenario, history: ChatMessage[], showLine: boolean, pending?: LoveCarryTurn) => {
       if (requestRef.current) return;
+      const generation = generationRef.current;
       const controller = new AbortController();
       requestRef.current = controller;
-      cmdRef.current = { history, showLine };
+      cmdRef.current = { history, showLine, pending };
       setBusy(true);
       setErr(null);
       setOptions(null);
@@ -155,19 +246,25 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           { scenario: s, learnerCharacterId: defaultLearnerId(s), language: lang, learnerName: profile?.name, messages: history, turnLimit: s.maxTurns },
           controller.signal,
         );
-        if (controller.signal.aborted) return;
+        // 过期响应 / abort 不写任何 state，也不碰 history。
+        if (controller.signal.aborted || generationRef.current !== generation) return;
         cmdRef.current = null;
         let lineKey: string | null = null;
         const speaker = speakerOf(s, defaultLearnerId(s));
+        let nextHistory = history;
         if (showLine) {
           lineKey = uid();
           const npcText = turn.line[lang];
           putLine({ key: lineKey, characterId: speaker.id, text: npcText });
           // 模型这一句要带回下一回合：只送开场白 + 学习者台词时，它接不住自己上一句，
           // 剧情无法在自身上累积。开场白已经在 history 里，这里只追加本轮这句。
-          historyRef.current = [...history, { id: lineKey, role: "npc", characterId: speaker.id, text: npcText, ts: Date.now() }];
-        } else {
-          historyRef.current = history;
+          nextHistory = [...history, { id: lineKey, role: "npc", characterId: speaker.id, text: npcText, ts: Date.now() }];
+        }
+        historyRef.current = nextHistory;
+        if (pending) {
+          // 只有这一回合真正成功，学习者的发言才算「说过」；重试成功也只计一次。
+          setLearnerTurns((n) => n + 1);
+          setLearnerLines((prev) => [...prev, pending]);
         }
         setEmotion(turn.emotion);
         setStance(turn.stance);
@@ -175,22 +272,25 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         // revealed，徽标挂在 opening 的 key 上，避免揭示时刻被吞掉。
         setRevealKey(turn.revealed ? lineKey ?? (history[0]?.id ?? null) : null);
         if (turn.terminal || turn.ended) {
+          // terminal = 目标结果；ended-only = 没有判定，按中性收尾展示（记分口径同 partial）。
           setOutcome(turn.terminal ?? "partial");
+          setEndingKind(turn.terminal ? "terminal" : "ended");
+          endedAtRef.current = Date.now();
           setOptions(null);
           setInput("");
           // 判得出结局就记进度，不等「记入统计」：承接读的是 outcome，而玩家拿到结局后
           // 往往直接返回，只在按钮里写会让下一幕收不到结局——那是实验的假阴性。
-          if (turn.terminal && s.series) writeLoveSeriesProgress(s.series.id, s.id, turn.terminal);
+          if (turn.terminal && s.series) writeLoveSeriesProgress(s.series.id, s.id, turn.terminal, actNumberOf(s));
         } else {
           setOptions(turn.options);
         }
       } catch (e) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || generationRef.current !== generation) return;
         setErr(e instanceof Error ? e.message : t(lang, "error_generic"));
       } finally {
         if (requestRef.current === controller) {
           requestRef.current = null;
-          setBusy(false);
+          if (generationRef.current === generation) setBusy(false);
         }
       }
     },
@@ -200,19 +300,42 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   /** 开始一局：展示开场台词，请求首批选项（返回的台词不重复展示）。 */
   const startScene = useCallback(
     async (s: Scenario) => {
+      generationRef.current += 1;
+      // abort 后同步清 ref：否则新一局的首个 requestTurn 会被旧 ref 挡掉，只剩开场无选项。
       requestRef.current?.abort();
+      requestRef.current = null;
+      cmdRef.current = null;
       stopSpeaking();
       voiceRef.current.cancel(true);
       spokenRef.current = new Set();
       historyRef.current = startHistory(s, lang);
+      startedAtRef.current = Date.now();
+      endedAtRef.current = null;
+      recordedRef.current = false;
+      recordingRef.current = false;
+      routeStateRef.current = undefined;
+      carryMarkedRef.current = false;
+      carryIdRef.current = null;
+      currentSaveRef.current = null;
+      lastSavedSignatureRef.current = null;
+      setCanRecap(false);
+      setRecapOpen(false);
+      setRecapSave(null);
+      setResumed(false);
+      setRecording(false);
+      setRecordError(false);
+      setEndingId(null);
+      setEndingKind(null);
       // 承接句并进 opening 而不是单独一条气泡：首回合模型返回的 line 是被丢弃的，
-      // 玩家能看见的只有本地开场白；而 opening 本来就在 history 里，模型顺带就读到它，
-      // 不需要多一次调用、也不改任何契约字段。
-      const carry = s.series ? loveCarryoverForScene(s.series.id, s.id, lang).text : null;
-      setCarryover(carry);
-      if (carry) {
+      // 玩家能看见的只有本地开场白；而 opening 本来就在 history 里，模型顺带就读到它。
+      // 读路径是纯的：mark 由下面的「真正显示」effect 负责。
+      const carry = s.series ? peekLoveCarryoverForScene(s.series.id, s.id, lang) : null;
+      const carryText = carry?.text ?? null;
+      carryIdRef.current = carry?.carryId ?? null;
+      setCarryoverMark(!!carryText);
+      if (carryText) {
         const first = historyRef.current[0];
-        historyRef.current[0] = { ...first, text: `${first.text}\n\n${carry}` };
+        historyRef.current[0] = { ...first, text: `${first.text}\n\n${carryText}` };
       }
       const opening = historyRef.current[0];
       putLine({ key: opening.id, characterId: opening.characterId!, text: opening.text });
@@ -226,25 +349,172 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setInput("");
       setLearnerTurns(0);
       setLearnerLines([]);
+      setBusy(false);
       await requestTurn(s, historyRef.current, false);
     },
     [lang, requestTurn, putLine],
   );
 
+  const applyResume = useCallback(
+    (view: LovePlayResumeState, save: LovePlaySave, s: Scenario) => {
+      const speaker = speakerOf(s, defaultLearnerId(s));
+      historyRef.current = view.history;
+      spokenRef.current = new Set(view.spokenKeys);
+      startedAtRef.current = view.startedAt;
+      endedAtRef.current = view.outcome ? view.endedAt : null;
+      routeStateRef.current = view.routeState;
+      recordedRef.current = view.recorded;
+      recordingRef.current = false;
+      carryIdRef.current = null;
+      carryMarkedRef.current = true;
+      setNpcLine({ key: view.npcLine.key, characterId: view.npcLine.characterId ?? speaker.id, text: view.npcLine.text });
+      // 恢复不重播打字机/揭示：当前句直接全文，skip=true。
+      skipNow();
+      setOptions(view.options);
+      setEmotion(view.emotion);
+      setStance(view.stance);
+      setOutcome(view.outcome);
+      setEndingKind(view.outcome ? "terminal" : null);
+      setEndingId(view.endingId);
+      setRecorded(view.recorded);
+      setRecording(false);
+      setRecordError(false);
+      setLearnerLines(view.learnerLines);
+      setLearnerTurns(view.learnerTurns);
+      setCarryoverMark(view.carryover);
+      setBusy(false);
+      setErr(null);
+      setInput("");
+      setRevealKey(null);
+      currentSaveRef.current = save;
+      lastSavedSignatureRef.current = lovePlaySaveSignature(save);
+      setCanRecap(true);
+      setResumed(true);
+    },
+    [skipNow],
+  );
+
+  // 挂载先读本幕存档：有效则原地恢复（不请求模型、不重读历史语音）；坏档保留原件并停写。
   useEffect(() => {
     if (!sc || startedRef.current === sc.id) return;
     startedRef.current = sc.id;
-    void startScene(sc);
+    let alive = true;
+    const read = readLovePlaySave(sc.id);
+    const plan = planLovePlayRestore(read);
+
+    if (plan.mode === "resume") {
+      const store = readLoveStoryStore();
+      revisionRef.current = store.status === "ok" ? store.store.revision : 0;
+      autosaveRef.current = true;
+      // 恢复是挂载时的一次性状态注入；放进微任务，避免 effect 体内同步级联渲染。
+      queueMicrotask(() => {
+        if (alive) applyResume(plan.view, plan.save, sc);
+      });
+    } else {
+      const store = readLoveStoryStore();
+      const writable = plan.autosave && (store.status === "ok" || store.status === "empty");
+      revisionRef.current = writable ? (store.status === "ok" ? store.store.revision : 0) : null;
+      autosaveRef.current = writable;
+      queueMicrotask(() => {
+        if (!alive) return;
+        // empty 时也显式清空：同组件切换场景不应沿用上一幕的坏档提示。
+        setSaveNotice(plan.notice);
+        setCanRecap(false);
+        void startScene(sc);
+      });
+    }
+
     // StrictMode 会模拟一次卸载：那边 abort 掉在途请求，这里若不放回 startedRef，重跑就被
     // 「已经开过这场」吞掉，于是开场白显示出来、首批选项永远不来（只在开发模式必然复现）。
     // requestRef 同步清空：c1 的 finally 带身份判断，不会误清 c2。
     return () => {
+      alive = false;
       startedRef.current = null;
-      if (requestRef.current) requestRef.current = null;
+      requestRef.current?.abort();
+      requestRef.current = null;
+      cmdRef.current = null;
     };
-    // 场景切换才重开；startScene 依赖稳定（lang/profile 不变）。
+    // 场景切换才重开；applyResume/startScene 依赖稳定（lang/profile 不变）。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sc?.id]);
+
+  /** 开场承接句真正显示后记一次提问计数；恢复路径不会走到这里。 */
+  useEffect(() => {
+    const id = carryIdRef.current;
+    if (!id || carryMarkedRef.current || !npcLine) return;
+    if (!historyRef.current.some((m) => m.id === npcLine.key && m.role === "npc")) return;
+    carryMarkedRef.current = true;
+    markLoveCarryoverShown(id);
+  }, [npcLine]);
+
+  /**
+   * 自动存档：只在稳定边界写——请求不在途、当前句已进 history、playing 已有 2–4 个选项
+   * （或已经收束）。内容签名相同就不重复写 revision；conflict / invalid / unavailable 停写，
+   * quota 只提示并在下一回合继续重试。
+   */
+  useEffect(() => {
+    if (!sc || !autosaveRef.current || busy || !npcLine) return;
+    if (!outcome && (!options || options.length < 2 || options.length > 4)) return;
+    if (!historyRef.current.some((m) => m.id === npcLine.key && m.role === "npc")) return;
+
+    const save = buildLovePlaySave({
+      scenario: sc,
+      lang,
+      history: historyRef.current,
+      currentLineKey: npcLine.key,
+      options,
+      emotion,
+      stance,
+      carryover: carryoverMark,
+      learnerLines,
+      outcome,
+      endingId,
+      routeState: routeStateRef.current,
+      recorded,
+      startedAt: startedAtRef.current,
+    });
+    if (!save) return;
+
+    currentSaveRef.current = save;
+    setCanRecap(true);
+    const signature = lovePlaySaveSignature(save);
+    if (signature === lastSavedSignatureRef.current) return;
+
+    const expected = revisionRef.current;
+    if (expected === null) {
+      autosaveRef.current = false;
+      setSaveNotice("invalid");
+      return;
+    }
+    const result = saveLovePlayScene(save, expected);
+    if (result.ok) {
+      lastSavedSignatureRef.current = signature;
+      revisionRef.current = result.store.revision;
+      currentSaveRef.current = result.store.saves[sc.id] ?? save;
+      setSaveNotice((prev) => (prev === "quota" ? null : prev));
+      return;
+    }
+    switch (result.reason) {
+      case "quota":
+        // 本局继续，下一个稳定边界自动重试；不覆盖上一份有效 save。
+        setSaveNotice("quota");
+        break;
+      case "conflict":
+        autosaveRef.current = false;
+        setSaveNotice("conflict");
+        break;
+      case "unavailable":
+        autosaveRef.current = false;
+        revisionRef.current = null;
+        setSaveNotice("unavailable");
+        break;
+      default:
+        autosaveRef.current = false;
+        revisionRef.current = null;
+        setSaveNotice("invalid");
+        break;
+    }
+  }, [sc, busy, npcLine, options, emotion, stance, carryoverMark, learnerLines, outcome, recorded, endingId, lang]);
 
   /** 发言：把这句话作为 learner 消息追加进历史并请求下一回合。`via` 记下它是点的还是打的。 */
   const send = useCallback(
@@ -256,9 +526,8 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       voiceRef.current.cancel(true);
       const learnerMsg: ChatMessage = { id: uid(), role: "learner", text, ts: Date.now() };
       setInput("");
-      setLearnerTurns((n) => n + 1);
-      setLearnerLines((prev) => [...prev, { via, text }]);
-      await requestTurn(sc, [...historyRef.current, learnerMsg], true);
+      // learnerTurns / learnerLines 等请求成功后再记（失败回滚见 requestTurn）。
+      await requestTurn(sc, [...historyRef.current, learnerMsg], true, { via, text });
     },
     [sc, busy, outcome, npcLine, requestTurn],
   );
@@ -270,7 +539,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     setErr(null);
     // 重试同样会带来一句新台词并自动朗读；开着麦克风念给对方听就是回声自触发。
     voiceRef.current.cancel(true);
-    void requestTurn(sc, pending.history, pending.showLine);
+    void requestTurn(sc, pending.history, pending.showLine, pending.pending);
   }, [sc, requestTurn]);
 
   const voiceSupported = canListen();
@@ -311,6 +580,12 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   // 场景属于剧情线时，返回键和收束按钮都回到该线入口页；否则回恋爱首页。
   const backTo = sc.series ? `/love/play/series/${sc.series.id}` : "/love";
 
+  const leave = () => {
+    stopSpeaking();
+    voiceRef.current.cancel(true);
+    router.push(backTo);
+  };
+
   /**
    * 「带走一句话」对**任何**恋爱场景开放——独立场景、自定义排练、换人的线都照样记。
    * 承诺按说话人归属（`npcId` + 当时的名字快照），跟进卡问的是「你对这个人说过的那句」，
@@ -326,26 +601,102 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   };
 
   const record = () => {
-    if (recorded) return;
-    const result = outcome ?? "partial";
-    completeLovePlay(sc, result);
-    if (sc.series) writeLoveSeriesProgress(sc.series.id, sc.id, result);
-    setRecorded(true);
+    if (!outcome || recordedRef.current || recordingRef.current || !canSubmitLovePlayRecord(recorded)) return;
+    recordingRef.current = true;
+    setRecording(true);
+    setRecordError(false);
+    let landed = false;
+    try {
+      landed = completeLovePlay({
+        scenario: sc,
+        outcome,
+        startedAt: startedAtRef.current,
+        endedAt: endedAtRef.current ?? Date.now(),
+        lang,
+        endingId,
+      });
+    } catch {
+      landed = false;
+    }
+    recordingRef.current = false;
+    setRecording(false);
+    if (landed) {
+      recordedRef.current = true;
+      setRecorded(true);
+      if (sc.series && endingKind === "terminal") writeLoveSeriesProgress(sc.series.id, sc.id, outcome, actNumberOf(sc));
+    } else {
+      setRecordError(true);
+    }
   };
 
-  const restart = () => void startScene(sc);
+  const restart = () => {
+    const result = deleteLovePlayScene(sc.id, revisionRef.current ?? undefined);
+    if (result.ok) {
+      revisionRef.current = result.store.revision;
+      autosaveRef.current = true;
+      setSaveNotice(null);
+    } else {
+      // 删不掉旧档也继续开局，但本局不再写 slot（损坏档尤其不能被新局覆盖）。
+      autosaveRef.current = false;
+      revisionRef.current = null;
+      const reason: SaveNotice =
+        result.reason === "conflict"
+          ? "conflict"
+          : result.reason === "quota"
+            ? "restart_failed"
+            : result.reason === "unavailable"
+              ? "unavailable"
+              : "invalid";
+      setSaveNotice((prev) => (prev === "corrupt" || prev === "incompatible" ? prev : reason));
+    }
+    void startScene(sc);
+  };
 
-  const endingText = outcome ? (outcome === "failure" ? sc.failure[lang] : sc.success[lang]) : "";
+  const openRecap = () => {
+    if (!canRecap) return;
+    let snapshot = currentSaveRef.current;
+    if (!snapshot) {
+      const read = readLovePlaySave(sc.id);
+      snapshot = read.status === "ok" && read.save ? read.save : null;
+    }
+    if (!snapshot) return;
+    setRecapSave(snapshot);
+    setRecapOpen(true);
+  };
+
+  const closeRecap = () => {
+    setRecapOpen(false);
+    stopSpeaking();
+  };
+
+  const endingText = !outcome
+    ? ""
+    : endingKind === "ended"
+      ? t(lang, "love_play_ended_text")
+      : outcome === "failure"
+        ? sc.failure[lang]
+        : outcome === "partial"
+          ? t(lang, "love_play_partial_text")
+          : sc.success[lang];
   const tone = scenarioTone(sc);
 
   return (
     <div className="h-dvh flex flex-col bg-paper relative overflow-hidden" data-tone={tone}>
-      {/* 顶部：返回 + 场景名 + 回合数 */}
+      {/* 顶部：返回 + 场景名 + 回想 + 回合数 */}
       <header className="relative z-20 shrink-0 flex items-center gap-2 px-3 border-b border-line bg-paper">
-        <button onClick={() => router.push(backTo)} aria-label={t(lang, "love_play_back_love")} className="press h-11 w-11 -ml-2 inline-flex items-center justify-center rounded-full text-ink-2 hover:bg-inset">
+        <button onClick={leave} aria-label={t(lang, "love_play_back_love")} className="press h-11 w-11 -ml-2 inline-flex items-center justify-center rounded-full text-ink-2 hover:bg-inset">
           <ArrowLeft size={20} />
         </button>
         <h1 className="flex-1 min-w-0 truncate text-[15px] font-semibold">{sc.title[lang]}</h1>
+        <button
+          onClick={openRecap}
+          disabled={!canRecap}
+          aria-label={t(lang, "love_play_recap")}
+          aria-haspopup="dialog"
+          className="press h-11 w-11 inline-flex items-center justify-center rounded-full text-ink-2 hover:bg-inset disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <History size={19} />
+        </button>
         <span className="num text-[12px] text-ink-3 whitespace-nowrap">{t(lang, "love_play_turns", { n: Math.max(1, learnerTurns) })}</span>
       </header>
 
@@ -401,8 +752,18 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
 
         {/* 这场承接自上一幕：实验要的正是「玩家有没有感觉到」，没被看见的承接是假阴性，
             所以给一行入戏的眉标，而不是把句子悄悄混进开场白。 */}
-        {carryover && (
+        {carryoverMark && (
           <p className="eyebrow mt-3 text-[11px] text-ink-3">{t(lang, "love_play_carryover")}</p>
+        )}
+
+        {resumed && (
+          <p className="mt-2 text-[12px] text-ink-3" role="status">{t(lang, "love_play_resumed")}</p>
+        )}
+
+        {saveNotice && (
+          <p className="mt-2 max-w-[var(--measure)] rounded-[var(--radius-sm)] bg-inset px-3 py-2 text-[12px] leading-relaxed text-ink-2" role="status">
+            {t(lang, SAVE_NOTICE_KEY[saveNotice])}
+          </p>
         )}
 
         {/* 台词框：点一下跳过打字动画（收束回合的最后一句也保留可见） */}
@@ -417,7 +778,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
               skipNow();
             }
           }}
-          className={clsx("min-h-[96px] cursor-pointer select-none rounded-[var(--radius)] border border-line-strong bg-card px-4 py-3 flex flex-col justify-center", carryover ? "mt-1.5" : "mt-3", outcome && "opacity-75")}
+          className={clsx("min-h-[96px] cursor-pointer select-none rounded-[var(--radius)] border border-line-strong bg-card px-4 py-3 flex flex-col justify-center", carryoverMark ? "mt-1.5" : "mt-3", outcome && "opacity-75")}
         >
           <div className="flex items-center justify-between gap-2">
             <span className="text-[13px] font-semibold text-ink">{npcLine ? speaker.name[lang] : ""}</span>
@@ -493,8 +854,25 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           </>
         )}
 
-        {outcome && <PlayEnding lang={lang} outcome={outcome} endingText={endingText} recorded={recorded} carry={carryTarget} onRecord={record} onRestart={restart} onBack={() => router.push(backTo)} />}
+        {outcome && (
+          <PlayEnding
+            lang={lang}
+            outcome={outcome}
+            endingKind={endingKind}
+            endingId={endingId}
+            endingText={endingText}
+            recorded={recorded}
+            recording={recording}
+            recordFailed={recordError}
+            carry={carryTarget}
+            onRecord={record}
+            onRestart={restart}
+            onBack={leave}
+          />
+        )}
       </div>
+
+      <LoveRecap open={recapOpen} onClose={closeRecap} save={recapSave} scenario={sc} />
 
       <Sheet open={voiceNotice} onClose={() => setVoiceNotice(false)} title={t(lang, "pr_voice_notice_title")}>
         <div className="flex flex-col gap-3 pt-2">

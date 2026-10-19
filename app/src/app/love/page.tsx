@@ -14,9 +14,10 @@ import type { Scenario } from "@/data/corpus/types";
 import { LOVE_TOPICS, loveTopicById, type LoveTopicId } from "@/data/corpus/love-topics";
 import { LOVE_SERIES } from "@/data/corpus/love-series";
 import { readLoveSeriesProgress } from "@/lib/love-series-progress";
+import { readLoveStoryStore, type LovePlayRecord } from "@/lib/love-story";
 import { useApp, useLang, useLoveProficiency } from "@/store/useApp";
 import { t } from "@/lib/i18n";
-import { buildSession, sessionMinutes } from "@/lib/session-utils";
+import { buildSession } from "@/lib/session-utils";
 
 export default function Love() {
   const lang = useLang();
@@ -25,6 +26,8 @@ export default function Love() {
   const love = useLoveProficiency();
   const [topic, setTopic] = useState<LoveTopicId | null>(null);
   const starting = useRef(false);
+  /** 设备端剧情记录：完成数与真实分钟只从这里来，不等同于练习 session。 */
+  const [records, setRecords] = useState<LovePlayRecord[] | null>(null);
 
   const loveScenarios = useMemo(
     () => [...customScenarios.filter((s) => s.context === "romantic"), ...SCENARIOS.filter((s) => s.context === "romantic" && !s.custom)],
@@ -35,8 +38,11 @@ export default function Love() {
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of sessions) if (s.status === "assessed") map.set(s.scenario.id, (map.get(s.scenario.id) ?? 0) + 1);
+    // 剧情局只写记录、不写练习 session；推荐「还没练过」时必须把记录并进来，
+    // 否则刚走完的剧情仍被当成没玩过（G21）。
+    for (const r of records ?? []) map.set(r.scenarioId, (map.get(r.scenarioId) ?? 0) + 1);
     return map;
-  }, [sessions]);
+  }, [sessions, records]);
   /** Unfiltered list grouped by love topic so sibling scenes sit together; scenes without a topic go last. */
   const ordered = useMemo(() => {
     const order = new Map(LOVE_TOPICS.map((t, i) => [t.id, i]));
@@ -49,16 +55,18 @@ export default function Love() {
   }, [loveScenarios]);
   const list = useMemo(() => (topic ? ordered.filter((s) => s.loveTopic === topic) : ordered), [topic, ordered]);
   const stats = useMemo(() => {
-    // Count from the session snapshot, not scenarioById: custom /rehearse scenes
-    // live outside SCENARIOS, and snapshots survive corpus edits. Minutes use the
-    // same actual-time basis as /progress (sessionMinutes), not planned minutes.
-    const done = sessions.filter((s) => s.status === "assessed" && s.scenario.context === "romantic");
+    // 完成数 / 分钟来自设备端 `LovePlayRecord`（G21）：剧情局不再生成练习
+    // session，用 session 快照算会把「记入统计」后的数字停在原地。分钟按
+    // 真实开局到收尾的时间取整，至少 1 分钟，与练习页口径一致。
+    // 星级仍只能来自经教练复盘的 assessed session —— 记录里没有星级。
+    const recorded = records ?? [];
+    const assessed = sessions.filter((s) => s.status === "assessed" && s.scenario.context === "romantic");
     return {
-      count: done.length,
-      minutes: done.reduce((a, s) => a + sessionMinutes(s), 0),
-      stars: done.reduce((a, s) => a + (s.report && s.report.scoringVersion === 2 ? s.report.stars : 0), 0),
+      count: recorded.length,
+      minutes: recorded.reduce((a, r) => a + Math.max(1, Math.round((r.endedAt - r.startedAt) / 60000)), 0),
+      stars: assessed.reduce((a, s) => a + (s.report && s.report.scoringVersion === 2 ? s.report.stars : 0), 0),
     };
-  }, [sessions]);
+  }, [sessions, records]);
   /** Least-practiced topic with an unseen scene: a gentle "what to do next". */
   const nextPick = useMemo(() => {
     const unseen = loveScenarios.filter((s) => !counts.has(s.id) && s.loveTopic);
@@ -73,10 +81,23 @@ export default function Love() {
     router.push(`/practice/${session.id}`);
   };
   /**
-   * 各剧情线的设备端完成数。挂载后再读 localStorage：服务端首屏没有存储，
+   * 记录与各剧情线的完成数都在挂载后再读 localStorage：服务端首屏没有存储，
    * 统一以 null 起始避免 hydration 不一致（与 SeriesPlay 同一口径）。
+   * 记录槽损坏/不可用时只是没有记录可算，不阻断页面。
    */
   const [seriesDone, setSeriesDone] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      if (!alive) return;
+      const story = readLoveStoryStore();
+      setRecords(story.status === "ok" ? story.store.records : []);
+    }, 0);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, []);
   useEffect(() => {
     let alive = true;
     const timer = window.setTimeout(() => {

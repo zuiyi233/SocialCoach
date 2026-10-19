@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { clsx } from "clsx";
-import type { L, Lang } from "@/data/taxonomy";
+import { L, type Lang } from "@/data/taxonomy";
 import { CARRY_PROMISE_LABELS, type CarryPromiseClass } from "@/data/corpus/love-carry-lines";
 import { pick, t } from "@/lib/i18n";
-import { LOVE_CARRY_TEXT_MAX, readLoveCarries, saveLoveCarry, type LoveCarry } from "@/lib/love-carry-store";
+import { LOVE_CARRY_TEXT_MAX, readLoveCarries, saveLoveCarry, type LoveCarry, type LoveCarrySave } from "@/lib/love-carry-store";
 
 /** 这一幕可以把承诺带给谁：线（可以没有线）、说话人、以及学习者自己打出来的那些句子。 */
 export interface LoveCarryTarget {
@@ -17,6 +17,17 @@ export interface LoveCarryTarget {
 }
 
 const CLASSES = Object.keys(CARRY_PROMISE_LABELS) as CarryPromiseClass[];
+
+/**
+ * 超长是**拒绝**，不是截断：`saveLoveCarry` 不再替学习者删字，这里也必须把原因说出来，
+ * 而不是让他以为存下的就是自己打的那一整句。文案留在组件里（i18n 表这一批不动）。
+ */
+const CARRY_TOO_LONG: L = L(
+  `这句话超过了 ${LOVE_CARRY_TEXT_MAX} 字的上限，没有存下——请自己缩短后再存，不能替你删字。`,
+  `This line is over the ${LOVE_CARRY_TEXT_MAX}-character limit, so it was not kept. Shorten it yourself — nothing was cut for you.`,
+);
+
+type CarryError = Extract<LoveCarrySave, { ok: false }>["reason"] | null;
 
 /**
  * 收束时的「带走一句话」：把本场里**学习者自己打的**某句（或现写的一句）存成承诺，
@@ -33,22 +44,34 @@ export function PlayCarryCapture({ lang, target }: { lang: Lang; target: LoveCar
   const [dismissed, setDismissed] = useState(false);
   const [text, setText] = useState("");
   const [cls, setCls] = useState<CarryPromiseClass | null>(null);
-  const [full, setFull] = useState(false);
+  const [error, setError] = useState<CarryError>(null);
   // 挂载后再读存储（同 SeriesPlay）：服务端首屏没有 localStorage，同步读会 hydration 不一致。
   const [ready, setReady] = useState(false);
+  // 与 `saveLoveCarry` 的归属键同一口径：同一场景里换一个 NPC，展示的必须是这个人那句。
+  const count = text.trim().length;
+  const overLimit = count > LOVE_CARRY_TEXT_MAX;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setRecorded(readLoveCarries().find((c) => c.scenarioId === target.scenarioId && c.state === "pending") ?? null);
+      setRecorded(
+        readLoveCarries().find(
+          (c) => c.scenarioId === target.scenarioId && c.npcId === target.npcId && c.state === "pending",
+        ) ?? null,
+      );
       setReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [target.scenarioId]);
+  }, [target.scenarioId, target.npcId]);
 
   const save = () => {
     // 存下去的就是学习者打出来的那几个字：只去首尾空白，不改写、不截断、不翻译。
     const value = text.trim();
     if (!value) return;
+    // 提交前先挡一次：候选句可能是本场里打过的长句，不能等到 store 才拒绝。
+    if (value.length > LOVE_CARRY_TEXT_MAX) {
+      setError("too-long");
+      return;
+    }
     const res = saveLoveCarry({
       text: value,
       // 记录时的界面语言就是这句话被打出来的语言；除此之外没有第二处知道它的语种。
@@ -60,11 +83,11 @@ export function PlayCarryCapture({ lang, target }: { lang: Lang; target: LoveCar
       seriesId: target.seriesId,
     });
     if (!res.ok) {
-      setFull(true);
+      setError(res.reason);
       return;
     }
     setRecorded(res.carry);
-    setFull(false);
+    setError(null);
     setEditing(false);
   };
 
@@ -78,7 +101,7 @@ export function PlayCarryCapture({ lang, target }: { lang: Lang; target: LoveCar
         <p className="border-l-2 border-line-strong pl-3 text-[14px] leading-relaxed text-ink">{recorded.text}</p>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[12px] text-ink-3">{t(lang, "love_carry_saved")}</span>
-          <button onClick={() => { setEditing(true); setDismissed(false); setText(""); }} className="press text-[12px] underline text-ink-2">
+          <button onClick={() => { setEditing(true); setDismissed(false); setText(""); setError(null); }} className="press text-[12px] underline text-ink-2">
             {t(lang, "love_carry_change")}
           </button>
         </div>
@@ -109,7 +132,7 @@ export function PlayCarryCapture({ lang, target }: { lang: Lang; target: LoveCar
           {target.candidates.map((candidate) => (
             <button
               key={candidate}
-              onClick={() => { setText(candidate); setFull(false); }}
+              onClick={() => { setText(candidate); setError(candidate.trim().length > LOVE_CARRY_TEXT_MAX ? "too-long" : null); }}
               className={clsx(
                 "press min-h-11 rounded-[var(--radius-sm)] border px-3 py-2 text-left text-[13.5px] leading-snug",
                 text === candidate ? "border-ink-2 bg-inset text-ink" : "border-line bg-card text-ink hover:border-line-strong",
@@ -122,12 +145,18 @@ export function PlayCarryCapture({ lang, target }: { lang: Lang; target: LoveCar
       )}
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-[11px] text-ink-3">{t(lang, "love_carry_type_own")}</span>
+        <span className="flex items-baseline justify-between gap-2 text-[11px] text-ink-3">
+          <span>{t(lang, "love_carry_type_own")}</span>
+          {/* 计数按真正会落盘的那几个字算（去首尾空白之后），和 store 的校验同一口径。 */}
+          <span className={clsx("num whitespace-nowrap", overLimit && "text-danger")}>
+            {count} / {LOVE_CARRY_TEXT_MAX}
+          </span>
+        </span>
         <textarea
           rows={2}
           value={text}
           maxLength={LOVE_CARRY_TEXT_MAX}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); setError(null); }}
           placeholder={t(lang, "love_carry_type_ph")}
           className="min-h-16 max-h-[140px] resize-none rounded-[var(--radius-sm)] border border-line bg-card px-3 py-2.5 text-[15px] leading-snug outline-none placeholder:text-ink-3 focus:border-ink-2"
         />
@@ -156,9 +185,9 @@ export function PlayCarryCapture({ lang, target }: { lang: Lang; target: LoveCar
         </div>
       </div>
 
-      {full && (
+      {error && (
         <p role="alert" className="rounded-[var(--radius-sm)] bg-danger-soft px-3 py-2 text-[12.5px] text-danger">
-          {t(lang, "love_carry_full")}
+          {error === "too-long" ? pick(CARRY_TOO_LONG, lang) : t(lang, "love_carry_full")}
         </p>
       )}
 

@@ -9,10 +9,49 @@ import type { PatternResult } from "@/lib/tasks/types";
 import { DEVICE_KEY, OPEN_DAY_KEY } from "@/lib/analytics/keys";
 import {parseArchive} from '@/lib/archive';
 import {estimateProficiency} from '@/lib/proficiency';
-import {uid} from '@/lib/format';
+import {appendLovePlayRecord, readLoveStoryStore, type LovePlayRecord} from '@/lib/love-story';
+import {clearLovePlaySlots} from '@/lib/love-carry-store';
 import {createArchiveStorage,type SaveIssue} from './archive-storage';
 
 export type Theme = "system" | "light" | "dark";
+
+/**
+ * 「记入统计」的输入。`startedAt` 由开局方给出：剧情模式一局可能跨刷新，
+ * 只有它知道这一局真正从哪一刻开始，store 不能再拿 `now` 伪造。
+ */
+export interface LovePlayCompletion {
+  scenario: Scenario;
+  outcome: "success" | "partial" | "failure";
+  startedAt: number;
+  endedAt?: number;
+  lang: Lang;
+  endingId?: string | null;
+}
+
+/**
+ * 一条恋爱记录的确定性投影。id 只由场景与开局时间决定，所以双击或重进收尾页
+ * 再点一次「记入统计」都会落到同一条上（`appendLovePlayRecord` 按 id 去重）。
+ */
+export function lovePlayRecordFor(input: LovePlayCompletion): LovePlayRecord {
+  return {
+    id: `${input.scenario.id}@${input.startedAt}`,
+    scenarioId: input.scenario.id,
+    seriesId: input.scenario.series?.id ?? null,
+    outcome: input.outcome,
+    endingId: input.endingId ?? null,
+    startedAt: input.startedAt,
+    endedAt: input.endedAt ?? Date.now(),
+    lang: input.lang,
+  };
+}
+
+/**
+ * 已经在内存里计入过增益的记录 id。落盘失败时 `records` 里没有这条，
+ * 但玩家不该因为一次配额错误在重试时拿到第二份主题增益；这份名单不持久化，
+ * 刷新后以磁盘上的 `records` 为准。
+ */
+const lovePlayApplied = new Set<string>();
+const LOVE_PLAY_APPLIED_MAX = 200;
 
 export interface Settings {
   tts: boolean;
@@ -104,11 +143,15 @@ interface AppState {
   updateLastNpc: (id: string, text: string, characterId: string, messageId: string) => void;
   applyReport: (id: string, report: Report) => void;
   /**
-   * 恋爱 Galgame 模式的轻量收尾：只记一条「已结束」的会话、更新练习日历与
-   * 恋爱主题熟练度。不触发 applyReport / assess，也不产生 report —— 剧情模式
-   * 没有教练引语的复盘，只有结局归属感。
+   * 恋爱 Galgame 模式的收尾：把这一局写成设备端 `LovePlayRecord`，更新练习
+   * 日历与恋爱主题熟练度。不创建练习 `Session`、不触发 applyReport / assess，
+   * 剧情模式没有教练引语的复盘（G14/G15/G21）。
+   *
+   * 返回 true 仅当记录已在设备上（本次写入成功，或同一 id 先前已落盘）。
+   * 落盘失败返回 false，但内存里的主题增益与 practiceDays 照常更新，让剧情
+   * 能继续；调用方据此提示「这次没记上」，不要把失败吞掉。
    */
-  completeLovePlay: (scenario: Scenario, outcome: "success" | "partial" | "failure") => void;
+  completeLovePlay: (input: LovePlayCompletion) => boolean;
   addReflection: (id: string, r: Reflection) => void;
   updateReflection: (id: string, idx: number, patch: Partial<Reflection>) => void;
   addCustomScenario: (s: Scenario) => void;
@@ -244,43 +287,43 @@ const sess = s.sessions.find((x) => x.id === id);
       addCustomScenario: (sc) => set((s) => ({ customScenarios: [sc, ...s.customScenarios.filter((x) => x.id !== sc.id)] })),
       toggleBookmark: (id) => set((s) => ({ bookmarks: s.bookmarks.includes(id) ? s.bookmarks.filter((b) => b !== id) : [...s.bookmarks, id] })),
       setToday: (todaySessionId) => set({ todaySessionId, todayDate: todayKey() }),
-      completeLovePlay: (scenario, outcome) =>
-        set((s) => {
-          // 剧情模式没有逐句复盘，只留一条轻量记录；角色取默认可扮演角色，
-          // 与 SCENARIOS 里 withLearner 注入的 "you" 一致（自定义场景同样如此）。
-          const learnerCharacterId = scenario.characters.find((c) => c.playable)?.id ?? scenario.characters[0].id;
-          const now = Date.now();
-          const session: Session = {
-            id: uid(),
-            scenario,
-            learnerCharacterId,
-            messages: [],
-            objectiveDone: [],
-            status: "ended",
-            outcome,
-            startedAt: now,
-            endedAt: now,
-            reflections: [],
-            origin: "love-play",
-          };
-          const day = todayKey();
-          const love = { ...s.loveProficiency };
-          const topic = scenario.loveTopic;
-          if (topic) {
-            // 按结局给微增益（沿用 applyReport 的 1-5 夹紧口径，且不被单局填满）。
-            const gain = outcome === "success" ? 0.3 : outcome === "partial" ? 0.15 : 0.05;
-            const cur = love[topic] ?? 2.5;
-            love[topic] = Math.min(5, Math.max(1, +(cur + gain).toFixed(2)));
+      completeLovePlay: (input) => {
+        const record = lovePlayRecordFor(input);
+        // 先看磁盘：同一 id 已落盘就不再写第二遍，也不再加一次增益。
+        const read = readLoveStoryStore();
+        const alreadyRecorded = read.status === "ok" && read.store.records.some((r) => r.id === record.id);
+        const persisted = alreadyRecorded || appendLovePlayRecord(record).ok;
+
+        if (!alreadyRecorded && !lovePlayApplied.has(record.id)) {
+          lovePlayApplied.add(record.id);
+          if (lovePlayApplied.size > LOVE_PLAY_APPLIED_MAX) {
+            const oldest = lovePlayApplied.values().next().value;
+            if (oldest !== undefined) lovePlayApplied.delete(oldest);
           }
-          return {
-            sessions: [session, ...s.sessions],
-            practiceDays: s.practiceDays.includes(day) ? s.practiceDays : [...s.practiceDays, day],
-            loveProficiency: love,
-          };
-        }),
+          const day = todayKey();
+          set((s) => {
+            const love = { ...s.loveProficiency };
+            const topic = input.scenario.loveTopic;
+            if (topic) {
+              // 按结局给微增益（沿用 applyReport 的 1-5 夹紧口径，且不被单局填满）。
+              const gain = input.outcome === "success" ? 0.3 : input.outcome === "partial" ? 0.15 : 0.05;
+              const cur = love[topic] ?? 2.5;
+              love[topic] = Math.min(5, Math.max(1, +(cur + gain).toFixed(2)));
+            }
+            return {
+              practiceDays: s.practiceDays.includes(day) ? s.practiceDays : [...s.practiceDays, day],
+              loveProficiency: love,
+            };
+          });
+        }
+        return persisted;
+      },
       setSettings: (p) => set((s) => ({ settings: { ...s.settings, ...p } })),
       setPatternInsight: (result, from) => set({ patternInsight: { result, from, at: Date.now() } }),
       reset: () => {
+        // 恋爱 slot 按设计不进 persist archive（避开版本迁移），所以 archiveStorage.reset
+        // 碰不到它们；承诺里存的是用户亲手打的一句话，必须在这里显式擦掉（G16）。
+        clearLovePlaySlots();
         archiveStorage.reset(true);
         try {
           // Clear only this app's tab state, including unsent practice drafts.

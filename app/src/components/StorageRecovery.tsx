@@ -4,7 +4,13 @@ import { BrandMark } from "./BrandMark";
 import { LanguagePicker } from "./LanguagePicker";
 import { Button, Sheet } from "./ui";
 import { useApp, useLang } from "@/store/useApp";
-import { t } from "@/lib/i18n";
+import { t, pick } from "@/lib/i18n";
+import { clearLovePlaySlots, LOVE_PLAY_PREFIX } from "@/lib/love-carry-store";
+
+const resetFailed = {
+  zh: "设备数据未能清除，请先导出备份再重试。",
+  en: "Device data could not be cleared. Export a backup and try again.",
+};
 
 /** Do not silently reset unreadable practice records or leave a blank shell. */
 export function StorageRecovery({ issue }: { issue: "unreadable" | "unavailable" }) {
@@ -13,7 +19,33 @@ export function StorageRecovery({ issue }: { issue: "unreadable" | "unavailable"
   const [backedUp, setBackedUp] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState(false);
+  const [resetError, setResetError] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  /** 扫描 love 前缀的现存 key 数；读不了返回 null——「一条不剩」与「没法确认」必须分开。 */
+  const countLovePlaySlots = () => {
+    try {
+      let count = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(LOVE_PLAY_PREFIX)) count++;
+      }
+      return count;
+    } catch {
+      return null;
+    }
+  };
+  /** 主档 reset() 清不掉独立 love slot（G16）；先删并复验，删不干净就不宣称成功、不关确认层。 */
+  const restart = () => {
+    const before = countLovePlaySlots();
+    clearLovePlaySlots();
+    if (before === null || countLovePlaySlots() !== 0) {
+      setResetError(true);
+      return;
+    }
+    setResetError(false);
+    useApp.getState().reset();
+    setConfirm(false);
+  };
   const backup = () => {
     try {
       const raw = localStorage.getItem("socialcoach.v1");
@@ -53,12 +85,13 @@ export function StorageRecovery({ issue }: { issue: "unreadable" | "unavailable"
       <Button block variant="secondary" onClick={retry} disabled={retrying}>{t(lang, "storage_retry")}</Button>
       {issue === "unreadable" && <>
         {backedUp && <p className="text-[13px] text-ink-3 leading-relaxed">{t(lang, "storage_backup_check")}</p>}
-        <Button block variant="ghost" disabled={!backedUp||conflict} onClick={() => setConfirm(true)}>{t(lang, "storage_restart")}</Button>
+        <Button block variant="ghost" disabled={!backedUp||conflict} onClick={() => { setResetError(false); setConfirm(true); }}>{t(lang, "storage_restart")}</Button>
       </>}
       <Sheet open={confirm} onClose={() => setConfirm(false)} title={t(lang, "storage_restart")}>
         <div className="flex flex-col gap-4 pt-2">
           <p className="text-[14px] text-ink-2 leading-relaxed">{t(lang, "storage_reset_confirm")}</p>
-          <Button block disabled={conflict} onClick={() => useApp.getState().reset()}>{t(lang, "storage_restart")}</Button>
+          <Button block disabled={conflict} onClick={restart}>{t(lang, "storage_restart")}</Button>
+          {resetError && <p role="alert" className="text-[13px] text-danger">{pick(resetFailed, lang)}</p>}
           <Button block variant="ghost" onClick={() => setConfirm(false)}>{t(lang, "cancel")}</Button>
         </div>
       </Sheet>

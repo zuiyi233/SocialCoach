@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import type { Lang } from '../../src/data/taxonomy';
 import { LOVE_SERIES, loveSeriesById } from '../../src/data/corpus/love-series';
 import { CARRY_LINES, CARRY_LINES_UNCLASSIFIED, CARRY_QUOTE_MARKER } from '../../src/data/corpus/love-carry-lines';
-import { LOVE_CARRYOVER, loveCarryoverForScene, pickLoveCarryover } from '../../src/lib/love-carryover';
+import { LOVE_CARRYOVER, markLoveCarryoverShown, peekLoveCarryoverForScene, pickLoveCarryover } from '../../src/lib/love-carryover';
 import { writeLoveSeriesProgress } from '../../src/lib/love-series-progress';
 import { dueLoveCarry, readLoveCarries, saveLoveCarry, type LoveCarryDraft } from '../../src/lib/love-carry-store';
 import { defaultLearnerId, speakerOf } from '../../src/lib/session-utils';
@@ -31,12 +31,12 @@ const clear = (seriesId: string) => entries.delete(`socialcoach.love-play.series
 test('only the immediately-preceding act carries over, never an earlier completed one', () => {
   clear(RIO);
   const [first, second, third] = actIds(RIO);
-  assert.equal(loveCarryoverForScene(RIO, second, 'zh').text, null, 'with no recorded outcome the next act opens clean');
+  assert.equal(peekLoveCarryoverForScene(RIO, second, 'zh').text, null, 'with no recorded outcome the next act opens clean');
   writeLoveSeriesProgress(RIO, first, 'success');
   // 第 1 幕已完成、第 2 幕没打点：第 3 幕不能承接第 1 幕，否则链条断成散点存档。
-  assert.equal(loveCarryoverForScene(RIO, third, 'zh').text, null, 'a gap in the middle must not bridge over it');
+  assert.equal(peekLoveCarryoverForScene(RIO, third, 'zh').text, null, 'a gap in the middle must not bridge over it');
   writeLoveSeriesProgress(RIO, second, 'partial');
-  const carry = loveCarryoverForScene(RIO, third, 'zh');
+  const carry = peekLoveCarryoverForScene(RIO, third, 'zh');
   assert.equal(carry.outcome, 'partial', 'the predecessor outcome is what the sentence is keyed on');
   assert.ok(carry.text);
   assert.equal(carry.actIndex, 2);
@@ -46,9 +46,9 @@ test('the opening act of a line carries nothing and an unknown line resolves to 
   clear(RIO);
   const [first, second] = actIds(RIO);
   writeLoveSeriesProgress(RIO, second, 'success');
-  assert.deepEqual(loveCarryoverForScene(RIO, first, 'zh'), { text: null, outcome: null, actIndex: 0 });
-  assert.equal(loveCarryoverForScene('love-arc-not-a-line', second, 'zh').text, null);
-  assert.equal(loveCarryoverForScene(RIO, 'not-a-scene', 'zh').text, null);
+  assert.deepEqual(peekLoveCarryoverForScene(RIO, first, 'zh'), { text: null, outcome: null, actIndex: 0, carryId: null });
+  assert.equal(peekLoveCarryoverForScene('love-arc-not-a-line', second, 'zh').text, null);
+  assert.equal(peekLoveCarryoverForScene(RIO, 'not-a-scene', 'zh').text, null);
 });
 
 test('a line whose cast changes between acts gets no carryover, because the speaker would be lying', () => {
@@ -58,8 +58,8 @@ test('a line whose cast changes between acts gets no carryover, because the spea
   clear(scattered.id);
   const ids = scattered.scenarios.map((s) => s.id);
   writeLoveSeriesProgress(scattered.id, ids[0], 'success');
-  assert.equal(loveCarryoverForScene(scattered.id, ids[1], 'zh').text, null);
-  assert.equal(loveCarryoverForScene(scattered.id, ids[1], 'en').text, null);
+  assert.equal(peekLoveCarryoverForScene(scattered.id, ids[1], 'zh').text, null);
+  assert.equal(peekLoveCarryoverForScene(scattered.id, ids[1], 'en').text, null);
 });
 
 test('all six authored sentences exist in both languages and are single spoken lines', () => {
@@ -202,26 +202,31 @@ test('every ask template really contains the quote slot, in both languages', () 
   }
 });
 
-test('a pending carry from the same line and speaker outranks the outcome sentence', () => {
+test('a pending carry from the same line and speaker outranks the outcome sentence, and only an explicit mark spends an ask', () => {
   clearCarries();
   clear(RIO);
   const [first, second] = actIds(RIO);
   saveCarry();
   writeLoveSeriesProgress(RIO, first, 'success');
-  const opened = loveCarryoverForScene(RIO, second, 'zh');
+  const opened = peekLoveCarryoverForScene(RIO, second, 'zh');
   assert.equal(opened.text, askOf('call', 'zh'), 'the opening quotes the learner’s own words');
   assert.notEqual(opened.text, LOVE_CARRYOVER[RIO].success.zh, '…in place of P1’s hardcoded sentence');
   assert.equal(opened.outcome, 'success', 'the outcome still rides along, so the eyebrow label works on both paths');
-  assert.equal(carrySlot().askCount, 1, 'quoting counts as asking');
+  assert.equal(opened.carryId, carrySlot().id, 'the peek names the carry it would quote');
+  assert.equal(carrySlot().askCount, 0, 'peeking is a pure read: opening the act is not yet asking');
+  assert.equal(carrySlot().lastAskedAt, undefined, 'peek writes no timestamp either');
+  markLoveCarryoverShown(opened.carryId!);
+  assert.equal(carrySlot().askCount, 1, 'the explicit mark after the line really shows counts as asking');
   assert.equal(carrySlot().state, 'pending', 'the ask never answers on the learner’s behalf');
   assert.equal(typeof carrySlot().lastAskedAt, 'number');
-  loveCarryoverForScene(RIO, second, 'zh');
-  // 重开同一幕不再多花掉一次提问：一次自然日只算问过一回。不设这条的话，连打三幕或把一幕
-  // 重开两次就能在同一次访问里把 3 次问满，承诺被静默 retire，跟进卡再也轮不到——而设置页
+  // 重开同一幕：peek 照旧引用，mark 再来一次也不会在同一天里多花额度。不设这条的话，连打三幕或
+  // 把一幕重开两次就能在同一次访问里把 3 次问满，承诺被静默 retire，跟进卡再也轮不到——而设置页
   // 向用户承诺的是「两次至少隔一天」。计数按天，引用照旧，NPC 不会忽然忘了刚问过的那句。
+  const reopened = peekLoveCarryoverForScene(RIO, second, 'zh');
+  markLoveCarryoverShown(reopened.carryId!);
   assert.equal(carrySlot().askCount, 1, 'reopening the same act does not spend another ask');
-  assert.equal(loveCarryoverForScene(RIO, second, 'zh').text, askOf('call', 'zh', 'askAgain'), 'the reopened act keeps quoting the promise, in the second-ask wording');
-  assert.equal(loveCarryoverForScene(RIO, second, 'en').text, askOf('call', 'en', 'askAgain'), 'the opening switches on the same askCount the card uses, in the interface language');
+  assert.equal(reopened.text, askOf('call', 'zh', 'askAgain'), 'the reopened act keeps quoting the promise, in the second-ask wording');
+  assert.equal(peekLoveCarryoverForScene(RIO, second, 'en').text, askOf('call', 'en', 'askAgain'), 'the opening switches on the same askCount the card uses, in the interface language');
   clearCarries();
 });
 
@@ -230,7 +235,7 @@ test('the carry line follows the interface language while the quote stays single
   clear(RIO);
   saveCarry();
   const [, second] = actIds(RIO);
-  const opened = loveCarryoverForScene(RIO, second, 'en').text!;
+  const opened = peekLoveCarryoverForScene(RIO, second, 'en').text!;
   assert.equal(opened, askOf('call', 'en'));
   assert.ok(opened.includes(QUOTE), 'the Chinese words are not translated into the English line');
   clearCarries();
@@ -242,10 +247,10 @@ test('a carry matches by line + speaker, not by which act it came from', () => {
   const [first, , third] = actIds(RIO);
   saveCarry({ scenarioId: first });
   // 隔一幕也算：原话真的说过就不是编造；只有 P1 的查表句要求紧邻。
-  assert.equal(loveCarryoverForScene(RIO, third, 'zh').text, askOf('call', 'zh'), 'act 3 quotes a carry left in act 1');
+  assert.equal(peekLoveCarryoverForScene(RIO, third, 'zh').text, askOf('call', 'zh'), 'act 3 quotes a carry left in act 1');
   clearCarries();
   saveCarry({ scenarioId: third });
-  assert.equal(loveCarryoverForScene(RIO, third, 'zh').text, null, 'a scene never quotes its own carry back at itself');
+  assert.equal(peekLoveCarryoverForScene(RIO, third, 'zh').text, null, 'a scene never quotes its own carry back at itself');
   clearCarries();
 });
 
@@ -256,10 +261,11 @@ test('a carry from another line or another character is never quoted', () => {
   writeLoveSeriesProgress(RIO, first, 'partial');
   // 语料里 tess 是两条线上两个角色的同一个 id（还共用立绘），线 id 这一层就是让这种撞 id 无害。
   saveCarry({ seriesId: EVE, scenarioId: actIds(EVE)[0] });
-  assert.equal(loveCarryoverForScene(RIO, second, 'zh').text, LOVE_CARRYOVER[RIO].partial.zh, "another line's carry stays in that line");
+  const fallback = pickLoveCarryover('partial', RIO, 'zh', first)!;
+  assert.equal(peekLoveCarryoverForScene(RIO, second, 'zh').text, fallback, "another line's carry stays in that line");
   clearCarries();
   saveCarry({ npcId: 'eve' });
-  assert.equal(loveCarryoverForScene(RIO, second, 'zh').text, LOVE_CARRYOVER[RIO].partial.zh, 'a different character never claims this promise');
+  assert.equal(peekLoveCarryoverForScene(RIO, second, 'zh').text, fallback, 'a different character never claims this promise');
   clearCarries();
 });
 
@@ -268,7 +274,7 @@ test('an unlabelled carry falls to the unclassified ask line', () => {
   clear(RIO);
   saveCarry({ cls: null });
   const [, second] = actIds(RIO);
-  assert.equal(loveCarryoverForScene(RIO, second, 'zh').text, askOf(null, 'zh'));
+  assert.equal(peekLoveCarryoverForScene(RIO, second, 'zh').text, askOf(null, 'zh'));
   clearCarries();
 });
 
@@ -277,15 +283,15 @@ test('P1’s gates survive P2: the first act and a character-swapping line still
   clear(RIO);
   const [first, second] = actIds(RIO);
   saveCarry({ scenarioId: second });
-  assert.equal(loveCarryoverForScene(RIO, first, 'zh').text, null, 'the opening act has no past to carry');
+  assert.equal(peekLoveCarryoverForScene(RIO, first, 'zh').text, null, 'the opening act has no past to carry');
   const scattered = LOVE_SERIES.find((s) => !s.continuous && s.scenarios.length > 1);
   assert.ok(scattered, 'the corpus is expected to keep at least one non-continuous romantic line');
   clear(scattered.id);
   const ids = scattered.scenarios.map((s) => s.id);
   const next = scattered.scenarios[1];
   saveCarry({ seriesId: scattered.id, npcId: speakerOf(next, defaultLearnerId(next)).id, scenarioId: ids[0] });
-  assert.equal(loveCarryoverForScene(scattered.id, ids[1], 'zh').text, null, 'a line that swaps characters must not let an NPC claim a memory');
-  assert.equal(loveCarryoverForScene(scattered.id, ids[1], 'en').text, null);
+  assert.equal(peekLoveCarryoverForScene(scattered.id, ids[1], 'zh').text, null, 'a line that swaps characters must not let an NPC claim a memory');
+  assert.equal(peekLoveCarryoverForScene(scattered.id, ids[1], 'en').text, null);
   clearCarries();
 });
 
@@ -308,8 +314,8 @@ test('the long-distance line records promises even though its acts swap characte
   writeLoveSeriesProgress(ld.id, first.id, 'success');
   const res = saveCarry({ seriesId: ld.id, scenarioId: first.id, npcId: speaker.id, npcName: speaker.name });
   assert.equal(res.ok, true, '采集不看 continuous：异地 8 场每一场都该能留下一句');
-  assert.equal(loveCarryoverForScene(ld.id, second.id, 'zh').text, null, '注入仍然按 continuous 关门');
-  assert.equal(loveCarryoverForScene(ld.id, second.id, 'en').text, null, '…两种语言都不开');
+  assert.equal(peekLoveCarryoverForScene(ld.id, second.id, 'zh').text, null, '注入仍然按 continuous 关门');
+  assert.equal(peekLoveCarryoverForScene(ld.id, second.id, 'en').text, null, '…两种语言都不开');
   const due = dueLoveCarry(muchLater());
   assert.equal(due?.npcId, speaker.id, '跟进卡按说话人归属，与这条线连不连续无关');
   assert.ok(due?.text, '学习者那句原话还在，等着被逐字问起');

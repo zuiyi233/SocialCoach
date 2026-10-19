@@ -38,6 +38,12 @@ export interface LoveCarry {
   npcName: L;
   scenarioId: string;
   seriesId: string | null;
+  /**
+   * 场景 + 角色的稳定身份键（`scenarioId:characterId`，G01/G20）。
+   * 同一场景换一个 NPC 仍是另一个人的承诺：覆盖/复用只在同一个 `characterKey` 上成立。
+   * 旧档没有这个字段，读取时按 `${scenarioId}:${npcId}` 兜底（`loveCarryKeyOf`），下次写入补上。
+   */
+  characterKey?: string;
   createdAt: number;
   updatedAt: number;
   askCount: number;
@@ -63,7 +69,8 @@ export interface LoveCarryTurn {
   text: string;
 }
 
-export type LoveCarrySave = { ok: true; carry: LoveCarry } | { ok: false; reason: "full" };
+/** `too-long` = 原话超过 `LOVE_CARRY_TEXT_MAX`；存储层拒绝而不是裁剪，逐字保存不许被改写。 */
+export type LoveCarrySave = { ok: true; carry: LoveCarry } | { ok: false; reason: "full" | "too-long" };
 
 /** 恋爱玩法所有设备端 slot 的公共前缀：`…carry` 与 `…series.<id>` 都在它下面。 */
 export const LOVE_PLAY_PREFIX = "socialcoach.love-play.";
@@ -94,6 +101,14 @@ export function clearLovePlaySlots(): number {
 export const LOVE_CARRY_CAP = 20;
 /** 承诺原话的长度上限。采集输入、落盘与导出校验共用这一个数，谁也不能比谁宽一个字。 */
 export const LOVE_CARRY_TEXT_MAX = 500;
+
+/** 承诺的归属键：同一场景里换一个 NPC 就是另一个人，覆盖/复用不能跨人（G20）。 */
+export const loveCarryCharacterKey = (scenarioId: string, npcId: string): string => `${scenarioId}:${npcId}`;
+
+/** 旧档没有 `characterKey`：读取路径按 `scenarioId:npcId` 兜底，不在解析时改写原始记录。 */
+export function loveCarryKeyOf(carry: Pick<LoveCarry, "scenarioId" | "npcId" | "characterKey">): string {
+  return carry.characterKey || loveCarryCharacterKey(carry.scenarioId, carry.npcId);
+}
 
 /**
  * 「她来找你」的节流表。形状抄 [review-2026-10-13-love-companionship §6] 从 AIcove 借来的
@@ -172,6 +187,11 @@ function parseCarry(v: unknown): LoveCarry | null {
   };
   const lastAskedAt = stamp(p.lastAskedAt, NaN);
   if (Number.isFinite(lastAskedAt)) carry.lastAskedAt = lastAskedAt;
+  // 旧档没有归属键就不写进对象：读取侧用 `loveCarryKeyOf` 兜底，避免一次无关写入
+  // 把每个历史条目的字节形状都换掉（导出/恢复的逐字断言依赖这一点）。
+  // 认不出的键（改档/旧格式）也走同一个兜底，不让一个坏字符串把这条承诺变得谁也匹配不上。
+  const characterKey = str(p.characterKey);
+  if (characterKey === loveCarryCharacterKey(scenarioId, npcId)) carry.characterKey = characterKey;
   return carry;
 }
 
@@ -232,6 +252,8 @@ export function pendingLoveCarryForOpening(
   npcId: string,
   scenarioId: string,
 ): LoveCarry | null {
+  // 同线同说话人：`characterKey` 的兜底在这里是同一个结论（旧档按 scenarioId:npcId 推），
+  // 用 `npcId` 直接比对即可；`characterKey` 管的是**写入**时同场景换人不互相覆盖。
   const hits = readLoveCarries().filter(
     (c) => c.state === "pending" && c.seriesId === seriesId && c.npcId === npcId && c.scenarioId !== scenarioId,
   );
@@ -287,24 +309,32 @@ export function pruneLoveCarries(list: LoveCarry[]): LoveCarry[] | null {
 }
 
 /**
- * 记下这句承诺。同一场重玩不堆重复：本场已有的 pending 就地改写，
- * id、createdAt 与问过的次数都留着。
+ * 记下这句承诺。同一场重玩不堆重复：**同一 `characterKey`** 已有的未决条目就地改写，
+ * id、createdAt 与问过的次数都留着；同一场换一个 NPC 是另一个人的承诺，另起一条（G20）。
+ *
+ * 超长不再静默截断：`text` 是学习者亲手打的那句话，裁掉后半句再冒充「逐字保存」比拒绝更糟。
+ * 超限返回 `too-long`，由采集 UI 明示；校验侧（`archive.ts` 的承诺 schema）共用同一个上限。
  */
 export function saveLoveCarry(draft: LoveCarryDraft): LoveCarrySave {
   const now = Date.now();
-  // 超长截断而不是拒绝：玩家已经打下的那句话不该因为多几个字就什么都留不下来。
-  // 校验侧（`archive.ts` 的承诺 schema）共用 `LOVE_CARRY_TEXT_MAX`，两边不许差一个字。
-  const input: LoveCarryDraft = { ...draft, text: draft.text.trim().slice(0, LOVE_CARRY_TEXT_MAX) };
+  const text = draft.text.trim();
+  if (text.length > LOVE_CARRY_TEXT_MAX) return { ok: false, reason: "too-long" };
+  const input: LoveCarryDraft = { ...draft, text };
+  const characterKey = loveCarryCharacterKey(draft.scenarioId, draft.npcId);
   const list = readLoveCarries();
-  const idx = list.findIndex((c) => c.state === "pending" && c.scenarioId === draft.scenarioId);
+  // `open`（答过一次「还没」）仍是未决：同一场重新许下同一句，改写的是同一条记录，
+  // 不另起一条占格子；`kept` / `dropped` 是终点，新承诺另起一条。
+  const idx = list.findIndex(
+    (c) => (c.state === "pending" || c.state === "open") && loveCarryKeyOf(c) === characterKey,
+  );
   if (idx >= 0) {
-    const next: LoveCarry = { ...list[idx], ...input, updatedAt: now };
+    const next: LoveCarry = { ...list[idx], ...input, characterKey, updatedAt: now };
     const out = [...list];
     out[idx] = next;
     writeLoveCarries(pruneLoveCarries(out) ?? out);
     return { ok: true, carry: next };
   }
-  const carry: LoveCarry = { id: uid(), ...input, createdAt: now, updatedAt: now, askCount: 0, state: "pending" };
+  const carry: LoveCarry = { id: uid(), ...input, characterKey, createdAt: now, updatedAt: now, askCount: 0, state: "pending" };
   const pruned = pruneLoveCarries([...list, carry]);
   // 满了就拒绝这一条，而不是删一条还没问过的来腾地方。
   if (!pruned) return { ok: false, reason: "full" };

@@ -3,6 +3,7 @@ import {ScenarioSchema,SkillSchema,ContextSchema,AdaptationSchema,LoveTopicSchem
 import {SceneContextSchema} from './scene-context';
 import type {CarryPromiseClass} from '@/data/corpus/love-carry-lines';
 import {LOVE_CARRY_CAP, LOVE_CARRY_KEY, LOVE_CARRY_TEXT_MAX, LOVE_PLAY_PREFIX, type LoveCarryState} from './love-carry-store';
+import {LOVE_STORY_KEY, LoveStoryStoreSchema} from './love-story';
 
 const text=z.string(),strings=z.array(text),num=z.number().finite();
 // 枚举值写死在这里，但用 satisfies 扣回真正的类型：语料或 store 改了取值，这一行就编译不过
@@ -51,9 +52,10 @@ export function checkArchiveEnvelope(raw:string){
  return envelope.data;
 }
 /**
- * 恋爱玩法的设备端 slot：`socialcoach.love-play.carry` 与 `socialcoach.love-play.series.<id>`。
+ * 恋爱玩法的设备端 slot：`socialcoach.love-play.carry`、`socialcoach.love-play.story`
+ * 与 `socialcoach.love-play.series.<id>`。
  * 它们按设计不进 persist archive（避开版本迁移），但必须跟着导出走，否则「状态留在设备上、可导出」
- * 这条红线只覆盖了半个应用。键名与前缀都由 `love-carry-store.ts` 持有，这里只写校验；
+ * 这条红线只覆盖了半个应用。键名与前缀都由各自的 store 持有，这里只写校验；
  * 任何一处再私自补一份字符串，都会被 `love-play-archive.test.ts` 的前缀断言抓出来。
  */
 const loveId=text.min(1).max(100);
@@ -64,6 +66,8 @@ const loveCarryText=text.min(1).max(LOVE_CARRY_TEXT_MAX);
 export const LoveCarrySchema=z.object({
  id:loveId,text:loveCarryText,lang:z.enum(['zh','en']),cls:z.enum(Object.keys(carryClasses) as [CarryPromiseClass,...CarryPromiseClass[]]).nullable(),
  npcId:loveId,npcName:z.object({zh:text,en:text}),scenarioId:loveId,seriesId:loveId.nullable(),
+ // 新承诺按 `scenarioId:characterId` 归属（两个同名 Tess 不能共用一条承诺）；旧备份没有这个字段，照常恢复。
+ characterKey:z.string().optional(),
  createdAt:num,updatedAt:num,askCount:z.number().int().nonnegative(),lastAskedAt:num.optional(),
  state:z.enum(Object.keys(carryStates) as [LoveCarryState,...LoveCarryState[]]),
 });
@@ -71,25 +75,54 @@ export const LoveCarrySchema=z.object({
  *  否则一份 21–100 条的外来/改档备份落盘后，每一次新增承诺都会被「已经带了 20 句」挡掉——
  *  那个数字在此刻是假话，而玩家没有任何办法删掉多余的那几条。 */
 export const LoveCarryListSchema=z.array(LoveCarrySchema).max(LOVE_CARRY_CAP);
+/** 剧情线进度 v2（并行批次写入）新增 `v` 与 `lastAct`：恢复必须原样带回，不能被 Zod strip 掉。 */
 export const LoveSeriesProgressSchema=z.object({
+ v:z.literal(2).optional(),
  completed:z.array(loveId).max(200),
  // 空字符串是「还没玩过任何一幕」的合法值，不能按 loveId 的 min(1) 拒掉。
  lastScene:text.max(100),outcome:z.record(loveId,loveOutcome),
+ lastAct:z.number().int().min(0).max(6).optional(),
 });
 /** 采集时读不出来的 slot 原文照存，一个字节都不丢（`dinnerBackup` 同口径）。 */
 const LovePlayUnreadableSchema=z.object({unreadable:text});
 const LoveCarrySlotSchema=z.union([LoveCarryListSchema,LovePlayUnreadableSchema]);
+const LoveStorySlotSchema=z.union([LoveStoryStoreSchema,LovePlayUnreadableSchema]);
 const LoveSeriesSlotSchema=z.union([LoveSeriesProgressSchema,LovePlayUnreadableSchema]);
-export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveSeriesProgressSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
- // 键名决定形状：线进度放进 carry 键（或反过来）形状各自都合法，写回去只会把用户的承诺清单变成空档。
+/** `love-series-progress.ts` 按线拼 key；这里只按同一前缀识别，不复制具体 line id。 */
+const LOVE_SERIES_PREFIX=`${LOVE_PLAY_PREFIX}series.`;
+type LoveSlotShape='carry'|'story'|'series';
+/** 键名决定形状；其余同前缀键不属于这份闭合联合，导出与恢复都不越界。 */
+function loveSlotShape(key:string):LoveSlotShape|null{
+ if(key===LOVE_CARRY_KEY)return 'carry';
+ if(key===LOVE_STORY_KEY)return 'story';
+ if(key.startsWith(LOVE_SERIES_PREFIX)&&key.length>LOVE_SERIES_PREFIX.length)return 'series';
+ return null;
+}
+/** 已通过联合校验的值按字段辨认形状：carry 是数组，story 与 series 都是对象，不能只看 Array.isArray。 */
+function loveValueShape(value:unknown):LoveSlotShape|null{
+ if(Array.isArray(value))return 'carry';
+ if(!value||typeof value!=='object')return null;
+ if('saves' in value&&'records' in value&&'routes' in value)return 'story';
+ if('completed' in value&&'lastScene' in value&&'outcome' in value)return 'series';
+ return null;
+}
+export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveStoryStoreSchema,LoveSeriesProgressSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
  for(const [key,slot] of Object.entries(slots)){
+  const target=loveSlotShape(key);
+  if(!target){ctx.addIssue({code:'custom',path:[key],message:'Love-play slot key is not part of the archive'});continue;}
+  // 键名决定形状：线进度放进 carry 键（或反过来）形状各自都合法，写回去只会把用户的承诺清单变成空档。
   if('unreadable' in slot)continue;
-  if((key===LOVE_CARRY_KEY)!==Array.isArray(slot))ctx.addIssue({code:'custom',path:[key],message:'Love-play slot shape does not match its key'});
+  if(loveValueShape(slot)!==target)ctx.addIssue({code:'custom',path:[key],message:'Love-play slot shape does not match its key'});
  }
 });
 /** 逐 slot 复验用的形状选择器：键名前缀不对就谁都不选——导出与恢复都不越界碰别的命名空间的 slot。 */
 export function parseLovePlaySlot(key:string,value:unknown){
  if(!key.startsWith(LOVE_PLAY_PREFIX)||key.length>140)return {success:false as const};
- return key===LOVE_CARRY_KEY?LoveCarrySlotSchema.safeParse(value):LoveSeriesSlotSchema.safeParse(value);
+ switch(loveSlotShape(key)){
+  case 'carry':return LoveCarrySlotSchema.safeParse(value);
+  case 'story':return LoveStorySlotSchema.safeParse(value);
+  case 'series':return LoveSeriesSlotSchema.safeParse(value);
+  default:return {success:false as const};
+ }
 }
 

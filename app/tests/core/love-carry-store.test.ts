@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { CARRY_LINES, CARRY_LINES_UNCLASSIFIED, CARRY_QUOTE_MARKER } from '../../src/data/corpus/love-carry-lines';
 import {
   LOVE_CARRY_CAP,
+  LOVE_CARRY_TEXT_MAX,
   loveCarryAskLine,
   loveCarryCandidates,
   loveCarryLine,
@@ -223,6 +224,10 @@ test('a corrupt slot reads as empty and never throws', () => {
   // 线 id 坏了不丢原话，只当它没编线——谁都不会来问它。
   putRaw([entry({ seriesId: 42 as unknown as string | null })]);
   assert.equal(readLoveCarries()[0].seriesId, null);
+  // 归属键坏了也走 scenarioId:npcId 兜底：一个坏字符串不能把这条承诺变成谁也匹配不上。
+  putRaw([entry({ characterKey: 'some-other-scene:rio' })]);
+  assert.equal(readLoveCarries()[0].characterKey, undefined, 'a mismatched key is ignored, not trusted');
+  assert.equal(pendingLoveCarryForOpening('love-arc-rio-clarify', 'rio', 'love-family-expectation-clash')?.id, 'c1');
   reset();
 });
 
@@ -240,6 +245,55 @@ test('a storage that refuses writes degrades silently', () => {
   assert.equal(saveLoveCarry(draft()).ok, true, 'the scene keeps working; the carry just does not persist');
   assert.doesNotThrow(() => markLoveCarryAsked('c1'));
   stubStorage();
+  reset();
+});
+
+test('a sentence over the text limit is refused outright, never silently truncated', () => {
+  reset();
+  const exact = 'a'.repeat(LOVE_CARRY_TEXT_MAX);
+  assert.equal(saveLoveCarry(draft({ text: exact })).ok, true, 'exactly at the limit is still the learner’s whole sentence');
+  assert.equal(stored()[0].text, exact, 'stored verbatim, no trimming beyond whitespace');
+  const over = saveLoveCarry(draft({ text: 'a'.repeat(LOVE_CARRY_TEXT_MAX + 1) }));
+  assert.deepEqual(over, { ok: false, reason: 'too-long' }, 'over the limit is a refusal, not a slice');
+  assert.equal(stored()[0].text, exact, 'the refused write leaves the stored sentence untouched');
+  reset();
+});
+
+test('a new carry remembers which scene character it belongs to', () => {
+  reset();
+  const carry = saved();
+  assert.equal(carry.characterKey, `${carry.scenarioId}:${carry.npcId}`);
+  assert.equal(stored()[0].characterKey, `${carry.scenarioId}:${carry.npcId}`, 'the key is persisted, not just returned');
+  reset();
+});
+
+test('one scene keeps one pending carry per NPC — replaying one never overwrites the other', () => {
+  reset();
+  const rio = saved({ npcId: 'rio', text: '周三晚上打给你' });
+  const eve = saved({ npcId: 'eve', npcName: { zh: 'Eve', en: 'Eve' }, text: '周五下班来找你' });
+  assert.equal(stored().length, 2, 'a different speaker in the same scene is a different promise');
+  assert.notEqual(rio.id, eve.id);
+  const again = saved({ npcId: 'rio', text: '周四中午打给你' });
+  const list = stored();
+  assert.equal(list.length, 2, 'the same NPC reuses its own entry instead of piling up');
+  assert.equal(again.id, rio.id, 'same entry, not a fresh one');
+  assert.equal(list.find((c) => c.npcId === 'rio')?.text, '周四中午打给你', 'only the speaker’s own wording changes');
+  assert.equal(list.find((c) => c.npcId === 'eve')?.text, '周五下班来找你', 'the other NPC’s carry is untouched');
+  reset();
+});
+
+test('a legacy carry without characterKey still matches by scenario + NPC and gains the key on the next save', () => {
+  reset();
+  putRaw([entry({ id: 'legacy', text: '旧档里的那句' })]);
+  const hit = pendingLoveCarryForOpening('love-arc-rio-clarify', 'rio', 'love-family-expectation-clash');
+  assert.equal(hit?.id, 'legacy', 'old records fall back to scenarioId:npcId when the field is missing');
+  const res = saveLoveCarry(draft({ text: '旧档改写后的那句' }));
+  assert.equal(res.ok, true);
+  const list = stored();
+  assert.equal(list.length, 1, 'the legacy entry is reused, not duplicated');
+  assert.equal(list[0].id, 'legacy');
+  assert.equal(list[0].text, '旧档改写后的那句');
+  assert.equal(list[0].characterKey, 'love-approach-soft-decline-reinvite:rio', 'the next write fills the missing key');
   reset();
 });
 

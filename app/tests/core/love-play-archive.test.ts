@@ -1,13 +1,15 @@
 /** 恋爱玩法设备端 slot 的导出/校验回归：它们不进 persist archive，导出是唯一能把它们带走的通道。 */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseArchive } from '../../src/lib/archive';
+import { LovePlaySchema, parseArchive, parseLovePlaySlot } from '../../src/lib/archive';
 import { clearLovePlaySlots, LOVE_CARRY_KEY, LOVE_PLAY_PREFIX } from '../../src/lib/love-carry-store';
+import { LOVE_STORY_KEY } from '../../src/lib/love-story';
 import { decodeBackup, lovePlayBackup } from '../../src/lib/backup';
 import { buildSession } from '../../src/lib/session-utils';
 import { SCENARIOS } from '../../src/data/corpus';
 
 const CARRY_KEY = LOVE_CARRY_KEY;
+const STORY_KEY = LOVE_STORY_KEY;
 const seriesKey = (id: string) => `socialcoach.love-play.series.${id}`;
 const slots = new Map<string, string>();
 Object.defineProperty(globalThis, 'localStorage', {
@@ -39,6 +41,29 @@ const carry = {
   state: 'pending',
 };
 const progress = { completed: ['scene-a', 'scene-b'], lastScene: 'scene-b', outcome: { 'scene-a': 'success', 'scene-b': 'partial' } };
+/** 按 `love-story.ts` 的 `LoveStoryStore` 字面写：整份 store 只有一个 slot，形状与恢复口径同源。 */
+const storySave = {
+  v: 1,
+  scenarioId: 'love-approach-soft-decline-reinvite',
+  seriesId: 'love-arc-rio-clarify',
+  lang: 'zh',
+  status: 'playing',
+  history: [{ id: 'm-npc-1', role: 'npc', characterId: 'rio', text: '你终于来了。', lang: 'zh', ts: 1 }],
+  currentLineId: 'm-npc-1',
+  options: [
+    { zh: '我来了。', en: 'I am here.' },
+    { zh: '路上堵车。', en: 'Traffic was bad.' },
+  ],
+  emotion: 'neutral',
+  stance: 50,
+  carryover: false,
+  learnerLines: [],
+  outcome: null,
+  recorded: false,
+  startedAt: 1_700_000_000_000,
+  updatedAt: 1_700_000_000_001,
+};
+const story = { v: 1, revision: 2, saves: { [storySave.scenarioId]: storySave }, records: [], routes: {}, updatedAt: 1_700_000_000_002 };
 const wrap = (lovePlay: unknown) => JSON.stringify({ state: { sessions: [] }, version: 0, lovePlay });
 const decodeLove = async (lovePlay: unknown) => decodeBackup(wrap(lovePlay));
 
@@ -80,6 +105,66 @@ test('export collects love-play slots by prefix and decode hands them back verba
   assert.deepEqual(Object.keys(decoded.lovePlay!).sort(), [CARRY_KEY, seriesKey('love-arc-rio-clarify')].sort());
   assert.deepEqual(JSON.parse(decoded.lovePlay![CARRY_KEY]), [carry]);
   assert.deepEqual(JSON.parse(decoded.lovePlay![seriesKey('love-arc-rio-clarify')]), progress);
+});
+
+test('the story slot is exported and restored verbatim beside carry and series', async () => {
+  slots.clear();
+  slots.set(CARRY_KEY, JSON.stringify([carry]));
+  slots.set(seriesKey('love-arc-rio-clarify'), JSON.stringify(progress));
+  slots.set(STORY_KEY, JSON.stringify(story));
+  const snapshot = lovePlayBackup();
+  assert.ok(snapshot);
+  assert.deepEqual(Object.keys(snapshot).sort(), [CARRY_KEY, STORY_KEY, seriesKey('love-arc-rio-clarify')].sort());
+  const decoded = await decodeLove(snapshot);
+  assert.equal(decoded.lovePlayIssue, undefined);
+  assert.equal(decoded.lovePlayOriginal, undefined);
+  assert.deepEqual(JSON.parse(decoded.lovePlay![STORY_KEY]), story);
+  assert.deepEqual(JSON.parse(decoded.lovePlay![CARRY_KEY]), [carry]);
+  assert.deepEqual(JSON.parse(decoded.lovePlay![seriesKey('love-arc-rio-clarify')]), progress);
+});
+
+test('the whole-table schema accepts carry, story and series side by side', () => {
+  const result = LovePlaySchema.safeParse({ [CARRY_KEY]: [carry], [STORY_KEY]: story, [seriesKey('love-arc-rio-clarify')]: progress });
+  assert.equal(result.success, true);
+  const saved = result.data as Record<string, unknown>;
+  assert.deepEqual(Object.keys(saved).sort(), [CARRY_KEY, STORY_KEY, seriesKey('love-arc-rio-clarify')].sort());
+});
+
+test('each love slot is parsed by the shape its key names', () => {
+  assert.equal(parseLovePlaySlot(CARRY_KEY, [carry]).success, true);
+  assert.equal(parseLovePlaySlot(STORY_KEY, story).success, true);
+  assert.equal(parseLovePlaySlot(seriesKey('love-arc-rio-clarify'), progress).success, true);
+  assert.equal(parseLovePlaySlot(STORY_KEY, { unreadable: '{' }).success, true, 'raw bytes stay recoverable');
+  assert.equal(parseLovePlaySlot('socialcoach.love-play.unknown', progress).success, false);
+  assert.equal(parseLovePlaySlot(STORY_KEY, progress).success, false);
+  assert.equal(parseLovePlaySlot(STORY_KEY, [carry]).success, false);
+  assert.equal(parseLovePlaySlot(CARRY_KEY, story).success, false);
+  assert.equal(parseLovePlaySlot(seriesKey('love-arc-rio-clarify'), story).success, false);
+  assert.equal(parseLovePlaySlot(seriesKey('love-arc-rio-clarify'), [carry]).success, false);
+});
+
+test('a damaged story slot is quarantined without blocking carry or series', async () => {
+  const damaged = { ...story, saves: { 'not-the-scenario': storySave } };
+  const decoded = await decodeLove({ [CARRY_KEY]: [carry], [seriesKey('love-arc-rio-clarify')]: progress, [STORY_KEY]: damaged });
+  assert.equal(decoded.lovePlayIssue, 'invalid');
+  assert.equal(decoded.lovePlay![STORY_KEY], undefined, 'the broken story is not written back');
+  assert.deepEqual(JSON.parse(decoded.lovePlay![CARRY_KEY]), [carry], 'one bad slot does not cost the healthy ones');
+  assert.deepEqual(JSON.parse(decoded.lovePlay![seriesKey('love-arc-rio-clarify')]), progress);
+  assert.ok(decoded.lovePlayOriginal!.includes(STORY_KEY), 'the refused bytes still reach the download');
+});
+
+test('a story slot whose bytes could not be parsed is preserved as unreadable', async () => {
+  const decoded = await decodeLove({ [STORY_KEY]: { unreadable: '{"v":1' }, [CARRY_KEY]: [carry] });
+  assert.equal(decoded.lovePlayIssue, 'unreadable');
+  assert.equal(decoded.lovePlay![STORY_KEY], undefined, 'raw bytes are not written back as data');
+  assert.deepEqual(JSON.parse(decoded.lovePlay![CARRY_KEY]), [carry]);
+  assert.deepEqual(JSON.parse(decoded.lovePlayOriginal!), { [STORY_KEY]: { unreadable: '{"v":1' }, [CARRY_KEY]: [carry] });
+});
+
+test('a healthy story slot survives the per-slot fallback triggered by another slot', async () => {
+  const decoded = await decodeLove({ [CARRY_KEY]: [{ ...carry, state: 'guilt' }], [STORY_KEY]: story });
+  assert.equal(decoded.lovePlayIssue, 'invalid');
+  assert.deepEqual(JSON.parse(decoded.lovePlay![STORY_KEY]), story);
 });
 
 test('the write-back the restore button performs puts the same slots on a wiped device', async () => {
@@ -171,12 +256,40 @@ test('an oversized promise sentence is refused', async () => {
   assert.ok(decoded.lovePlayOriginal!.includes('我'.repeat(501)), 'the refused bytes still reach the download');
 });
 
+test('v2 series progress keeps v and lastAct through restore', async () => {
+  const v2 = { v: 2, completed: ['scene-a'], lastScene: 'scene-a', outcome: { 'scene-a': 'success' }, lastAct: 3 };
+  const decoded = await decodeLove({ [seriesKey('love-arc-rio-clarify')]: v2 });
+  assert.equal(decoded.lovePlayIssue, undefined);
+  assert.deepEqual(JSON.parse(decoded.lovePlay![seriesKey('love-arc-rio-clarify')]), v2, 'Zod must not strip the v2 fields');
+  const outOfRange = await decodeLove({ [seriesKey('love-arc-rio-clarify')]: { ...v2, lastAct: 7 } });
+  assert.equal(outOfRange.lovePlayIssue, 'invalid');
+});
+
+test('a carry with characterKey survives while old carries without it still restore', async () => {
+  const keyed = { ...carry, characterKey: 'love-approach-soft-decline-reinvite:rio' };
+  const decoded = await decodeLove({ [CARRY_KEY]: [keyed] });
+  assert.equal(decoded.lovePlayIssue, undefined);
+  assert.deepEqual(JSON.parse(decoded.lovePlay![CARRY_KEY]), [keyed]);
+  const legacy = await decodeLove({ [CARRY_KEY]: [carry] });
+  assert.equal(legacy.lovePlayIssue, undefined);
+  assert.deepEqual(JSON.parse(legacy.lovePlay![CARRY_KEY]), [carry]);
+});
+
 test('a shape that does not match its key is refused', async () => {
-  const swapped = await decodeLove({ [seriesKey('love-arc-rio-clarify')]: [carry] });
-  assert.equal(swapped.lovePlayIssue, 'invalid');
-  assert.equal(swapped.lovePlay, undefined);
-  const arraySlot = await decodeLove({ [CARRY_KEY]: progress });
-  assert.equal(arraySlot.lovePlayIssue, 'invalid');
+  const cases: [string, unknown][] = [
+    [seriesKey('love-arc-rio-clarify'), [carry]],
+    [CARRY_KEY, progress],
+    [STORY_KEY, [carry]],
+    [STORY_KEY, progress],
+    [CARRY_KEY, story],
+    [seriesKey('love-arc-rio-clarify'), story],
+    ['socialcoach.love-play.unknown', progress],
+  ];
+  for (const [key, value] of cases) {
+    const decoded = await decodeLove({ [key]: value });
+    assert.equal(decoded.lovePlayIssue, 'invalid', key);
+    assert.equal(decoded.lovePlay, undefined, key);
+  }
 });
 
 test('a foreign key inside lovePlay is never written back to another namespace', async () => {
@@ -234,6 +347,7 @@ test('erasing everything really erases the love slots, promises included', () =>
   // 所以「删除所有数据」漏掉这一半就等于：练过什么、答应过什么，删了还在设备上。
   localStorage.setItem(CARRY_KEY, JSON.stringify([{ ...carry, text: '我这周一定打给你' }]));
   localStorage.setItem(seriesKey('love-arc-eve-after-no'), JSON.stringify({ completed: ['love-reject-shared-circle'], lastScene: 'love-reject-shared-circle', outcome: {} }));
+  localStorage.setItem(STORY_KEY, JSON.stringify(story));
   localStorage.setItem('socialcoach.dinner', 'keep-me');
   assert.ok(lovePlayBackup(), 'the slots are exportable before the wipe');
   // 同一个 slot Map 被本文件多个用例共用，所以这里只按「擦除前应有多少」来断言，不写死条数。
@@ -241,10 +355,11 @@ test('erasing everything really erases the love slots, promises included', () =>
 
   const removed = clearLovePlaySlots();
 
-  assert.ok(before >= 2);
+  assert.ok(before >= 3);
   assert.equal(removed, before);
   assert.equal(localStorage.getItem(CARRY_KEY), null);
   assert.equal(localStorage.getItem(seriesKey('love-arc-eve-after-no')), null);
+  assert.equal(localStorage.getItem(STORY_KEY), null, 'the story slot sits under the same prefix and must go with it');
   assert.equal(localStorage.getItem('socialcoach.dinner'), 'keep-me', 'the wipe may not reach outside its own prefix');
   assert.equal(lovePlayBackup(), null);
 });

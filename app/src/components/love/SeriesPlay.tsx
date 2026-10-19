@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, Play } from "lucide-react";
@@ -9,6 +9,8 @@ import { ScenarioCover } from "@/components/ScenarioCover";
 import type { LoveSeries } from "@/data/corpus/love-series";
 import { useLang } from "@/store/useApp";
 import { t } from "@/lib/i18n";
+import { readLovePlaySave } from "@/lib/love-story";
+import { pickNextLoveScene, sortLoveScenes, type PlayingSceneLike } from "@/lib/love-play-save-view";
 import { readLoveSeriesProgress, type LoveSeriesProgress } from "@/lib/love-series-progress";
 
 /** 剧情线入口页：线名/走向 + 线内进度 + 场景列表（已完成打勾）。进度只存在设备端。 */
@@ -18,25 +20,50 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
   // 挂载后再读 localStorage：服务端首屏渲染没有存储，统一以 null 起始避免 hydration 不一致。
   // 读取放在定时回调里（非同步 setState），同时避免渲染期直接 setState 的级联渲染。
   const [progress, setProgress] = useState<LoveSeriesProgress | null>(null);
+  const [playing, setPlaying] = useState<PlayingSceneLike[]>([]);
+  // 幕序以 `series.order` 为准，缺省按数组下标补在后面；不能再用 lastScene 当「下一幕」。
+  const scenes = useMemo(() => sortLoveScenes(series.scenarios), [series.scenarios]);
+
   useEffect(() => {
     let alive = true;
     const timer = window.setTimeout(() => {
-      if (alive) setProgress(readLoveSeriesProgress(series.id));
+      if (!alive) return;
+      setProgress(readLoveSeriesProgress(series.id));
+      // 进行中的幕优先：读排序后每一场的 story save，只取 playing，交由纯函数挑最近更新的一幕。
+      const active: PlayingSceneLike[] = [];
+      for (const scene of scenes) {
+        const read = readLovePlaySave(scene.id);
+        if (read.status === "ok" && read.save?.status === "playing") {
+          active.push({ id: scene.id, updatedAt: read.save.updatedAt });
+        }
+      }
+      setPlaying(active);
     }, 0);
     return () => {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [series.id]);
+  }, [series.id, scenes]);
 
-  const total = series.scenarios.length;
+  const total = scenes.length;
   // 同一人物贯穿的线才用「第 N 幕」；换人的线是主题合集，用「第 N 场」，
   // 否则用户会以为旧线也是连续剧情。
   const continuous = series.continuous;
-  const doneCount = progress ? series.scenarios.filter((s) => progress.completed.includes(s.id)).length : 0;
-  // 继续入口：优先最近玩过的场景，校验它仍属于这条线；否则从头开始。
-  const nextId = progress && series.scenarios.some((s) => s.id === progress.lastScene) ? progress.lastScene : series.scenarios[0].id;
-  const flow = series.scenarios.map((s) => s.title[lang]).join(continuous ? " → " : " · ");
+  const doneCount = progress ? scenes.filter((s) => progress.completed.includes(s.id)).length : 0;
+  const choice = pickNextLoveScene(scenes, progress?.completed ?? [], playing);
+  const nextId = choice?.scene.id ?? scenes[0]?.id ?? "";
+  const flow = scenes.map((s) => s.title[lang]).join(continuous ? " → " : " · ");
+
+  // CTA 口径：有进行中 → 继续；没玩过 → 开始；全完成 → 第一幕重玩；其余 → 继续。
+  const ctaLabel = !choice || choice.mode === "replay"
+    ? doneCount >= total && total > 0
+      ? t(lang, "love_series_restart")
+      : continuous ? t(lang, "love_series_start") : t(lang, "love_pack_start")
+    : choice.mode === "playing"
+      ? continuous ? t(lang, "love_series_continue") : t(lang, "love_pack_continue")
+      : doneCount === 0
+        ? continuous ? t(lang, "love_series_start") : t(lang, "love_pack_start")
+        : continuous ? t(lang, "love_series_continue") : t(lang, "love_pack_continue");
 
   return (
     <Shell>
@@ -62,14 +89,11 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
             <Play size={22} />
           </span>
           <span className="flex-1 min-w-0">
-            <span className="block font-semibold text-[16px] leading-snug">
-              {doneCount === 0
-                ? continuous ? t(lang, "love_series_start") : t(lang, "love_pack_start")
-                : doneCount >= total
-                  ? t(lang, "love_series_restart")
-                  : continuous ? t(lang, "love_series_continue") : t(lang, "love_pack_continue")}
-            </span>
-            <span className="block text-[12px] text-ink-3 mt-1">{series.scenarios.find((s) => s.id === nextId)?.title[lang]}</span>
+            <span className="block font-semibold text-[16px] leading-snug">{ctaLabel}</span>
+            <span className="block text-[12px] text-ink-3 mt-1">{choice?.scene.title[lang] ?? ""}</span>
+            {choice?.mode === "playing" && (
+              <span className="block text-[11px] text-accent-deep mt-1">{t(lang, "love_series_in_progress")}</span>
+            )}
           </span>
           <ArrowRight size={17} className="shrink-0 text-accent-deep" />
         </Link>
@@ -77,8 +101,9 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
         <section aria-label={continuous ? t(lang, "love_series_scenes") : t(lang, "love_pack_scenes")} className="flex flex-col gap-3">
           <h2 className="display text-[20px]">{continuous ? t(lang, "love_series_scenes") : t(lang, "love_pack_scenes")}</h2>
           <div className="flex flex-col gap-3">
-            {series.scenarios.map((sc, i) => {
+            {scenes.map((sc, i) => {
               const isDone = !!progress?.completed.includes(sc.id);
+              const isPlaying = playing.some((p) => p.id === sc.id);
               return (
                 <Link
                   key={sc.id}
@@ -94,6 +119,11 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
                         <span className="inline-flex items-center gap-1 rounded-full border border-teal-soft text-teal px-2 py-0.5 text-[11px]">
                           <Check size={12} />
                           {t(lang, "love_series_done")}
+                        </span>
+                      )}
+                      {isPlaying && !isDone && (
+                        <span className="inline-flex items-center rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-ink-3">
+                          {t(lang, "love_series_in_progress")}
                         </span>
                       )}
                     </span>

@@ -259,12 +259,12 @@ export const LOVE_SCENARIOS_DEEP_DEFINE: Scenario[] = [
     title: L("她说「我们能不能先不急着定」", "“Can We Not Decide This Yet?”"),
     hook: L("你问「我们算什么」，她先回答了另一件事。", "You ask where this is going. She answers something else first."),
     background: L(
-      "你和 Rio 稳定约会两个多月了——从那次她被你再约出来开始。你家里问你有没有对象，你没答，这事于是排上了你的日程：你想弄清楚你们是认真往结婚走，还是先处着。Rio 不愿意当场给结论。她不是不想跟你走下去，而是拒绝把「确认关系」跳级成「定婚期」。任务：拿到一个真实的节奏共识，而不是一个只为让你停止追问的答复——并且让她知道，你可以等一个带日期的答案。",
-      "You and Rio have been dating steadily for a little over two months — since the day she accepted your second invite. Your family asked whether you are seeing someone; you dodged it, and the question has been on your side of the table ever since. You want to know whether this is heading toward marriage or just continuing to date. Rio will not settle it on the spot. She is not avoiding a future with you — she is refusing to skip from 'are we exclusive' straight to 'pick a wedding date'. The task: get a real answer about pace, not a line that only stops you asking — and let her know you can wait for an answer that carries a date.",
+      "你和 Rio 来往有一阵了，关系一直停在「没说清楚」的地方：没有正式谈过排他性，也没有谈过未来。你家里问你有没有对象，你没答，这事于是排上了你的日程：你想弄清楚你们是认真往结婚走，还是先处着。Rio 不愿意当场给结论。她不是不想跟你走下去，而是拒绝把「确认关系」跳级成「定婚期」。任务：拿到一个真实的节奏共识，而不是一个只为让你停止追问的答复——并且让她知道，你可以等一个带日期的答案。",
+      "You and Rio have been seeing each other for a while, and the relationship has stayed at 'not said out loud': exclusivity has never been discussed, and neither has the future. Your family asked whether you are seeing someone; you dodged it, and the question has been on your side of the table ever since. You want to know whether this is heading toward marriage or just continuing to date. Rio will not settle it on the spot. She is not avoiding a future with you — she is refusing to skip from 'are we exclusive' straight to 'pick a wedding date'. The task: get a real answer about pace, not a line that only stops you asking — and let her know you can wait for an answer that carries a date.",
     ),
     simulationFacts: L(
-      "已确认：你们约会两个多月，从没正式谈过排他性与未来；你家人问过你的感情状况，你没有回答；Rio 没有对婚期许过任何诺。未知：她手上那个项目变动的内容、期限和取舍都没有对你核实过；她「不急着定」不等于不想继续，也不等于她已经有了备选的人。不要把「她没说」读成「她有别人」。隐藏事实：Rio 有一个需要三个月内答复的外派项目意向，接不接她还没定，她一直没提，因为她怕你把它听成她想撤。只有你不带质问地问一句「最近有没有什么你自己在纠结、还没告诉我的变动」，她才可能说出来；说出来也不代表她已经决定要接。你的一个动作永远不等于对方已经同意什么。",
-      "Established: you have dated just over two months, exclusivity and the future have never actually been discussed, your family asked about your status and you did not answer, and Rio has never promised a date. Unverified: the content, deadline and trade-offs of the change she is weighing have not been shared with you; her 'not yet' is neither a refusal to continue nor evidence of another person. Do not read 'she has not said' as 'there is someone else'. Hidden: Rio holds a secondment offer that needs an answer within three months, is undecided, and has not mentioned it — she is afraid you will hear it as her looking for an exit. Only a non-accusatory 'is there a change you have been wrestling with alone?' may bring it out; bringing it out is not her decision. One person's move is never the other side's agreement.",
+      "已确认：你们来往有一阵，从没正式谈过排他性与未来；你家人问过你的感情状况，你没有回答；Rio 没有对婚期许过任何诺。未知：她手上那个项目变动的内容、期限和取舍都没有对你核实过；她「不急着定」不等于不想继续，也不等于她已经有了备选的人。不要把「她没说」读成「她有别人」。隐藏事实：Rio 有一个需要三个月内答复的外派项目意向，接不接她还没定，她一直没提，因为她怕你把它听成她想撤。只有你不带质问地问一句「最近有没有什么你自己在纠结、还没告诉我的变动」，她才可能说出来；说出来也不代表她已经决定要接。你的一个动作永远不等于对方已经同意什么。",
+      "Established: you have been seeing each other for a while, exclusivity and the future have never actually been discussed, your family asked about your status and you did not answer, and Rio has never promised a date. Unverified: the content, deadline and trade-offs of the change she is weighing have not been shared with you; her 'not yet' is neither a refusal to continue nor evidence of another person. Do not read 'she has not said' as 'there is someone else'. Hidden: Rio holds a secondment offer that needs an answer within three months, is undecided, and has not mentioned it — she is afraid you will hear it as her looking for an exit. Only a non-accusatory 'is there a change you have been wrestling with alone?' may bring it out; bringing it out is not her decision. One person's move is never the other side's agreement.",
     ),
     context: "romantic",
     contextType: L("暧昧与明确关系", "Ambiguity & commitment"),
@@ -277,7 +277,7 @@ export const LOVE_SCENARIOS_DEEP_DEFINE: Scenario[] = [
       {
         id: "rio",
         name: L("Rio", "Rio"),
-        role: L("约会两个多月、不肯当场定下来的人", "The partner of two months who won't settle it on the spot"),
+        role: L("来往有一阵、不肯当场定下来的人", "The partner who won't settle it on the spot"),
         personality: L(
           "温和、怕伤到人，说不出干脆的拒绝：被追问时先岔开一句、再沉默，不会因为你不高兴就当众改口。你摆出一个必须今晚定的结论，她会把它缩成「那我先想想」；你给一个具体的时间窗和一个真正的问题，她会认真回答，而答案仍然可以是你不想要的那个。",
           "Gentle and conflict-averse — she cannot deliver a clean no, so under pressure she deflects one line, then goes quiet, and will not reverse herself publicly just because you are unhappy. Push a conclusion that must be settled tonight and she shrinks it to 'let me think'. Hand her one concrete window and one real question and she answers seriously — and the answer can still be the one you did not want.",
@@ -305,7 +305,7 @@ export const LOVE_SCENARIOS_DEEP_DEFINE: Scenario[] = [
     source: "Original fictional practice — SocialCoach, 2026-10-10, app/src/data/corpus/love-scenarios-deep-define.ts#love-define-rio-pace-talk",
     keywords: ["明确关系", "节奏", "跳级", "外派", "等待", "pace", "secondment", "commitment"],
     loveTopic: "define-relationship",
-    series: { id: "love-arc-rio-clarify", name: L("暧昧到说清楚", "From Ambiguous to Explicit") },
+    series: { id: "love-arc-rio-clarify", name: L("暧昧到说清楚", "From Ambiguous to Explicit"), order: 2 },
     icon: "clock",
   },
 ];
