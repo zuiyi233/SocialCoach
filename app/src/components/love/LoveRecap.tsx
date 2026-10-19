@@ -59,13 +59,36 @@ export function LoveRecap({
     playNpcLine(line.text, lang, resolveLoveVoice(scenario.id, line.characterId ?? fallbackNpc.id));
   };
 
+  const jump = (to: "opening" | "latest") => {
+    const body = bodyRef.current;
+    if (!body) return;
+    body.scrollTop = to === "opening" ? 0 : body.scrollHeight;
+  };
+
   return (
     <Sheet open={open} onClose={onClose} title={t(lang, "love_recap_title")} bodyRef={bodyRef}>
       <div role="region" aria-label={t(lang, "love_recap_region")}>
         {lines.length === 0 ? (
           <p className="text-[14px] text-ink-3">{t(lang, "love_recap_empty")}</p>
         ) : (
-          <ol className="flex flex-col gap-3 pb-2">
+          <>
+            <div className="flex items-center gap-2 pb-3">
+              <button
+                type="button"
+                onClick={() => jump("opening")}
+                className="press rounded-full border border-line px-3 py-1.5 text-[12px] text-ink-2 hover:bg-inset"
+              >
+                {t(lang, "love_recap_opening")}
+              </button>
+              <button
+                type="button"
+                onClick={() => jump("latest")}
+                className="press rounded-full border border-line px-3 py-1.5 text-[12px] text-ink-2 hover:bg-inset"
+              >
+                {t(lang, "love_recap_latest")}
+              </button>
+            </div>
+            <ol className="flex flex-col gap-3 pb-2">
             {lines.map((line, index) => {
               const npc = line.role === "npc";
               return (
@@ -100,6 +123,7 @@ export function LoveRecap({
               );
             })}
           </ol>
+          </>
         )}
       </div>
     </Sheet>

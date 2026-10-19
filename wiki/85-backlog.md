@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-12 | Current stage: E -->
+<!-- Last verified: 2026-10-20 | Current stage: E -->
 
 # Backlog
 
@@ -17,19 +17,21 @@
 - [ ] **语音需要真机自测**：内嵌浏览器没有可见视口也没有可用的 `speechSynthesis` / 麦克风设备，按 `project-device-verification-limits` 那条口径，这项**不能用模拟视口销账**。待用户真机验：开场白是否出声、iOS 首次手势解锁、麦克风授权与拒绝文案、朗读中按麦克风是否会把 TTS 念回去、长台词分块后是否还有断句。
 
 
-## GALGAME 基本盘 + Rio 六幕（2026-10-20，方案已写，未开工）
+## GALGAME 基本盘 + Rio 六幕（2026-10-20，本地实现，线上未发布）
 
 需求与验收见 [spec-love-galgame-foundation.md](./specs/spec-love-galgame-foundation.md) 和 [spec-love-rio-route.md](./specs/spec-love-rio-route.md)。这一批把**存档、回想、外部 TTS 配音**与引擎债清单一起处理；完整的 G01–G24 表在 foundation spec §6，这里只列执行顺序。**P1 停止信号仍然有效**：玩家没感觉到承接，停的是整条方向，不是「基本盘做完就该继续加幕」。
 
-- [ ] P0 身份/声线前置：G01 `characterKey`（`tess` 撞 id）、G02 speaker 单一实现、G07 `LOVE_VOICES` + `speak(..., speaker)` 透传
-- [ ] P0 记录/存档：G14 不再写空壳练习 Session、G15 `LoveStoryStore`、G21 统计改读 records、G23 `historyFor` 排除
-- [ ] P0 数据正门：G03 一个 `buildBackupPayload()`、G05 story slot 校验/恢复、G04 跨标签/raw 保留、G16 reset 收口
-- [ ] P1 引擎：G08 请求 generation、G09 承接纯读、G20 承诺逐字、G10 系列 v2、G12 `ended`/`terminal`/`maxTurns`、G22 每幕承接/order
-- [ ] P1 测试闸门：G11 不写分、G13 回归
-- [ ] 存档/续玩 + 回想 sheet + 单句重播
-- [ ] 外部 TTS 配音同步 + 54/63 声线覆盖 + 真机清单
-- [ ] Rio 第 4 幕 + 3–5 人试玩闸门；通过后才写第 5–6 幕与两结局
-- [ ] 下批/只记录：G06 其他 NPC 承接台词、G17 `extractJSON`、G18 `retryAt`/响应校验、G19 `parseRoleplay`、G24 非 series 入口
+> 2026-10-20：代码已在本地落地并通过 `pnpm check` / `pnpm build`，尚未推送或发布。真实浏览器 / 真机项与 3–5 人试玩闸门仍未销账。
+
+- [x] P0 身份/声线前置：G01 `characterKey`（`tess` 撞 id）、G02 speaker 单一实现、G07 `LOVE_VOICES` + `speak(..., speaker)` 透传
+- [x] P0 记录/存档：G14 不再写空壳练习 Session、G15 `LoveStoryStore`、G21 统计改读 records、G23 `historyFor` 排除
+- [x] P0 数据正门：G03 一个 `buildBackupPayload()`、G05 story slot 校验/恢复、G04 跨标签/raw 保留、G16 reset 收口
+- [x] P1 引擎：G08 请求 generation、G09 承接纯读、G20 承诺逐字、G10 系列 v2、G12 `ended`/`terminal`/`maxTurns`、G22 每幕承接/order
+- [x] P1 测试闸门：G11 不写分、G13 回归
+- [x] 存档/续玩 + 回想 sheet + 单句重播（本地实现；刷新续玩与坏档恢复 sheet 的浏览器回归待验）
+- [ ] 外部 TTS 配音同步：64 场景 / 54 人物声线已接；**真机听感、iOS 手势解锁、开麦回声仍待自测**
+- [ ] Rio 第 4 幕已落地；**3–5 人试玩闸门未做**，通过后才写第 5–6 幕与两结局
+- [ ] 下批/只记录：G06 其他 NPC 承接台词（本批只写 Rio 与通用回退）、G17 `extractJSON`、G18 `retryAt`/响应校验、G19 `parseRoleplay`、G24 非 series 入口
 
 ## 在场层：承诺—回访—触达通道（2026-10-13，方案已写，未开工）
 

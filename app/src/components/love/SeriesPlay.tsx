@@ -11,7 +11,8 @@ import { useLang } from "@/store/useApp";
 import { t } from "@/lib/i18n";
 import { readLovePlaySave } from "@/lib/love-story";
 import { pickNextLoveScene, sortLoveScenes, type PlayingSceneLike } from "@/lib/love-play-save-view";
-import { readLoveSeriesProgress, type LoveSeriesProgress } from "@/lib/love-series-progress";
+import { readLoveSeriesProgressState, shouldRefreshLoveSlots, type LoveSeriesProgress } from "@/lib/love-series-progress";
+import { subscribeLoveSlots } from "@/lib/love-slot-events";
 
 /** 剧情线入口页：线名/走向 + 线内进度 + 场景列表（已完成打勾）。进度只存在设备端。 */
 export function SeriesPlay({ series }: { series: LoveSeries }) {
@@ -20,28 +21,44 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
   // 挂载后再读 localStorage：服务端首屏渲染没有存储，统一以 null 起始避免 hydration 不一致。
   // 读取放在定时回调里（非同步 setState），同时避免渲染期直接 setState 的级联渲染。
   const [progress, setProgress] = useState<LoveSeriesProgress | null>(null);
+  const [progressIssue, setProgressIssue] = useState<"corrupt" | null>(null);
   const [playing, setPlaying] = useState<PlayingSceneLike[]>([]);
   // 幕序以 `series.order` 为准，缺省按数组下标补在后面；不能再用 lastScene 当「下一幕」。
   const scenes = useMemo(() => sortLoveScenes(series.scenarios), [series.scenarios]);
 
   useEffect(() => {
     let alive = true;
-    const timer = window.setTimeout(() => {
+    let timer = 0;
+    // 挂载与事件刷新走同一条读取路径：进度 + 排序后每一场 story save 里的 playing。
+    const read = () => {
       if (!alive) return;
-      setProgress(readLoveSeriesProgress(series.id));
+      const progressState = readLoveSeriesProgressState(series.id);
+      setProgress(progressState.progress);
+      // 坏字节不被下一次写入覆盖（G04）；页面仍可用第一条未完成幕，只把事实说清楚。
+      setProgressIssue(progressState.status === "corrupt" ? "corrupt" : null);
       // 进行中的幕优先：读排序后每一场的 story save，只取 playing，交由纯函数挑最近更新的一幕。
       const active: PlayingSceneLike[] = [];
       for (const scene of scenes) {
-        const read = readLovePlaySave(scene.id);
-        if (read.status === "ok" && read.save?.status === "playing") {
-          active.push({ id: scene.id, updatedAt: read.save.updatedAt });
+        const readSave = readLovePlaySave(scene.id);
+        if (readSave.status === "ok" && readSave.save?.status === "playing") {
+          active.push({ id: scene.id, updatedAt: readSave.save.updatedAt });
         }
       }
       setPlaying(active);
-    }, 0);
+    };
+    // 存储只在挂载后读；同标签页写入由 CustomEvent、跨标签页由 storage 事件触发。
+    const schedule = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(read, 0);
+    };
+    schedule();
+    const unsubscribe = subscribeLoveSlots((key) => {
+      if (shouldRefreshLoveSlots(key, series.id)) schedule();
+    });
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      unsubscribe();
     };
   }, [series.id, scenes]);
 
@@ -83,6 +100,12 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
             <p className="text-[13px] text-ink-2 mt-1">{flow}</p>
           </div>
         </header>
+
+        {progressIssue === "corrupt" && (
+          <p role="status" className="rounded-[var(--radius-sm)] bg-inset px-3 py-2 text-[12px] leading-relaxed text-ink-2">
+            {t(lang, "love_series_progress_corrupt")}
+          </p>
+        )}
 
         <Link href={`/love/play/${nextId}`} className="press card card-link text-left p-5 flex items-center gap-4">
           <span className="shrink-0 w-12 h-12 rounded-full grid place-items-center bg-accent-soft text-accent-deep">

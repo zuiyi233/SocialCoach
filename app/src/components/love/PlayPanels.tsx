@@ -8,8 +8,11 @@ import type { LovePlayOutcome } from "@/lib/love-play-client";
 import { t } from "@/lib/i18n";
 import { PlayCarryCapture, type LoveCarryTarget } from "./PlayCarryCapture";
 
-/** 本回合的选项列表：按钮普通样式，不提示对错，点选即作为 learner 发言。台词打字未完时禁用。 */
-export function PlayOptions({ options, busy, ready, lineKey, lang, onPick }: { options: L[]; busy: boolean; ready: boolean; lineKey: string | undefined; lang: Lang; onPick: (o: L) => void }) {
+/**
+ * 本回合的选项列表：按钮普通样式，不提示对错，点选即作为 learner 发言。台词打字未完时禁用。
+ * `prompt` 是作者状态拍点组的标题（第 4 幕）；没有时沿用通用提示，布局不变。
+ */
+export function PlayOptions({ options, busy, ready, lineKey, lang, prompt, onPick }: { options: L[]; busy: boolean; ready: boolean; lineKey: string | undefined; lang: Lang; prompt?: L; onPick: (o: L) => void }) {
   return (
     <AnimatePresence initial={false}>
       {!busy && (
@@ -21,7 +24,7 @@ export function PlayOptions({ options, busy, ready, lineKey, lang, onPick }: { o
           transition={{ duration: 0.22 }}
           className="mt-3 flex flex-col gap-2 max-w-[var(--measure)]"
         >
-          <p className="text-[11px] text-ink-3">{t(lang, "love_play_options_hint")}</p>
+          <p className="text-[11px] text-ink-3">{prompt ? prompt[lang] : t(lang, "love_play_options_hint")}</p>
           {options.map((o, i) => (
             <button
               key={i}

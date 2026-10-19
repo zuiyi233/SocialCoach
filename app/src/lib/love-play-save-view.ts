@@ -4,6 +4,21 @@ import type { ChatMessage } from "./types";
 import type { LovePlayEmotion, LovePlayOutcome } from "./love-play-client";
 import type { LoveCarryTurn } from "./love-carry-store";
 import { LovePlaySaveSchema, type LovePlaySave } from "./love-story";
+import {
+  emptyRioState,
+  isRioStateCurrent,
+  migrateLegacyRioState,
+  parseRioState,
+  type RioOutcome,
+  type RioRelationshipState,
+} from "./love-relationship-state";
+import {
+  RIO_ACT4_BEAT_GROUPS,
+  RIO_ROUTE_ACT_SCENES,
+  matchRioRequires,
+  type RioBeat,
+  type RioBeatGroup,
+} from "./rio-route";
 
 /**
  * PlayScene 与 story slot 之间的纯决策层。
@@ -287,4 +302,177 @@ export function pickNextLoveScene<T extends LoveSceneLike>(
 /** 「记入统计」只提交一次；刷新恢复的 recorded 同样挡住重复记录。 */
 export function canSubmitLovePlayRecord(recorded: boolean): boolean {
   return !recorded;
+}
+
+/* ------------------------------------------------------------------ *
+ * Rio 第 4 幕：账本快照与作者写死的状态拍点（spec-love-rio-route §3.5）
+ *
+ * 进行中的动作快照存 save.routeState；已提交的账本存 story routes。
+ * 两者都只装 `RioRelationshipState`，`stance` 是会话内数值，永不写进来。
+ * ------------------------------------------------------------------ */
+
+/** 与 LoveSeriesProgress 同构的只读形状；这里不 import 存储模块，保持可测试的纯函数。 */
+export interface RioProgressLike {
+  completed: string[];
+  /** 旧档的「最近完成的一场」；迁移时用它取 outcome，缺省按空串。 */
+  lastScene?: string;
+  outcome: Record<string, RioOutcome>;
+}
+
+/** save.routeState / story routes 的两种合法形状：裸 state（旧档）或带拍点记录的包装。 */
+export interface RioRouteSnapshot {
+  rio: RioRelationshipState;
+  appliedBeats: string[];
+}
+
+const RIO_SCENE_ACT = new Map<string, number>(
+  Object.entries(RIO_ROUTE_ACT_SCENES).map(([act, sceneId]) => [sceneId, Number(act)]),
+);
+
+/** 包装成落盘形状；appliedBeats 复制一份，调用方后续改动不会反向污染账本。 */
+export function rioRouteSnapshot(
+  state: RioRelationshipState,
+  appliedBeats: readonly string[],
+): RioRouteSnapshot {
+  return { rio: state, appliedBeats: [...appliedBeats] };
+}
+
+/**
+ * 解包 save.routeState。兼容裸 state（没有 appliedBeats 的旧档）。
+ * 坏形状返回 null，由调用方回落到已提交账本或迁移，不猜。
+ */
+export function readRioRouteSnapshot(raw: unknown): RioRouteSnapshot | null {
+  let value = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (value && typeof value === "object" && !Array.isArray(value) && "rio" in value) {
+    const wrapper = value as { rio?: unknown; appliedBeats?: unknown };
+    const parsed = parseRioState(wrapper.rio);
+    if (!parsed.ok) return null;
+    const appliedBeats = Array.isArray(wrapper.appliedBeats)
+      ? wrapper.appliedBeats.filter((id): id is string => typeof id === "string" && id.length > 0)
+      : [];
+    return { rio: parsed.state, appliedBeats };
+  }
+  const parsed = parseRioState(value);
+  return parsed.ok ? { rio: parsed.state, appliedBeats: [] } : null;
+}
+
+/** 已完成场景里的最大幕号；0 = 还没完成任何一幕。 */
+function latestCompletedAct(progress: RioProgressLike | null | undefined): number {
+  if (!progress) return 0;
+  let latest = 0;
+  for (const sceneId of progress.completed) {
+    const act = RIO_SCENE_ACT.get(sceneId) ?? 0;
+    if (act > latest) latest = act;
+  }
+  return latest;
+}
+
+/**
+ * state 是否落后于系列进度。只在这一种情况下标 stale（开场切中性变体）：
+ * - 进度已经走到更后面的幕（state 写失败 / 旧设备）；
+ * - 同一幕但 outcome 对不上（旧一次通关留下的旧账）。
+ * 新局（lastAct=0）与本幕进行中的快照（进度还没结算这一幕）都不算落后——
+ * 「这一幕还没完成」不是「账本过期」。
+ */
+function rioStateBehindProgress(
+  state: RioRelationshipState,
+  progress: RioProgressLike | null | undefined,
+): boolean {
+  if (state.lastAct === 0) return false;
+  const latest = latestCompletedAct(progress);
+  if (latest > state.lastAct) return true;
+  if (latest < state.lastAct) return false;
+  return !isRioStateCurrent(state, progress ?? { completed: [], outcome: {} });
+}
+
+/**
+ * 挂载时决定第 4 幕用哪本账：
+ * 1. 本幕进行中的存档快照（比已提交 routes 新，spec §3.3）；
+ * 2. 已提交到 story routes 的账本（裸 state）；
+ * 3. 没有账本 → 从旧 3 幕进度迁移（legacy=true，中性开场）。
+ * 没有任何进度时给空账本，让新玩家看到「你没见过的邮件」变体。
+ * stale 只标在存在过的账本上，且不写盘——磁盘原文由调用方原样保留。
+ */
+export function planRioRouteEntry(sources: {
+  /** save.routeState（只在 resume 时存在）。 */
+  saved?: unknown;
+  /** story routes[seriesId]（已提交账本）。 */
+  committed?: unknown;
+  progress?: RioProgressLike | null;
+}): RioRouteSnapshot {
+  const saved = readRioRouteSnapshot(sources.saved ?? null);
+  const committed = saved ? null : readRioRouteSnapshot(sources.committed ?? null);
+  const base = saved ?? committed;
+  // lastAct=0 的账本没有声明任何已发生事实：进度若更靠前，按旧档迁移而不是把它当新玩家。
+  if (base && base.rio.lastAct > 0) {
+    const rio = rioStateBehindProgress(base.rio, sources.progress)
+      ? { ...base.rio, stale: true }
+      : base.rio;
+    return { rio, appliedBeats: [...base.appliedBeats] };
+  }
+  const progress = sources.progress;
+  if (progress && progress.completed.length > 0) {
+    return {
+      rio: migrateLegacyRioState({
+        completed: progress.completed,
+        lastScene: progress.lastScene ?? "",
+        outcome: progress.outcome,
+      }),
+      appliedBeats: [],
+    };
+  }
+  return { rio: emptyRioState(), appliedBeats: [] };
+}
+
+/**
+ * 下一个该出现的作者拍点组：先「她想要什么」，再「答复前的下一步」。
+ *
+ * 一组只出现一次——玩家点过其中任一拍点就算问过这个问题，不要求把三条都点完；
+ * 组内按 `requires` 过滤，偏好已知后不再重复给「问她想要什么」。
+ * 两组都有记录时返回 null，普通回合继续用模型生成的选项。
+ */
+export function nextRioBeatGroup(
+  state: RioRelationshipState | null | undefined,
+  appliedBeats: readonly string[],
+): RioBeatGroup | null {
+  const applied = new Set(appliedBeats);
+  for (const group of RIO_ACT4_BEAT_GROUPS) {
+    if (group.beats.some((beat) => applied.has(beat.id))) continue;
+    const beats = group.beats.filter((beat) => matchRioRequires(beat.requires, state));
+    if (beats.length) return { ...group, beats };
+  }
+  return null;
+}
+
+/**
+ * 选项文本 → 作者拍点。只认当前语言下的逐字原文：模型改写的近义句不写状态，
+ * 也不拿模型文本冒充作者证据（spec §3.5「作者写死选项 + 逐字证据」）。
+ */
+export function rioBeatForOption(
+  group: RioBeatGroup | null | undefined,
+  text: string,
+  lang: Lang,
+): RioBeat | null {
+  if (!group) return null;
+  return group.beats.find((beat) => beat.text[lang] === text) ?? null;
+}
+
+/**
+ * 本幕判出结果时要写进系列进度的 outcome。
+ * terminal 优先；ended-only（没有目标判定、自然收尾）按 partial 记，同样算本幕完成，
+ * 不能因为「只是收尾」把下一幕一直卡住。
+ */
+export function seriesOutcomeFor(
+  terminal: LovePlayOutcome | null | undefined,
+  ended: boolean | null | undefined,
+): LovePlayOutcome | null {
+  if (terminal) return terminal;
+  return ended ? "partial" : null;
 }

@@ -4,15 +4,18 @@ import type { L, Lang } from "@/data/taxonomy";
 import { AvatarFigure } from "@/data/avatars";
 import { pick, t } from "@/lib/i18n";
 import {
+  LOVE_CARRY_KEY,
   answerLoveCarry,
   dueLoveCarry,
   loveCarryCardLine,
   loveCarryLine,
   markLoveCarryAsked,
+  readLoveCarries,
   retireExhaustedLoveCarries,
   type LoveCarry,
   type LoveCarryAnswer,
 } from "@/lib/love-carry-store";
+import { subscribeLoveSlots } from "@/lib/love-slot-events";
 import { useApp } from "@/store/useApp";
 import { useLovePortrait } from "./PlaySceneFigure";
 
@@ -80,6 +83,22 @@ export function LoveCarryFollowUp({ lang }: { lang: Lang }) {
       window.clearTimeout(timer);
     };
   }, [hydrated, enabled]);
+
+  // 另一标签页（或本页别处）改了 carry slot：重新问一次「现在该问哪一句」。
+  // 自己的 markLoveCarryAsked / answerLoveCarry 也会派发事件：没有 due 时只在 slot 真的空了才收卡，
+  // 否则刚浮现的卡会因为「刚问过、24h 内不再问」而当场消失。
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribeLoveSlots((key) => {
+      if (key !== null && key !== LOVE_CARRY_KEY) return;
+      const due = dueLoveCarry();
+      if (due) {
+        setShown((prev) => (prev?.phase === "kept" ? prev : { carry: due, phase: "ask" }));
+        return;
+      }
+      if (readLoveCarries().length === 0) setShown(null);
+    });
+  }, [enabled]);
 
   if (!shown) return null;
   const { carry, phase } = shown;

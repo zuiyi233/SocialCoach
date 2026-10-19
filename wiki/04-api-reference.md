@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-08 | Current stage: B -->
+<!-- Last verified: 2026-10-20 | Current stage: E -->
 
 # API 参考
 
@@ -153,7 +153,7 @@ HTTP / 流式错误的 `modelIssue:null` 明确表示任务自身错误，例如
 
 **请求：** `{ scenario, learnerCharacterId, language: "zh"|"en", learnerName?, messages: ChatMessage[], turnLimit? }`
 
-注意字段名是 **`language`**（不是 roleplay 的 `lang`）。`messages` 只支持 `{role, characterId?, text, ts}` 简化形态（learner / npc / event）。
+注意字段名是 **`language`**（不是 roleplay 的 `lang`）。`messages` 只支持 `{role, characterId?, text, ts}` 简化形态（learner / npc / event）。`scenario.characters` 必须至少有一个非 `learnerCharacterId` 的 NPC，否则直接 `400`（没有可说话的 NPC 时不存在合法回合）；`turnLimit` 按场景 `maxTurns` 生效，不再被 12 回合下限覆盖。
 
 **响应：** `application/json`
 
@@ -167,9 +167,9 @@ HTTP / 流式错误的 `modelIssue:null` 明确表示任务自身错误，例如
 | `terminal` | `"success"\|"partial"\|"failure"\|null` | 场景收束判定（对照场景 success/failure） |
 | `ended` | `boolean` | 会话结束，前端显示收束界面 |
 
-**统计口径**：游戏模式完成场景由前端 `completeLovePlay()` 记入 sessions（`origin: "love-play"`、`status: "ended"`、无 report）+ practiceDays + loveProficiency 微增益（success +0.3 / partial +0.15 / failure +0.05，clamp 1-5）。**不触发证据式 assess**（点选项 ≠ 用户真实表达，不伪造能力评估）。→ [spec-love-visual-novel.md](./specs/spec-love-visual-novel.md)
+**统计口径（2026-10-20 起）**：游戏模式完成场景由前端 `completeLovePlay()` 追加一条 `LovePlayRecord` 到 story slot，**不再写练习 `Session`**；保留 practiceDays + loveProficiency 微增益（success +0.3 / partial +0.15 / failure +0.05，clamp 1-5）。`/love` 的完成数、分钟与结局统计改读 `records`；首页未完成、`Debrief`、`/api/assess`、`historyFor`、调度永远看不到恋爱记录。**不触发证据式 assess**（点选项 ≠ 用户真实表达，不伪造能力评估）。幕内进度另存 `socialcoach.love-play.story`，与 API 无关。→ [spec-love-galgame-foundation.md](./specs/spec-love-galgame-foundation.md)
 
-**错误**：无模型 key → `503 {"modelIssue":"setup"}`；body 非法 → `400`（`taskInput` 口径）；LLM 拒绝 → `422`。
+**错误**：无模型 key → `503 {"modelIssue":"setup"}`；body 非法或没有非学习者 NPC → `400`（`taskInput` 口径）；LLM 拒绝 → `422`。
 
 ### `POST /api/track`
 

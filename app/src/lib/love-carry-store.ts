@@ -7,6 +7,10 @@ import {
   type CarryResolution,
 } from "@/data/corpus/love-carry-lines";
 import { uid } from "./format";
+// 这个 import 与 `love-slot-events.ts` 对 `LOVE_PLAY_PREFIX` 的 import 构成一个环：
+// 两边都只在函数体内取常量（前缀在订阅回调里、notify 在这里的写路径里），初始化顺序安全。
+// 拆出一份重复的前缀表更糟——跨标签页通知必须只有一个入口。
+import { notifyLoveSlotsChanged } from "./love-slot-events";
 
 /**
  * 恋爱承接的结构化版本（review-2026-10-13-love-companionship §10.1 P2）：
@@ -69,8 +73,21 @@ export interface LoveCarryTurn {
   text: string;
 }
 
-/** `too-long` = 原话超过 `LOVE_CARRY_TEXT_MAX`；存储层拒绝而不是裁剪，逐字保存不许被改写。 */
-export type LoveCarrySave = { ok: true; carry: LoveCarry } | { ok: false; reason: "full" | "too-long" };
+/**
+ * `too-long` = 原话超过 `LOVE_CARRY_TEXT_MAX`；存储层拒绝而不是裁剪，逐字保存不许被改写。
+ * `corrupt` = 现有 slot 的字节读不懂；写进去会把恢复线索覆盖掉，所以整次写入拒绝。
+ * `unavailable` = 存储读/写抛错（隐私模式、配额）；承诺没有落盘，不能假装成功。
+ */
+export type LoveCarrySave =
+  | { ok: true; carry: LoveCarry }
+  | { ok: false; reason: "full" | "too-long" | "corrupt" | "unavailable" };
+
+/** 读取 slot 的结果：`corrupt` 时 `raw` 是原样字节，供恢复 UI 展示/导出。 */
+export interface LoveCarryReadState {
+  status: "ok" | "empty" | "corrupt" | "unavailable";
+  carries: LoveCarry[];
+  raw?: string;
+}
 
 /** 恋爱玩法所有设备端 slot 的公共前缀：`…carry` 与 `…series.<id>` 都在它下面。 */
 export const LOVE_PLAY_PREFIX = "socialcoach.love-play.";
@@ -195,35 +212,76 @@ function parseCarry(v: unknown): LoveCarry | null {
   return carry;
 }
 
-function parse(raw: string | null): LoveCarry[] {
-  if (!raw) return [];
+/**
+ * 解析整个 slot。坏 JSON 与非数组是 corrupt；数组里**任何一条**认不出来也算 corrupt：
+ * 全部当合法读空的话，下一次写入就会把这些坏条静默删掉（G04「坏条被下一次写入静默删除」）。
+ * `carries` 仍是能读出来的那部分——读路径保持旧的尽力而为，写路径由 status 拦住。
+ */
+function parseSlot(raw: string): { carries: LoveCarry[]; invalid: boolean } {
   try {
     const list = JSON.parse(raw) as unknown;
-    if (!Array.isArray(list)) return [];
-    return list.map(parseCarry).filter((c): c is LoveCarry => c !== null);
+    if (!Array.isArray(list)) return { carries: [], invalid: true };
+    const carries: LoveCarry[] = [];
+    let invalid = false;
+    for (const item of list) {
+      const carry = parseCarry(item);
+      if (carry) carries.push(carry);
+      else invalid = true;
+    }
+    return { carries, invalid };
   } catch {
-    return [];
+    return { carries: [], invalid: true };
   }
 }
 
-/** 读取全部被带走的承诺；slot 损坏 / 存储不可用都读成空，不抛错。 */
-export function readLoveCarries(): LoveCarry[] {
-  if (typeof window === "undefined") return [];
+/**
+ * 读取全部被带走的承诺，同时带出字节状态。
+ * 写路径必须先看这个状态：`corrupt` / `unavailable` 时任何写入都可能抹掉恢复线索。
+ */
+export function readLoveCarriesState(): LoveCarryReadState {
+  if (typeof window === "undefined") return { status: "unavailable", carries: [] };
+  let raw: string | null;
   try {
-    return parse(localStorage.getItem(LOVE_CARRY_KEY));
+    raw = localStorage.getItem(LOVE_CARRY_KEY);
   } catch {
-    return [];
+    return { status: "unavailable", carries: [] };
   }
+  if (raw == null) return { status: "empty", carries: [] };
+  const parsed = parseSlot(raw);
+  if (parsed.invalid) return { status: "corrupt", carries: parsed.carries, raw };
+  return { status: "ok", carries: parsed.carries, raw };
 }
 
-/** 写入：配额满或存储被禁用时静默失败（`writeLoveSeriesProgress` 同口径），不打断剧情。 */
-function writeLoveCarries(list: LoveCarry[]): void {
-  if (typeof window === "undefined") return;
+/** 读取全部被带走的承诺；slot 损坏 / 存储不可用都读成空（或能读出的部分），不抛错。 */
+export function readLoveCarries(): LoveCarry[] {
+  return readLoveCarriesState().carries;
+}
+
+/** 写入并通知订阅者；返回是否真的落盘。失败时调用方必须自己决定怎么说不。 */
+function writeLoveCarries(list: LoveCarry[]): boolean {
+  if (typeof window === "undefined") return false;
   try {
     localStorage.setItem(LOVE_CARRY_KEY, JSON.stringify(list));
   } catch {
-    // 这一句就只活到这儿：不弹错、不重试，学习者的这一幕不该被存储故障挡住。
+    // 这一句没有落盘：调用方据此返回 unavailable，界面不宣称「已保存」。
+    return false;
   }
+  notifyLoveSlotsChanged(LOVE_CARRY_KEY);
+  return true;
+}
+
+/**
+ * 显式恢复入口：只给用户在恢复 UI 里主动确认后调用。
+ * **不要**在读取失败时自动清——坏字节正是恢复界面的证据，先清等于把线索也删了。
+ */
+export function clearLoveCarrySlot(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(LOVE_CARRY_KEY);
+  } catch {
+    return;
+  }
+  notifyLoveSlotsChanged(LOVE_CARRY_KEY);
 }
 
 /**
@@ -316,12 +374,16 @@ export function pruneLoveCarries(list: LoveCarry[]): LoveCarry[] | null {
  * 超限返回 `too-long`，由采集 UI 明示；校验侧（`archive.ts` 的承诺 schema）共用同一个上限。
  */
 export function saveLoveCarry(draft: LoveCarryDraft): LoveCarrySave {
+  // 写入前先看现有字节：坏档/读不了的档一律拒绝，绝不拿一份「读空」的列表覆盖原件。
+  const state = readLoveCarriesState();
+  if (state.status === "corrupt") return { ok: false, reason: "corrupt" };
+  if (state.status === "unavailable") return { ok: false, reason: "unavailable" };
   const now = Date.now();
   const text = draft.text.trim();
   if (text.length > LOVE_CARRY_TEXT_MAX) return { ok: false, reason: "too-long" };
   const input: LoveCarryDraft = { ...draft, text };
   const characterKey = loveCarryCharacterKey(draft.scenarioId, draft.npcId);
-  const list = readLoveCarries();
+  const list = state.carries;
   // `open`（答过一次「还没」）仍是未决：同一场重新许下同一句，改写的是同一条记录，
   // 不另起一条占格子；`kept` / `dropped` 是终点，新承诺另起一条。
   const idx = list.findIndex(
@@ -331,14 +393,14 @@ export function saveLoveCarry(draft: LoveCarryDraft): LoveCarrySave {
     const next: LoveCarry = { ...list[idx], ...input, characterKey, updatedAt: now };
     const out = [...list];
     out[idx] = next;
-    writeLoveCarries(pruneLoveCarries(out) ?? out);
+    if (!writeLoveCarries(pruneLoveCarries(out) ?? out)) return { ok: false, reason: "unavailable" };
     return { ok: true, carry: next };
   }
   const carry: LoveCarry = { id: uid(), ...input, characterKey, createdAt: now, updatedAt: now, askCount: 0, state: "pending" };
   const pruned = pruneLoveCarries([...list, carry]);
   // 满了就拒绝这一条，而不是删一条还没问过的来腾地方。
   if (!pruned) return { ok: false, reason: "full" };
-  writeLoveCarries(pruned);
+  if (!writeLoveCarries(pruned)) return { ok: false, reason: "unavailable" };
   return { ok: true, carry };
 }
 
@@ -347,7 +409,10 @@ export function saveLoveCarry(draft: LoveCarryDraft): LoveCarrySave {
  * （作答是学习者按按钮的事）。能力类数值一个都不碰——这里只有 askCount / lastAskedAt。
  */
 export function markLoveCarryAsked(id: string): void {
-  const list = readLoveCarries();
+  const state = readLoveCarriesState();
+  // 坏档上的计数写入会把坏条挤掉：宁可这一趟不计数，也不动原始字节。
+  if (state.status === "corrupt" || state.status === "unavailable") return;
+  const list = state.carries;
   if (!list.some((c) => c.id === id)) return;
   const now = Date.now();
   writeLoveCarries(
@@ -423,6 +488,9 @@ export function dueLoveCarry(now: number = Date.now(), list: readonly LoveCarry[
 export function retireExhaustedLoveCarries(list: LoveCarry[] = readLoveCarries()): void {
   const exhausted = (c: LoveCarry) => (c.state === "pending" || c.state === "open") && c.askCount >= LOVE_CARRY_ASK.perCarryMax;
   if (!list.some(exhausted)) return;
+  const state = readLoveCarriesState();
+  // 与 save 同一道闸：坏档上不收尾，坏条不能因为一次例行清理消失。
+  if (state.status === "corrupt" || state.status === "unavailable") return;
   const now = Date.now();
   writeLoveCarries(list.map((c) => (exhausted(c) ? { ...c, state: "dropped", updatedAt: now } : c)));
 }
@@ -443,7 +511,9 @@ export function loveCarryCardLine(carry: LoveCarry, lang: Lang): string | null {
  * 答「还没」但次数已经问满 = 没有下一次了，直接落 `dropped`。
  */
 export function answerLoveCarry(id: string, answer: LoveCarryAnswer): void {
-  const list = readLoveCarries();
+  const state = readLoveCarriesState();
+  if (state.status === "corrupt" || state.status === "unavailable") return;
+  const list = state.carries;
   if (!list.some((c) => c.id === id)) return;
   const now = Date.now();
   writeLoveCarries(

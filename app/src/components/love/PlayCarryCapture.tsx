@@ -4,7 +4,13 @@ import { clsx } from "clsx";
 import { L, type Lang } from "@/data/taxonomy";
 import { CARRY_PROMISE_LABELS, type CarryPromiseClass } from "@/data/corpus/love-carry-lines";
 import { pick, t } from "@/lib/i18n";
-import { LOVE_CARRY_TEXT_MAX, readLoveCarries, saveLoveCarry, type LoveCarry, type LoveCarrySave } from "@/lib/love-carry-store";
+import {
+  LOVE_CARRY_TEXT_MAX,
+  readLoveCarriesState,
+  saveLoveCarry,
+  type LoveCarry,
+  type LoveCarrySave,
+} from "@/lib/love-carry-store";
 
 /** 这一幕可以把承诺带给谁：线（可以没有线）、说话人、以及学习者自己打出来的那些句子。 */
 export interface LoveCarryTarget {
@@ -25,6 +31,20 @@ const CLASSES = Object.keys(CARRY_PROMISE_LABELS) as CarryPromiseClass[];
 const CARRY_TOO_LONG: L = L(
   `这句话超过了 ${LOVE_CARRY_TEXT_MAX} 字的上限，没有存下——请自己缩短后再存，不能替你删字。`,
   `This line is over the ${LOVE_CARRY_TEXT_MAX}-character limit, so it was not kept. Shorten it yourself — nothing was cut for you.`,
+);
+
+/**
+ * 旧 slot 的字节读不懂：**绝不**拿一条新承诺把原件盖掉。恢复入口在别处，这里只负责把话说清楚。
+ * 文案留在组件里（i18n 表这一批不动），与 `CARRY_TOO_LONG` 同一口径。
+ */
+const CARRY_CORRUPT: L = L(
+  '这台设备上的承诺记录损坏，原有记录已保留、未覆盖。请先在恢复入口确认后再清空；这句还没有存下。',
+  'The saved promises on this device are unreadable. Your existing records were kept and not overwritten. Clear them from recovery only after confirming; this line was not saved.',
+);
+
+const CARRY_UNAVAILABLE: L = L(
+  '这台设备的存储当前不可用，这句没有存下；剧情可以继续，稍后再试。',
+  'Storage is unavailable on this device, so this line was not saved. The scene can continue; try again later.',
 );
 
 type CarryError = Extract<LoveCarrySave, { ok: false }>["reason"] | null;
@@ -53,11 +73,20 @@ export function PlayCarryCapture({ lang, target }: { lang: Lang; target: LoveCar
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setRecorded(
-        readLoveCarries().find(
-          (c) => c.scenarioId === target.scenarioId && c.npcId === target.npcId && c.state === "pending",
-        ) ?? null,
-      );
+      const state = readLoveCarriesState();
+      if (state.status === "corrupt" || state.status === "unavailable") {
+        // 读不懂/读不了都不能静默：让学习者知道这句没存下，原件也没被覆盖。
+        setError(state.status);
+      } else {
+        setRecorded(
+          state.carries.find(
+            (c) =>
+              c.scenarioId === target.scenarioId &&
+              c.npcId === target.npcId &&
+              (c.state === "pending" || c.state === "open"),
+          ) ?? null,
+        );
+      }
       setReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -187,7 +216,13 @@ export function PlayCarryCapture({ lang, target }: { lang: Lang; target: LoveCar
 
       {error && (
         <p role="alert" className="rounded-[var(--radius-sm)] bg-danger-soft px-3 py-2 text-[12.5px] text-danger">
-          {error === "too-long" ? pick(CARRY_TOO_LONG, lang) : t(lang, "love_carry_full")}
+          {error === "too-long"
+            ? pick(CARRY_TOO_LONG, lang)
+            : error === "corrupt"
+              ? pick(CARRY_CORRUPT, lang)
+              : error === "unavailable"
+                ? pick(CARRY_UNAVAILABLE, lang)
+                : t(lang, "love_carry_full")}
         </p>
       )}
 

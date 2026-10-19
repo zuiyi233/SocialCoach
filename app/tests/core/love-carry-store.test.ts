@@ -5,12 +5,14 @@ import { CARRY_LINES, CARRY_LINES_UNCLASSIFIED, CARRY_QUOTE_MARKER } from '../..
 import {
   LOVE_CARRY_CAP,
   LOVE_CARRY_TEXT_MAX,
+  clearLoveCarrySlot,
   loveCarryAskLine,
   loveCarryCandidates,
   loveCarryLine,
   markLoveCarryAsked,
   pendingLoveCarryForOpening,
   readLoveCarries,
+  readLoveCarriesState,
   saveLoveCarry,
   type LoveCarry,
   type LoveCarryDraft,
@@ -231,7 +233,7 @@ test('a corrupt slot reads as empty and never throws', () => {
   reset();
 });
 
-test('a storage that refuses writes degrades silently', () => {
+test('a storage that refuses reads or writes reports unavailable instead of pretending to save', () => {
   reset();
   Object.defineProperty(globalThis, 'localStorage', {
     value: {
@@ -242,9 +244,83 @@ test('a storage that refuses writes degrades silently', () => {
     configurable: true,
   });
   assert.deepEqual(readLoveCarries(), [], 'unreadable storage reads as empty');
-  assert.equal(saveLoveCarry(draft()).ok, true, 'the scene keeps working; the carry just does not persist');
+  assert.deepEqual(readLoveCarriesState(), { status: 'unavailable', carries: [] });
+  assert.deepEqual(saveLoveCarry(draft()), { ok: false, reason: 'unavailable' }, 'the write did not land, so it cannot claim success');
   assert.doesNotThrow(() => markLoveCarryAsked('c1'));
+  assert.doesNotThrow(() => clearLoveCarrySlot());
   stubStorage();
+  reset();
+});
+
+test('state-aware reads keep corrupt bytes and distinguish empty from corrupt', () => {
+  reset();
+  assert.deepEqual(readLoveCarriesState(), { status: 'empty', carries: [] });
+  slots.set(KEY, '{"text": "not an array"');
+  assert.deepEqual(readLoveCarriesState(), {
+    status: 'corrupt',
+    carries: [],
+    raw: '{"text": "not an array"',
+  });
+  for (const bad of [null, 7, {}, [null, 1, 'x'], [{}], [{ id: 'x' }]]) {
+    putRaw(bad);
+    assert.equal(readLoveCarriesState().status, 'corrupt', `${JSON.stringify(bad)} is unreadable bytes`);
+    assert.deepEqual(readLoveCarries(), [], 'the compatible reader still degrades to empty');
+  }
+  reset();
+});
+
+test('a single bad entry marks the whole slot corrupt but keeps the readable entries for display', () => {
+  reset();
+  putRaw([entry({ id: 'good' }), { ...entry({ id: 'broken' }), state: 'maybe' }]);
+  const state = readLoveCarriesState();
+  assert.equal(state.status, 'corrupt', 'a dropped bad entry is exactly the byte loss G04 must stop');
+  assert.deepEqual(state.carries.map((c) => c.id), ['good'], 'reading stays best-effort');
+  assert.deepEqual(readLoveCarries().map((c) => c.id), ['good']);
+  reset();
+});
+
+test('saving over a corrupt slot is refused and the original bytes survive verbatim', () => {
+  reset();
+  slots.set(KEY, '{"text": "not an array"');
+  const before = slots.get(KEY);
+  assert.deepEqual(saveLoveCarry(draft()), { ok: false, reason: 'corrupt' });
+  assert.equal(slots.get(KEY), before, 'no silent last-writer-wins');
+
+  putRaw([entry({ id: 'good' }), { nope: true }]);
+  const partial = slots.get(KEY);
+  assert.equal(saveLoveCarry(draft({ text: '新的那句' })).ok, false, 'a partially bad slot is still refused');
+  assert.equal(slots.get(KEY), partial, 'the good and bad entries are both preserved');
+  reset();
+});
+
+test('a failed setItem leaves the previous bytes intact and reports unavailable', () => {
+  reset();
+  putRaw([entry({ id: 'keep' })]);
+  const before = slots.get(KEY);
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: {
+      getItem: (key: string) => slots.get(key) ?? null,
+      setItem: () => { throw new Error('quota'); },
+      removeItem: (key: string) => { slots.delete(key); },
+    },
+    configurable: true,
+  });
+  assert.deepEqual(saveLoveCarry(draft({ text: '新的那句' })), { ok: false, reason: 'unavailable' });
+  assert.equal(slots.get(KEY), before);
+  stubStorage();
+  reset();
+});
+
+test('the explicit clear is the only way to make a corrupt slot writable again', () => {
+  reset();
+  slots.set(KEY, '{"text": "not an array"');
+  assert.equal(saveLoveCarry(draft()).ok, false, 'reading a corrupt slot never auto-clears it');
+  assert.equal(slots.get(KEY), '{"text": "not an array"');
+  clearLoveCarrySlot();
+  assert.deepEqual(readLoveCarriesState(), { status: 'empty', carries: [] });
+  const res = saveLoveCarry(draft());
+  assert.equal(res.ok, true);
+  assert.equal(stored().length, 1);
   reset();
 });
 

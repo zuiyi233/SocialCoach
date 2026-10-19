@@ -104,18 +104,33 @@ const dict = {
   love_play_record_failed: { zh: "这次没能记入，再试一次。", en: "Couldn’t save this one. Try again." },
   // 自动存档：只在台词框上方占一行，不阻塞剧情。
   love_play_resumed: { zh: "已回到上次停下的地方。", en: "Picked up where you left off." },
-  love_play_save_conflict: { zh: "另一标签页已更新本幕，刷新以载入最新进度。", en: "Another tab updated this scene. Refresh to load the latest." },
+  love_play_save_conflict: { zh: "另一标签页已更新本幕。", en: "Another tab updated this scene." },
+  love_play_save_reload: { zh: "载入最新", en: "Load the latest" },
+  love_play_save_keep: { zh: "保留本页", en: "Keep this page" },
+  love_play_save_deleted: {
+    zh: "进度已在另一标签页被清空。本页不会再保存，返回后请重新开始。",
+    en: "Progress was cleared in another tab. This page won’t save again; go back and start over.",
+  },
   love_play_save_quota: { zh: "这台设备存不下进度了。本局可以继续，但刷新后可能丢失。", en: "This device is out of storage. You can keep playing, but a refresh may lose this run." },
   love_play_save_invalid: { zh: "进度没能保存，本局不会自动保存。", en: "Progress couldn’t be saved; this run won’t autosave." },
   love_play_save_unavailable: { zh: "这台设备暂时不能保存进度。", en: "This device can’t save progress right now." },
   love_play_save_corrupt: { zh: "本幕有一份无法读取的旧进度，原件已保留。本局不会自动保存。", en: "A saved scene couldn’t be read. The original is kept; this run won’t autosave." },
   love_play_save_incompatible: { zh: "本幕的进度来自更新版本，原件已保留。本局不会自动保存。", en: "This scene’s save came from a newer version. The original is kept; this run won’t autosave." },
   love_play_save_restart_failed: { zh: "旧的进度没能删除，本局不会自动保存。", en: "The previous save couldn’t be cleared; this run won’t autosave." },
+  // 坏档恢复 sheet：不自动开新局，先下载原件，再由用户决定是否清空。
+  love_play_recovery_title: { zh: "本幕进度无法读取", en: "This scene’s save can’t be read" },
+  love_play_recovery_body: {
+    zh: "原件没有被改动，也不会被这一局覆盖。你可以先下载原件留底，再决定是否清空重开；在你选择之前，本幕不会自动开始。",
+    en: "The original hasn’t been changed and won’t be overwritten by this run. Download it first if you want a copy, then decide whether to clear and restart; nothing starts until you choose.",
+  },
+  love_play_recovery_download: { zh: "下载原件", en: "Download the original" },
+  love_play_recovery_restart: { zh: "清空并重新开始本幕", en: "Clear and restart this scene" },
   // 回想（backlog）：只有台词与说话人，没有选项、结局或未来内容。
   love_play_recap: { zh: "回想", en: "Recap" },
   love_recap_title: { zh: "本幕回想", en: "This scene so far" },
   love_recap_region: { zh: "本幕台词", en: "Scene transcript" },
   love_recap_opening: { zh: "开场", en: "Opening" },
+  love_recap_latest: { zh: "最新", en: "Latest" },
   love_recap_play: { zh: "重播这句", en: "Play this line" },
   love_recap_empty: { zh: "还没有可回看的台词。", en: "Nothing to look back on yet." },
   love_recap_you: { zh: "你", en: "You" },
@@ -175,6 +190,10 @@ const dict = {
   love_series_restart: { zh: "再看一遍", en: "Replay the story" },
   love_series_done: { zh: "已完成", en: "Done" },
   love_series_in_progress: { zh: "进行中", en: "In progress" },
+  love_series_progress_corrupt: {
+    zh: "这条剧情线的进度读不出来，原件已保留。场景仍可单独进入，进度会在下一次完成后重写。",
+    en: "This story arc’s progress can’t be read. The original is kept; scenes still open, and progress is rewritten after the next completed scene.",
+  },
   // 剧情线两种口径：同一人物贯穿才叫「幕」，换人的线是同一主题下的独立场景合集。
   love_series_theme: { zh: "主题合集", en: "Theme pack" },
   love_series_cast: { zh: "同一人物贯穿", en: "One character throughout" },

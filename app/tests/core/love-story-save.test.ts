@@ -6,6 +6,7 @@ import {
   LOVE_STORY_KEY,
   appendLovePlayRecord,
   buildLovePlayTranscript,
+  clearLoveStorySlot,
   deleteLovePlayScene,
   emptyLoveStoryStore,
   hasLovePlaySave,
@@ -446,4 +447,18 @@ test("a corrupt story slot exposes no route and is never silently overwritten", 
   assert.equal(readLovePlayRoute("love-arc-rio-clarify"), null);
   assert.deepEqual(writeLovePlayRoute("love-arc-rio-clarify", { v: 1 }), { ok: false, reason: "invalid" });
   assert.equal(slots.get(KEY), "{broken");
+});
+
+test("the explicit clear removes the slot and reads as empty again", () => {
+  reset();
+  assert.equal(saveLovePlayScene(sceneSave()).ok, true);
+  assert.equal(readLoveStoryStore().status, "ok");
+  clearLoveStorySlot();
+  assert.deepEqual(readLoveStoryStore(), { status: "empty" });
+  assert.equal(slots.has(KEY), false);
+
+  // 坏档也能被显式清掉（只有用户确认后的恢复入口会调它）。
+  slots.set(KEY, "{broken");
+  clearLoveStorySlot();
+  assert.deepEqual(readLoveStoryStore(), { status: "empty" });
 });

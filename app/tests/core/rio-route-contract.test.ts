@@ -14,11 +14,13 @@ import {
   applyRioBeat,
   assertRioStateNoScores,
   resolveRioOpening,
+  rioBeatAvailable,
   rioOpeningVariants,
   type RioBeat,
 } from "../../src/lib/rio-route";
 import {
   emptyRioState,
+  migrateLegacyRioState,
   parseRioState,
   type RioEvidence,
   type RioRelationshipState,
@@ -43,6 +45,15 @@ const rioSeries = loveSeriesById("love-arc-rio-clarify");
 test("act 4 is registered at order 4; acts 5-6 stay unwritten behind the playtest gate", () => {
   assert.equal(RIO_ACT4_SCENE_ID, "love-rio-secondment-deadline");
   assert.deepEqual(RIO_AUTHORED_ACTS, [1, 2, 3, 4]);
+
+  // 路线映射必须和状态层的私有 ACT_SCENES 指向同一个场景：迁移时才能把完成记录归到第 4 幕。
+  const migrated = migrateLegacyRioState({
+    completed: [RIO_ACT4_SCENE_ID],
+    lastScene: RIO_ACT4_SCENE_ID,
+    outcome: { [RIO_ACT4_SCENE_ID]: "success" },
+  });
+  assert.equal(migrated.lastAct, 4);
+  assert.equal(migrated.lastOutcome, "success");
 
   assert.ok(rioSeries, "the Rio line must exist");
   assert.equal(rioSeries.continuous, true, "the Rio line must stay a continuous single-NPC series");
@@ -183,6 +194,18 @@ test("the hidden-unlock beat writes preference and narrows the secondment confli
   assert.equal(applied.lastAct, 4);
   assert.equal(applied.lastOutcome, "success");
 
+  // 偏好已知后，两个「问偏好」的拍点不再重复出现；失败路径仍在。
+  assert.equal(rioBeatAvailable(applied, beat), false);
+  assert.equal(rioBeatAvailable(applied, beatById("ask-what-she-wants")), false);
+  assert.equal(rioBeatAvailable(applied, beatById("decide-for-her")), true);
+  assert.equal(rioBeatAvailable(emptyRioState(), beat), true);
+  const otherAsk = beatById("ask-what-she-wants");
+  assert.equal(
+    applyRioBeat(applied, otherAsk.id, optionEvidence(otherAsk)),
+    applied,
+    "a beat whose requires no longer match must not overwrite the known preference",
+  );
+
   const conflict = applied.conflicts.find((row) => row.topic === "secondment");
   assert.ok(conflict, "the secondment conflict must be recorded");
   assert.equal(conflict.shape, "secondment-undecided");
@@ -221,6 +244,16 @@ test("deciding for her crosses a boundary and records the harm once", () => {
   assert.equal(conflict.hasMutualNextStep, false);
   assert.equal(state.lastOutcome, "failure");
   assertRioStateNoScores(state);
+
+  // 越界之后补一句条件，不等于修复；crossed 不能被「补充条件」覆盖。
+  const conditions = beatById("state-conditions");
+  const afterConditions = applyRioBeat(state, conditions.id, optionEvidence(conditions));
+  assert.equal(
+    afterConditions.boundaries.find((row) => row.topic === "secondment")?.status,
+    "crossed",
+  );
+  assert.deepEqual(afterConditions.flags.unrepairedHarm, ["pressed-secondment"]);
+  assert.equal(afterConditions.lastOutcome, "failure", "unrepaired harm keeps the act out of success");
 });
 
 test("conditions and the dated next talk keep their own promises and boundaries", () => {

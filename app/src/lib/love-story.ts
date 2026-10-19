@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Lang } from "@/data/taxonomy";
 import type { LovePlayEmotion, LovePlayOutcome } from "./love-play-client";
 import { LOVE_PLAY_PREFIX } from "./love-carry-store";
+import { notifyLoveSlotsChanged } from "./love-slot-events";
 
 /**
  * 恋爱 Galgame 的设备端存档（spec-love-galgame-foundation §3、§3.5）。
@@ -84,7 +85,7 @@ const STORE_MAX_BYTES = 2 * 1024 * 1024;
 const HISTORY_MAX = 40;
 const LINE_MAX = 4000;
 const OPTIONS_MAX = 4;
-/** `records` 只留最近的 100 条，防止 63 场全部累积。 */
+/** `records` 只留最近的 100 条，防止 64 场全部累积。 */
 const RECORDS_MAX = 100;
 /** 已结束场景的 save 只留最近 12 个；进行中的一律保留。 */
 const ENDED_SAVES_MAX = 12;
@@ -204,7 +205,7 @@ export function emptyLoveStoryStore(): LoveStoryStore {
   return { v: LOVE_STORY_VERSION, revision: 0, saves: {}, records: [], routes: {}, updatedAt: 0 };
 }
 
-type StorageLike = Pick<Storage, "getItem" | "setItem">;
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 /** 存储不可用（无 localStorage / 隐私模式 / 访问 getter 抛错）时返回 null，与读取同一口径。 */
 function storage(): StorageLike | null {
@@ -359,7 +360,24 @@ export function writeLoveStoryStore(store: LoveStoryStore, expectedRevision?: nu
   } catch (error) {
     return { ok: false, reason: isQuotaError(error) ? "quota" : "unavailable" };
   }
+  // 成功落盘才通知：冲突/配额/损坏都在上面 return，失败的写入不触发跨页刷新。
+  notifyLoveSlotsChanged(LOVE_STORY_KEY);
   return { ok: true, store: writable };
+}
+
+/**
+ * 显式恢复入口：只给用户在恢复 UI 里主动确认后调用。
+ * 读失败时**不要**自动清 story slot——raw 是恢复界面的证据（`readLoveStoryStore` 刻意保留它）。
+ */
+export function clearLoveStorySlot(): void {
+  const ls = storage();
+  if (!ls) return;
+  try {
+    ls.removeItem(LOVE_STORY_KEY);
+  } catch {
+    return;
+  }
+  notifyLoveSlotsChanged(LOVE_STORY_KEY);
 }
 
 type Loaded =

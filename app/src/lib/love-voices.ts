@@ -6,7 +6,7 @@ import type { SpeakerVoice } from "./speech";
  * unique voice per character. Base entries are keyed by character id; repeated
  * ids whose scenes are different people get a `scenarioId:characterId` override.
  *
- * Corpus check (2026-10-20): 63 romantic scenarios, 54 unique NPC ids. `riley`
+ * Corpus check (2026-10-20): 64 romantic scenarios, 54 unique NPC ids. `riley`
  * and `avery` are read through their Chinese pronouns in the scenario text;
  * every entry below is explicit on purpose — no name/hash inference at runtime.
  */

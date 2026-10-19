@@ -17,24 +17,37 @@ import { uid } from "@/lib/format";
 import { canListen, pauseSpeaking, speak, stopSpeaking, unlockSpeech } from "@/lib/speech";
 import { useLoveVoice, withInterim } from "@/lib/love-play-voice";
 import { lovePlayTurn, type LovePlayEmotion, type LovePlayOutcome } from "@/lib/love-play-client";
-import { writeLoveSeriesProgress } from "@/lib/love-series-progress";
+import { readLoveSeriesProgress, writeLoveSeriesProgress } from "@/lib/love-series-progress";
 import { loveSeriesById } from "@/data/corpus/love-series";
 import { markLoveCarryoverShown, peekLoveCarryoverForScene } from "@/lib/love-carryover";
+import { subscribeLoveSlots } from "@/lib/love-slot-events";
 import { loveCarryCandidates, type LoveCarryTurn } from "@/lib/love-carry-store";
 import {
+  clearLoveStorySlot,
   deleteLovePlayScene,
+  readLovePlayRoute,
   readLovePlaySave,
   readLoveStoryStore,
   saveLovePlayScene,
+  writeLovePlayRoute,
+  LOVE_STORY_KEY,
   type LovePlaySave,
 } from "@/lib/love-story";
 import {
   buildLovePlaySave,
   canSubmitLovePlayRecord,
   lovePlaySaveSignature,
+  nextRioBeatGroup,
   planLovePlayRestore,
+  planRioRouteEntry,
+  rioBeatForOption,
+  rioRouteSnapshot,
+  seriesOutcomeFor,
   type LovePlayResumeState,
+  type RioRouteSnapshot,
 } from "@/lib/love-play-save-view";
+import { RIO_SERIES_ID, type RioRelationshipState } from "@/lib/love-relationship-state";
+import { RIO_ACT4_SCENE_ID, applyRioBeat, resolveRioOpening, type RioBeat, type RioBeatGroup } from "@/lib/rio-route";
 import { resolveLoveVoice } from "@/lib/love-voices";
 import { useLoveTyping } from "@/lib/love-play-typing";
 import { AvatarStand, scenarioTone, startHistory } from "./PlaySceneFigure";
@@ -65,6 +78,7 @@ type SaveNotice =
   | "unavailable"
   | "corrupt"
   | "incompatible"
+  | "deleted"
   | "restart_failed";
 
 const SAVE_NOTICE_KEY: Record<SaveNotice, TKey> = {
@@ -74,6 +88,7 @@ const SAVE_NOTICE_KEY: Record<SaveNotice, TKey> = {
   unavailable: "love_play_save_unavailable",
   corrupt: "love_play_save_corrupt",
   incompatible: "love_play_save_incompatible",
+  deleted: "love_play_save_deleted",
   restart_failed: "love_play_save_restart_failed",
 };
 
@@ -87,6 +102,16 @@ function actNumberOf(scenario: Scenario): number | undefined {
   const series = loveSeriesById(scenario.series.id);
   const index = series?.scenarios.findIndex((s) => s.id === scenario.id) ?? -1;
   return index >= 0 ? index + 1 : undefined;
+}
+
+/**
+ * 只有 Rio 第 4 幕接路线契约：作者写死的开场变体与两个状态拍点。
+ * 第 1–3 幕与其他恋爱场景完全走原路径（模型选项 + 静态开场）。
+ */
+function isRioAct4Scene(scenario: Scenario | null | undefined): boolean {
+  return (
+    !!scenario && scenario.id === RIO_ACT4_SCENE_ID && scenario.series?.id === RIO_SERIES_ID
+  );
 }
 
 export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null; scenarioId: string }) {
@@ -134,10 +159,16 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const [voiceNotice, setVoiceNotice] = useState(false);
   /** 自动存档的状态提示：不阻塞剧情，只在台词框上方占一行。 */
   const [saveNotice, setSaveNotice] = useState<SaveNotice | null>(null);
+  /** 坏档恢复：不自动开新局，只有用户明确选择后才清空并开始（spec §3.3）。 */
+  const [recovery, setRecovery] = useState<{ raw: string; reason: "corrupt" | "incompatible" } | null>(null);
   const [resumed, setResumed] = useState(false);
   const [canRecap, setCanRecap] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
   const [recapSave, setRecapSave] = useState<LovePlaySave | null>(null);
+  /** 当前该显示的作者拍点组；null = 本回合用模型选项。 */
+  const [beatGroup, setBeatGroup] = useState<RioBeatGroup | null>(null);
+  /** 拍点落地后递增，把自动存档从 ref 变更里叫醒（ref 本身不触发渲染）。 */
+  const [routeTick, setRouteTick] = useState(0);
 
   /** 已确认入库的历史（失败的那次尝试不写入，重试用 cmdRef 找回）。 */
   const historyRef = useRef<ChatMessage[]>([]);
@@ -158,7 +189,12 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const autosaveRef = useRef(true);
   const lastSavedSignatureRef = useRef<string | null>(null);
   const currentSaveRef = useRef<LovePlaySave | null>(null);
+  /** 自动存档里的 `routeState`：第 4 幕是 `{rio, appliedBeats}` 包装，其余场景原样透传。 */
   const routeStateRef = useRef<unknown>(undefined);
+  /** 第 4 幕的账本 + 已应用的作者拍点；stance 只在 React state 里，永不进这里。 */
+  const rioRouteRef = useRef<RioRouteSnapshot | null>(null);
+  /** 已提交到 story routes 的内容签名：同一幕重复提交是幂等的，不重复写 revision。 */
+  const routeCommitRef = useRef<string | null>(null);
   /** 开场承接句的 carryId：台词真正显示后只 mark 一次。 */
   const carryIdRef = useRef<string | null>(null);
   const carryMarkedRef = useRef(false);
@@ -227,6 +263,137 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   }, [resumed]);
 
   /**
+   * 把一份已构造好、已通过稳定边界判定的存档写进 story slot。
+   * 自动存档与「点作者拍点后立即落盘」共用同一条 revision / 提示分支。
+   */
+  const persistSave = useCallback((save: LovePlaySave): boolean => {
+    // 停写标记是单向的：坏档、冲突、另一标签页清空后，任何入口（自动存档 / 拍点落盘）
+    // 都不得再写，否则 routes 或新 save 会把刚被清掉的 slot 重建回来。
+    if (!autosaveRef.current) return false;
+    currentSaveRef.current = save;
+    setCanRecap(true);
+    const signature = lovePlaySaveSignature(save);
+    if (signature === lastSavedSignatureRef.current) return true;
+
+    const expected = revisionRef.current;
+    if (expected === null) {
+      autosaveRef.current = false;
+      setSaveNotice("invalid");
+      return false;
+    }
+    const result = saveLovePlayScene(save, expected);
+    if (result.ok) {
+      lastSavedSignatureRef.current = signature;
+      revisionRef.current = result.store.revision;
+      currentSaveRef.current = result.store.saves[save.scenarioId] ?? save;
+      setSaveNotice((prev) => (prev === "quota" ? null : prev));
+      return true;
+    }
+    switch (result.reason) {
+      case "quota":
+        // 本局继续，下一个稳定边界自动重试；不覆盖上一份有效 save。
+        setSaveNotice("quota");
+        break;
+      case "conflict":
+        autosaveRef.current = false;
+        setSaveNotice("conflict");
+        break;
+      case "unavailable":
+        autosaveRef.current = false;
+        revisionRef.current = null;
+        setSaveNotice("unavailable");
+        break;
+      default:
+        autosaveRef.current = false;
+        revisionRef.current = null;
+        setSaveNotice("invalid");
+        break;
+    }
+    return false;
+  }, []);
+
+  /**
+   * 第 4 幕收束时把账本提交到 story routes（spec §3.3：先 progress、后 routes）。
+   * quota / conflict 只提示，不拦剧情；记入统计成功后会再兜底试一次。
+   * 同一份内容重复提交按签名跳过，但磁盘上已有的同内容再写一次也无害。
+   */
+  const commitRioRoute = useCallback((state: RioRelationshipState): boolean => {
+    // 本页已被明确停写（坏档 / 冲突 / 另一标签页清空 / 存储不可用）时，不借 routes 重建 slot。
+    if (!autosaveRef.current) return false;
+    const payload = { ...state, updatedAt: Date.now() };
+    const signature = JSON.stringify({ ...payload, updatedAt: 0 });
+    if (routeCommitRef.current === signature) return true;
+    // 本局已经被明确要求停写（损坏档 / 另一标签页清空 / 冲突 / 存储不可用）：
+    // 不借 routes 这条路绕过停写规则，把刚被删掉的 story slot 重建回来。
+    if (!autosaveRef.current) return false;
+
+    const result = writeLovePlayRoute(RIO_SERIES_ID, payload, revisionRef.current ?? undefined);
+    if (result.ok) {
+      revisionRef.current = result.store.revision;
+      routeCommitRef.current = signature;
+      setSaveNotice((prev) => (prev === "quota" ? null : prev));
+      return true;
+    }
+    setSaveNotice(
+      result.reason === "conflict"
+        ? "conflict"
+        : result.reason === "quota"
+          ? "quota"
+          : result.reason === "unavailable"
+            ? "unavailable"
+            : "invalid",
+    );
+    return false;
+  }, []);
+
+  /**
+   * 收束时把账本记到本幕：即使玩家一个作者拍点都没选中（模型直接收束），
+   * 也要留下 `lastAct=4 / lastOutcome=本幕结局`，否则下一幕读不到上一幕的结局。
+   * 快照同步回 routeState，收束档刷新后仍是同一本账。
+   */
+  const finalizeRioRoute = useCallback(
+    (outcome: LovePlayOutcome): boolean => {
+      const snapshot = rioRouteRef.current;
+      if (!snapshot) return false;
+      const final: RioRelationshipState = {
+        ...snapshot.rio,
+        lastAct: 4,
+        lastOutcome: outcome,
+        stale: false,
+      };
+      const updated = rioRouteSnapshot(final, snapshot.appliedBeats);
+      rioRouteRef.current = updated;
+      routeStateRef.current = updated;
+      return commitRioRoute(final);
+    },
+    [commitRioRoute],
+  );
+
+  /**
+   * 作者拍点只用逐字选项文本当证据：`applyRioBeat` 拒绝改写文本/未知拍点，
+   * 返回同一个 state 引用时这里也不写 appliedBeats。stance 只在会话里，不在这里。
+   */
+  const applyAuthoredBeat = useCallback((beat: RioBeat): RioRouteSnapshot | null => {
+    const snapshot = rioRouteRef.current;
+    if (!snapshot) return null;
+    const next = applyRioBeat(snapshot.rio, beat.id, {
+      kind: "option",
+      optionId: beat.id,
+      text: beat.text,
+    });
+    if (next === snapshot.rio) return null;
+    const appliedBeats = snapshot.appliedBeats.includes(beat.id)
+      ? snapshot.appliedBeats
+      : [...snapshot.appliedBeats, beat.id];
+    const updated = rioRouteSnapshot(next, appliedBeats);
+    rioRouteRef.current = updated;
+    routeStateRef.current = updated;
+    setBeatGroup(null);
+    setRouteTick((n) => n + 1);
+    return updated;
+  }, []);
+
+  /**
    * 一回合请求：成功才把 history 写入 historyRef；失败保留在 cmdRef 供重试。
    * 学习者台词在请求成功后才进入 learnerLines / 回合数——失败的半回合不能变成
    * 「你上次说过的话」，否则承接候选会漂移。
@@ -241,6 +408,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setBusy(true);
       setErr(null);
       setOptions(null);
+      setBeatGroup(null);
       try {
         const turn = await lovePlayTurn(
           { scenario: s, learnerCharacterId: defaultLearnerId(s), language: lang, learnerName: profile?.name, messages: history, turnLimit: s.maxTurns },
@@ -275,14 +443,43 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           // terminal = 目标结果；ended-only = 没有判定，按中性收尾展示（记分口径同 partial）。
           setOutcome(turn.terminal ?? "partial");
           setEndingKind(turn.terminal ? "terminal" : "ended");
+          setBeatGroup(null);
           endedAtRef.current = Date.now();
           setOptions(null);
           setInput("");
           // 判得出结局就记进度，不等「记入统计」：承接读的是 outcome，而玩家拿到结局后
           // 往往直接返回，只在按钮里写会让下一幕收不到结局——那是实验的假阴性。
-          if (turn.terminal && s.series) writeLoveSeriesProgress(s.series.id, s.id, turn.terminal, actNumberOf(s));
+          // ended-only 也是本幕完成（中性/partial），不把下一幕卡在「未完成」上。
+          const seriesOutcome = seriesOutcomeFor(turn.terminal, turn.ended);
+          if (seriesOutcome && s.series) {
+            writeLoveSeriesProgress(s.series.id, s.id, seriesOutcome, actNumberOf(s));
+          }
+          // 第 4 幕：progress 落盘后再提交账本；写失败只留提示，不阻断收尾。
+          if (isRioAct4Scene(s) && seriesOutcome) finalizeRioRoute(seriesOutcome);
         } else {
-          setOptions(turn.options);
+          // 第 4 幕：轮到作者拍点时，用 2–3 条写死的选项替换模型选项；
+          // 拍点组一直保留到玩家真的选中一个作者选项，自由输入始终可用。
+          const rio = isRioAct4Scene(s) ? rioRouteRef.current : null;
+          const group = rio ? nextRioBeatGroup(rio.rio, rio.appliedBeats) : null;
+          if (group) {
+            const authored = group.beats.map((beat) => beat.text);
+            // 极端情况下作者选项只剩 1 条（requires 过滤后），补模型选项凑够 2 条，
+            // 否则 playing save 不合法、整局都会停止自动存档。
+            const merged =
+              authored.length >= 2
+                ? authored
+                : [
+                    ...authored,
+                    ...turn.options.filter(
+                      (option) =>
+                        !authored.some((text) => text.zh === option.zh && text.en === option.en),
+                    ),
+                  ].slice(0, 4);
+            setBeatGroup(group);
+            setOptions(merged);
+          } else {
+            setOptions(turn.options);
+          }
         }
       } catch (e) {
         if (controller.signal.aborted || generationRef.current !== generation) return;
@@ -294,7 +491,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         }
       }
     },
-    [lang, profile, putLine],
+    [lang, profile, putLine, finalizeRioRoute],
   );
 
   /** 开始一局：展示开场台词，请求首批选项（返回的台词不重复展示）。 */
@@ -313,7 +510,9 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       endedAtRef.current = null;
       recordedRef.current = false;
       recordingRef.current = false;
-      routeStateRef.current = undefined;
+      // 第 4 幕：账本在挂载时已经读好；重开本幕沿用同一本账，不退回空状态。
+      const rio = isRioAct4Scene(s) ? rioRouteRef.current : null;
+      routeStateRef.current = rio ?? undefined;
       carryMarkedRef.current = false;
       carryIdRef.current = null;
       currentSaveRef.current = null;
@@ -326,10 +525,19 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setRecordError(false);
       setEndingId(null);
       setEndingKind(null);
+      setBeatGroup(null);
+      // 第 4 幕的开场由账本选作者变体（见 resolveRioOpening）；变体本身就是「上次之后」，
+      // 与承接句只能出现一个（spec §3.5）。其余场景维持原有的承接句拼接。
+      const openingVariant = rio ? resolveRioOpening(rio.rio, 4) : null;
+      if (openingVariant) {
+        const first = historyRef.current[0];
+        historyRef.current[0] = { ...first, text: openingVariant[lang] };
+      }
       // 承接句并进 opening 而不是单独一条气泡：首回合模型返回的 line 是被丢弃的，
       // 玩家能看见的只有本地开场白；而 opening 本来就在 history 里，模型顺带就读到它。
       // 读路径是纯的：mark 由下面的「真正显示」effect 负责。
-      const carry = s.series ? peekLoveCarryoverForScene(s.series.id, s.id, lang) : null;
+      const carry =
+        !openingVariant && s.series ? peekLoveCarryoverForScene(s.series.id, s.id, lang) : null;
       const carryText = carry?.text ?? null;
       carryIdRef.current = carry?.carryId ?? null;
       setCarryoverMark(!!carryText);
@@ -356,13 +564,16 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   );
 
   const applyResume = useCallback(
-    (view: LovePlayResumeState, save: LovePlaySave, s: Scenario) => {
+    (view: LovePlayResumeState, save: LovePlaySave, s: Scenario, rioPlan: RioRouteSnapshot | null) => {
       const speaker = speakerOf(s, defaultLearnerId(s));
       historyRef.current = view.history;
       spokenRef.current = new Set(view.spokenKeys);
       startedAtRef.current = view.startedAt;
       endedAtRef.current = view.outcome ? view.endedAt : null;
-      routeStateRef.current = view.routeState;
+      // 第 4 幕用挂载时规划好的账本（比 save 里的裸 state 多 appliedBeats）；
+      // 其余场景原样透传 routeState。
+      rioRouteRef.current = rioPlan;
+      routeStateRef.current = rioPlan ?? view.routeState;
       recordedRef.current = view.recorded;
       recordingRef.current = false;
       carryIdRef.current = null;
@@ -371,6 +582,17 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       // 恢复不重播打字机/揭示：当前句直接全文，skip=true。
       skipNow();
       setOptions(view.options);
+      // 存档里显示的若正是某组作者选项，刷新后组标题也要跟着回来；
+      // 对不上就按普通模型选项显示，避免标题与按钮错位。
+      const pendingGroup = rioPlan ? nextRioBeatGroup(rioPlan.rio, rioPlan.appliedBeats) : null;
+      const savedGroup =
+        pendingGroup &&
+        (view.options ?? []).some(
+          (option) => rioBeatForOption(pendingGroup, option[lang], lang) !== null,
+        )
+          ? pendingGroup
+          : null;
+      setBeatGroup(savedGroup);
       setEmotion(view.emotion);
       setStance(view.stance);
       setOutcome(view.outcome);
@@ -389,9 +611,10 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       currentSaveRef.current = save;
       lastSavedSignatureRef.current = lovePlaySaveSignature(save);
       setCanRecap(true);
+      setSaveNotice(null);
       setResumed(true);
     },
-    [skipNow],
+    [skipNow, lang],
   );
 
   // 挂载先读本幕存档：有效则原地恢复（不请求模型、不重读历史语音）；坏档保留原件并停写。
@@ -401,6 +624,18 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     let alive = true;
     const read = readLovePlaySave(sc.id);
     const plan = planLovePlayRestore(read);
+    // 第 4 幕：在决定 resume/fresh 之前先读账本与系列进度（只读，不写盘）。
+    // saved 是进行中的存档快照（含 appliedBeats），committed 是已提交到 routes 的账本；
+    // 两者都没有才从旧 3 幕进度迁移，进度为空则给空账本。
+    const rioPlan = isRioAct4Scene(sc)
+      ? planRioRouteEntry({
+          saved: plan.mode === "resume" ? plan.save.routeState : undefined,
+          committed: readLovePlayRoute(RIO_SERIES_ID),
+          progress: readLoveSeriesProgress(RIO_SERIES_ID),
+        })
+      : null;
+    rioRouteRef.current = rioPlan;
+    routeCommitRef.current = null;
 
     if (plan.mode === "resume") {
       const store = readLoveStoryStore();
@@ -408,7 +643,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       autosaveRef.current = true;
       // 恢复是挂载时的一次性状态注入；放进微任务，避免 effect 体内同步级联渲染。
       queueMicrotask(() => {
-        if (alive) applyResume(plan.view, plan.save, sc);
+        if (alive) applyResume(plan.view, plan.save, sc, rioPlan);
       });
     } else {
       const store = readLoveStoryStore();
@@ -417,6 +652,13 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       autosaveRef.current = writable;
       queueMicrotask(() => {
         if (!alive) return;
+        // 坏档/版本不兼容：原件是恢复线索，先不开始任何剧情（spec §3.3）。
+        if ((plan.notice === "corrupt" || plan.notice === "incompatible") && read.raw) {
+          setSaveNotice(null);
+          setRecovery({ raw: read.raw, reason: plan.notice });
+          setCanRecap(false);
+          return;
+        }
         // empty 时也显式清空：同组件切换场景不应沿用上一幕的坏档提示。
         setSaveNotice(plan.notice);
         setCanRecap(false);
@@ -438,14 +680,29 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sc?.id]);
 
+  // 另一标签页清空数据：本页停止保存，绝不把刚被删掉的进度重建回来（spec §3.4）。
+  useEffect(() => {
+    if (!sc?.id) return;
+    return subscribeLoveSlots((key) => {
+      if (key !== LOVE_STORY_KEY) return;
+      if (readLoveStoryStore().status !== "empty") return;
+      autosaveRef.current = false;
+      revisionRef.current = null;
+      lastSavedSignatureRef.current = null;
+      setSaveNotice("deleted");
+    });
+  }, [sc?.id]);
+
   /** 开场承接句真正显示后记一次提问计数；恢复路径不会走到这里。 */
   useEffect(() => {
     const id = carryIdRef.current;
     if (!id || carryMarkedRef.current || !npcLine) return;
     if (!historyRef.current.some((m) => m.id === npcLine.key && m.role === "npc")) return;
+    // 打字机刚开始时一个字都还没露出来，等第一个字符可见再记；随后 ref 保证只记一次。
+    if (typing && typing.key === npcLine.key && typing.n === 0) return;
     carryMarkedRef.current = true;
     markLoveCarryoverShown(id);
-  }, [npcLine]);
+  }, [npcLine, typing]);
 
   /**
    * 自动存档：只在稳定边界写——请求不在途、当前句已进 history、playing 已有 2–4 个选项
@@ -475,46 +732,9 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     });
     if (!save) return;
 
-    currentSaveRef.current = save;
-    setCanRecap(true);
-    const signature = lovePlaySaveSignature(save);
-    if (signature === lastSavedSignatureRef.current) return;
-
-    const expected = revisionRef.current;
-    if (expected === null) {
-      autosaveRef.current = false;
-      setSaveNotice("invalid");
-      return;
-    }
-    const result = saveLovePlayScene(save, expected);
-    if (result.ok) {
-      lastSavedSignatureRef.current = signature;
-      revisionRef.current = result.store.revision;
-      currentSaveRef.current = result.store.saves[sc.id] ?? save;
-      setSaveNotice((prev) => (prev === "quota" ? null : prev));
-      return;
-    }
-    switch (result.reason) {
-      case "quota":
-        // 本局继续，下一个稳定边界自动重试；不覆盖上一份有效 save。
-        setSaveNotice("quota");
-        break;
-      case "conflict":
-        autosaveRef.current = false;
-        setSaveNotice("conflict");
-        break;
-      case "unavailable":
-        autosaveRef.current = false;
-        revisionRef.current = null;
-        setSaveNotice("unavailable");
-        break;
-      default:
-        autosaveRef.current = false;
-        revisionRef.current = null;
-        setSaveNotice("invalid");
-        break;
-    }
-  }, [sc, busy, npcLine, options, emotion, stance, carryoverMark, learnerLines, outcome, recorded, endingId, lang]);
+    persistSave(save);
+    // routeTick 只为把「拍点写进 ref」这件事叫醒 effect；内容去重由 persistSave 负责。
+  }, [sc, busy, npcLine, options, emotion, stance, carryoverMark, learnerLines, outcome, recorded, endingId, lang, routeTick, persistSave]);
 
   /** 发言：把这句话作为 learner 消息追加进历史并请求下一回合。`via` 记下它是点的还是打的。 */
   const send = useCallback(
@@ -530,6 +750,59 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       await requestTurn(sc, [...historyRef.current, learnerMsg], true, { via, text });
     },
     [sc, busy, outcome, npcLine, requestTurn],
+  );
+
+  /**
+   * 选项点击入口：命中作者拍点时先写账本并**立即**落盘，再把逐字文本交给原有 `send`。
+   * 证据只取作者写死的 `beat.text`；模型改写过的句子不匹配、不写状态。
+   */
+  const pickOption = useCallback(
+    (option: L) => {
+      if (!sc) return;
+      const beat = rioBeatForOption(beatGroup, option[lang], lang);
+      if (beat) {
+        const updated = applyAuthoredBeat(beat);
+        if (updated && npcLine) {
+          // 这一回合还没发出，但「玩家选了哪条作者选项」已经是确定事实；
+          // 与自动存档同一套 revision/提示分支，请求失败也不会把这次选择留在内存里。
+          const save = buildLovePlaySave({
+            scenario: sc,
+            lang,
+            history: historyRef.current,
+            currentLineKey: npcLine.key,
+            options,
+            emotion,
+            stance,
+            carryover: carryoverMark,
+            learnerLines,
+            outcome,
+            endingId,
+            routeState: updated,
+            recorded,
+            startedAt: startedAtRef.current,
+          });
+          if (save) persistSave(save);
+        }
+      }
+      void send(option[lang], "pick");
+    },
+    [
+      sc,
+      beatGroup,
+      lang,
+      applyAuthoredBeat,
+      npcLine,
+      options,
+      emotion,
+      stance,
+      carryoverMark,
+      learnerLines,
+      outcome,
+      endingId,
+      recorded,
+      persistSave,
+      send,
+    ],
   );
 
   const retry = useCallback(() => {
@@ -623,7 +896,17 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     if (landed) {
       recordedRef.current = true;
       setRecorded(true);
-      if (sc.series && endingKind === "terminal") writeLoveSeriesProgress(sc.series.id, sc.id, outcome, actNumberOf(sc));
+      // 记录写进同一个 story slot，会推进 revision；不同步过来，随后保存 recorded=true 会被
+      // 误判成别的标签页冲突。
+      if (autosaveRef.current) {
+        const store = readLoveStoryStore();
+        if (store.status === "ok") revisionRef.current = store.store.revision;
+      }
+      // 进度写入对本幕幂等：terminal 与 ended-only 都算完成，重玩靠前一幕也不会倒退。
+      if (sc.series) writeLoveSeriesProgress(sc.series.id, sc.id, outcome, actNumberOf(sc));
+      // 兜底：判出结局时如果 routes 因 quota/conflict 没写成，这里再试一次；
+      // 同一份账本按签名跳过，不会因为多点一次「记入统计」写出两份。
+      if (isRioAct4Scene(sc)) finalizeRioRoute(outcome);
     } else {
       setRecordError(true);
     }
@@ -649,6 +932,36 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
               : "invalid";
       setSaveNotice((prev) => (prev === "corrupt" || prev === "incompatible" ? prev : reason));
     }
+    void startScene(sc);
+  };
+
+  /** 坏档恢复：先把原件交给用户留底，再允许明确清空。 */
+  const downloadRecoveryRaw = () => {
+    if (!recovery) return;
+    try {
+      const blob = new Blob([recovery.raw], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `socialcoach-love-save-${sc.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // 下载失败不阻断恢复，原件仍在设备上，用户可以直接重试。
+    }
+  };
+
+  const restartFromRecovery = () => {
+    clearLoveStorySlot();
+    const store = readLoveStoryStore();
+    const writable = store.status === "ok" || store.status === "empty";
+    autosaveRef.current = writable;
+    revisionRef.current = writable ? (store.status === "ok" ? store.store.revision : 0) : null;
+    routeCommitRef.current = null;
+    setRecovery(null);
+    setSaveNotice(writable ? null : "invalid");
     void startScene(sc);
   };
 
@@ -761,9 +1074,19 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         )}
 
         {saveNotice && (
-          <p className="mt-2 max-w-[var(--measure)] rounded-[var(--radius-sm)] bg-inset px-3 py-2 text-[12px] leading-relaxed text-ink-2" role="status">
-            {t(lang, SAVE_NOTICE_KEY[saveNotice])}
-          </p>
+          <div className="mt-2 max-w-[var(--measure)] rounded-[var(--radius-sm)] bg-inset px-3 py-2" role="status">
+            <p className="text-[12px] leading-relaxed text-ink-2">{t(lang, SAVE_NOTICE_KEY[saveNotice])}</p>
+            {saveNotice === "conflict" && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={() => window.location.reload()}>
+                  {t(lang, "love_play_save_reload")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSaveNotice(null)}>
+                  {t(lang, "love_play_save_keep")}
+                </Button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* 台词框：点一下跳过打字动画（收束回合的最后一句也保留可见） */}
@@ -794,7 +1117,17 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
 
         {!outcome && (
           <>
-            {options && <PlayOptions options={options} busy={busy} ready={typingDone} lineKey={npcLine?.key} lang={lang} onPick={(o) => void send(o[lang], "pick")} />}
+            {options && (
+              <PlayOptions
+                options={options}
+                busy={busy}
+                ready={typingDone}
+                lineKey={npcLine?.key}
+                lang={lang}
+                prompt={beatGroup?.title}
+                onPick={pickOption}
+              />
+            )}
 
             {/* 自由输入：旁路选项的另一个入口 */}
             <div className="mt-3 flex items-end gap-2 max-w-[var(--measure)]">
@@ -873,6 +1206,25 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       </div>
 
       <LoveRecap open={recapOpen} onClose={closeRecap} save={recapSave} scenario={sc} />
+
+      <Sheet
+        open={!!recovery}
+        onClose={leave}
+        title={t(lang, "love_play_recovery_title")}
+      >
+        <div className="flex flex-col gap-3 pt-2">
+          <p className="text-[14px] leading-relaxed text-ink-2">{t(lang, "love_play_recovery_body")}</p>
+          <Button block variant="ink" onClick={downloadRecoveryRaw}>
+            {t(lang, "love_play_recovery_download")}
+          </Button>
+          <Button block variant="danger" onClick={restartFromRecovery}>
+            {t(lang, "love_play_recovery_restart")}
+          </Button>
+          <Button block variant="ghost" onClick={leave}>
+            {t(lang, "cancel")}
+          </Button>
+        </div>
+      </Sheet>
 
       <Sheet open={voiceNotice} onClose={() => setVoiceNotice(false)} title={t(lang, "pr_voice_notice_title")}>
         <div className="flex flex-col gap-3 pt-2">

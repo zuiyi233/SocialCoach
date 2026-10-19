@@ -1,6 +1,27 @@
-<!-- Last verified: 2026-10-10 | Current stage: C -->
+<!-- Last verified: 2026-10-20 | Current stage: E -->
 
 # 踩坑记录
+
+### 把恋爱一局写成练习 Session，等于把 hidden 和空转录送进复盘（2026-10-20）
+
+- **现象：** 录完一局恋爱，首页「待复盘」出现一条记录；点进去先看到本幕 `hidden` 的剧透，随后 `/api/assess` 拿到空转录直接失败。
+- **原因：** `completeLovePlay` 复用了练习的 `Session` 形状，写入一条 `ended` 但只有评分、没有转录的会话。首页 `unfinished`、`Debrief`、`historyFor`、`assess`、调度都按「练习会话」消费它，于是每个消费方都把恋爱局当成一场没复盘的练习。记录只满足了「统计加一」，却继承了练习域的整套不变量。
+- **解法：** 恋爱记录改为独立的 `LovePlayRecord`（只含 scenario/outcome/endingId/startedAt/endedAt/lang），`/love` 的完成数、分钟与结局统计改读 `records`；`historyFor`、首页未完成、`Debrief`、`assess` 全部显式排除 `origin:"love-play"`。测试同时钉住「记录不写 `sessions`」和「统计数字会动」两件事。
+- **教训：** 跨域复用存储 schema 不是省字段，是连它的消费方与不变量一起搬过来；「能统计」不等于「是同一类记录」。
+
+### 坏档读取必须保留原件，恢复路径不能先自动开新局（2026-10-20）
+
+- **现象：** story slot 里是坏 JSON 或未知版本时，页面只弹一行「无法读取」，随后照常开新局并继续写 slot；玩家再也拿不回原件，恢复 UI 也失去了证据。
+- **原因：** 读取把损坏归一化成 `empty`，恢复计划把 `corrupt` 当「无存档」，自动走 `startScene`。写入层虽然拒绝覆盖损坏 slot，但自动开新局会把「读取失败」和「第一次玩」混为一谈，且旧 carry/series 的写入路径仍可能覆盖坏字节。
+- **解法：** `readLoveStoryStore` / `readLoveCarryState` / `readLoveSeriesProgressState` 返回 `corrupt` / `incompatible` 并保留 `raw`；`planLovePlayRestore` 对坏档返回 `autosave:false`，`PlayScene` 显示阻塞式恢复 sheet（下载原件 + 明确清空并重开 + 继续不保存），在用户选择前不调用 `startScene`。其他标签页清空 story key 时本页停止保存，绝不把刚删掉的进度重建。
+- **教训：** 「读取失败」和「没有数据」是两个状态，不能共用 `empty`；恢复界面的第一动作是留证据，第二动作才是清空。
+
+### React StrictMode 的模拟卸载会把首轮 `startScene` 吞掉（2026-10-20）
+
+- **现象：** 开发模式下恋爱对局只显示开场白，首批选项永远不回来；生产构建正常。刷新页面不一定复现，切场景必现。
+- **原因：** StrictMode 挂载后立刻卸载再挂载：第一次 effect 里 `startedRef.current = sc.id`，卸载时 abort 在途请求；第二次 effect 看到「已经开过这场」直接 return，于是没有任何请求。另外 Node 测试里的 `globalThis` 不是完整 `EventTarget`，直接拿它当 `window` 调 `dispatchEvent` 会报 `is not a function`。
+- **解法：** 场景 effect 的 cleanup 里把 `startedRef.current` 放回 `null`，并同步清 `requestRef`/`cmdRef`；新请求用 generation 防止旧响应写状态。事件总线在挂载前同时检查 `addEventListener` 与 `dispatchEvent`，测试用独立的 `new EventTarget()` 充当 `window`。
+- **教训：** 任何「只跑一次」的 ref 门闩都要在 cleanup 里撤销，否则 StrictMode 下首轮副作用会被自己的门闩吃掉；`globalThis` 不是浏览器 `window` 的完整替身。
 
 ### 立绘出噪点的真因：模型组合 + 采样轨迹 + autogrow 输入被静默丢弃（2026-10-10）
 

@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-09 | Current stage: B -->
+<!-- Last verified: 2026-10-20 | Current stage: E -->
 
 # 系统架构
 
@@ -436,3 +436,14 @@ AppProviders 在确认默认 API 不可用时自动打开可关闭的配置弹�
 - **`askCount` 同时是三样东西的根据**：台词选 `ask` 还是 `askAgain`（凡宣称「从没催过你」的句子在第二次浮现时都可被计数证伪）、单条承诺 24 小时间隔、以及 3 次上限后 `retireExhaustedLoveCarries` 转 `dropped`。幕内开场**引用照引、计数按天**（`markLoveCarryAsked` 在同一天内只加一次），否则连打三幕就把 3 次问满、跟进卡再也轮不到。全局另加日上限 2 次 / 间隔 240 分钟 / 免打扰 22:00–08:00，数值比评审从 AIcove 借来的 3 次 / 120 分钟更严，依据是 2026 年公开指引，写在 `LOVE_CARRY_ASK` 的注释里。
 - **共享语音链路的两处修复**（同时影响文字对练与 3D）：`lib/speech.ts` 的 `pickDeviceVoice()` 缓存音色表并监听 `voiceschanged`（原实现在 Chrome/Safari 首次同步 `getVoices()` 返回空时，每场第一句都会落到默认音色）；`lib/speech-playback.ts` 新增 `deviceChunks(text, lang)`，设备音色按句末切块依序朗读、看门狗逐块重置、`onStart` 只在首块触发（3D 口型同步依赖此时机语义），中文预算 80 字、英文 200 字——按秒而不是按字符算，因为 Chrome 会把长 utterance 静默掐在 ~15 秒。
 - **承接收口是「一句可删的实验」**：P1 的 6 句承接硬编码在 `love-carryover.ts`，删掉那个对象等于删掉实验。玩家到底有没有感觉到承接仍未验证，见评审 §11。
+
+## 恋爱 GALGAME 基本盘与 Rio 第 4 幕（2026-10-20，本地实现）
+
+范围见 [spec-love-galgame-foundation.md](./specs/spec-love-galgame-foundation.md) 与 [spec-love-rio-route.md](./specs/spec-love-rio-route.md)。这一节只记新增模块与数据流；真实浏览器 / 真机与试玩闸门仍未销账。
+
+- **一个 story slot，一张 saves 映射。** `socialcoach.love-play.story`（`LoveStoryStore`）持有 `revision`、`saves[scenarioId]`、`records`、`routes[seriesId]`。读取永不抛错：坏 JSON / 形状不对 / 未知版本返回 `corrupt` / `incompatible` 并保留 `raw`；写入用 `expectedRevision` 拒绝静默覆盖，损坏时拒绝写入。`LovePlaySave` 只存已确认的 `history`（≤40）、当前 NPC 行、2–4 个选项或收束结果、情绪/立场、`learnerLines`、`routeState`、真实 `startedAt`；分数字段被 schema strip。
+- **幕内自动存档只在稳定边界写。** `PlayScene` 在首批选项返回、每回合成功、判出 `terminal`/`ended`、点「记入统计」后构造 `LovePlaySave`；`lib/love-play-save-view.ts` 的纯函数负责裁剪历史、对齐 `learnerLines`、判定恢复计划与下一幕。恢复路径不调用 `startScene`、不请求 `/api/love-play`、不重读历史语音、不重播打字机；坏档先显示恢复 sheet（下载原件 / 明确清空重开 / 继续不保存）。
+- **跨标签页靠 revision + 事件总线。** `lib/love-slot-events.ts` 同时监听 `storage` 与同标签页 `CustomEvent`；写成功才广播。冲突时本页停写并给「载入最新 / 保留本页」；另一标签页清空 story key 时本页停写，不重建。导出走 `buildBackupPayload()`，`archive.ts` 的闭合联合包含 story slot；设置页与 A21 恢复页的擦除都按 `LOVE_PLAY_PREFIX` 覆盖。
+- **恋爱记录与练习会话分家。** `completeLovePlay` 只追加 `LovePlayRecord` 与既有的 `loveProficiency` / `practiceDays`，不再写 `Session`；`/love` 统计读 `records`，首页未完成 / `Debrief` / `assess` / `historyFor` 显式排除恋爱来源。
+- **配音按人物声线。** `lib/love-voices.ts` 用 `LOVE_VOICES_BASE`（角色 id）+ `LOVE_VOICES_SCENE`（`scenarioId:characterId` 覆盖）给 64 个恋爱场景的 54 个 NPC id 定声线；`speak(text, lang, speaker?)` 把 `SpeakerVoice` 透传给设备音色选择，回想单句重播走 `playNpcLine` 而不是排队 `speak()`。
+- **Rio 第 4 幕是「账本 + 作者拍点」。** `lib/love-relationship-state.ts` 定义 `RioRelationshipState`（承诺 / 边界 / 冲突 / 仪式 / flags / quotes，无分数）与两结局谓词；`lib/rio-route.ts` 定义开场变体（邮件见过 / 新邮件 / 中性）、两组拍点（先问她想要什么、答复前的下一步）与 `applyRioBeat`——只接受逐字选项文本当证据，只写本幕允许字段。`routeState` 存 `{rio, appliedBeats}` 快照；收束时把 `lastAct:4`、`lastOutcome`、`stale:false` 的账本写进 `routes[rio]`。第 5–6 幕与两结局的完整场景**尚未写**，等 3–5 人试玩闸门。

@@ -315,6 +315,14 @@ export const RIO_ACT4_BEAT_GROUPS: RioBeatGroup[] = [
 /** 扁平化的拍点列表；`applyRioBeat` 与契约测试共用。 */
 export const RIO_ACT4_BEATS: RioBeat[] = RIO_ACT4_BEAT_GROUPS.flatMap((group) => group.beats);
 
+/** 这个拍点在当前状态是否可用；`requires` 只看事实字段，不看会话内的开放程度。 */
+export function rioBeatAvailable(
+  state: RioRelationshipState | null | undefined,
+  beat: RioBeat,
+): boolean {
+  return matchRioRequires(beat.requires, state);
+}
+
 function cloneState(state: RioRelationshipState): RioRelationshipState {
   return {
     ...state,
@@ -389,6 +397,10 @@ function withSecondmentBoundary(
     (boundary) => boundary.topic === "secondment" && boundary.by === effect.by,
   );
   const previous = index >= 0 ? boundaries[index] : undefined;
+  // 越界只能靠带修复证据的拍点收回；「补充条件」不能把 crossed 覆盖成 proposed。
+  if (previous?.status === "crossed" && effect.status !== "repaired" && effect.status !== "withdrawn") {
+    return boundaries;
+  }
   const row: RioBoundary = {
     id: previous?.id ?? "rio-secondment-boundary",
     topic: effect.topic,
@@ -450,6 +462,7 @@ export function applyRioBeat(
 ): RioRelationshipState {
   const beat = RIO_ACT4_BEATS.find((item) => item.id === beatId);
   if (!beat) return state;
+  if (!matchRioRequires(beat.requires, state)) return state;
   if (!evidenceMatchesBeat(state, beat, evidence)) return state;
 
   const next = cloneState(state);
@@ -475,7 +488,8 @@ export function applyRioBeat(
     next.unknown = next.unknown.filter((key) => key !== "secondmentDisclosed");
   }
   next.lastAct = 4;
-  next.lastOutcome = beat.outcome;
+  // 带着未修复的伤，这一幕不能记 success；后续修复拍点出现前，结果保持 failure。
+  next.lastOutcome = next.flags.unrepairedHarm.length > 0 ? "failure" : beat.outcome;
   next.stale = false;
   return next;
 }
