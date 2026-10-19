@@ -33,6 +33,16 @@
 - [ ] Rio 第 4 幕已落地；**3–5 人试玩闸门未做**，通过后才写第 5–6 幕与两结局
 - [ ] 下批/只记录：G06 其他 NPC 承接台词（本批只写 Rio 与通用回退）、G17 `extractJSON`、G18 `retryAt`/响应校验、G19 `parseRoleplay`、G24 非 series 入口
 
+## 恋爱互动叙事与陪伴层（2026-10-20，方案已写，未开工）
+
+目标：64 场都能像 GALGAME 一样读；关掉再回来，角色在故事里记得上次的选择/承诺。只动恋爱域，真机/真人不在计划内。方案见 [spec-love-interactive-story.md](./specs/spec-love-interactive-story.md)，外部依据见 [galgame-companion-research.md](./refs/galgame-companion-research.md)。
+
+- [ ] P0 入口/阅读层：G24 全量 `/love/play` 入口；auto、skip-read、已读标记、字号/速度；每场 1 自动 + 3 手动槽；章节选择（账本快照）；结局图鉴
+- [ ] P1 陪伴层：设备端记忆档案（来源可追/可编辑/可删/锁定）、回归开场（零模型调用）、承诺扩到 5–6 幕、角色 goal/redLine/secret；导出与擦除覆盖新键
+- [ ] P2 Rio 5–6 + `said-it-plain` / `clean-parting`：人工闸门按产品决定豁免，验收记录标「未验证」
+- [ ] P3 电影感：章节卡、景别/站位、关键拍点动效、限时选择（默认关闭）、BGM/SFX/CG manifest
+- [ ] 横切：G17/G18 模型契约健壮性、G06 按人物承接句、浏览器 E2E 与 live 六类回应探针
+
 ## 在场层：承诺—回访—触达通道（2026-10-13，方案已写，未开工）
 
 由「AIcove / 类酒馆陪伴框架能否与主项目结合」的方向讨论收敛而来。结论：**不建陪伴运行时，建在场层**——跨会话的承诺对象 + 会在下次出现时引用它的教练，情感落点在教练 IP 而非 NPC。方案与验收见 [spec-presence-layer.md](./specs/spec-presence-layer.md)，分两节独立验收；第一节零新基础设施，第二节只做通道抽象并把 Web Push 留成空实现。
