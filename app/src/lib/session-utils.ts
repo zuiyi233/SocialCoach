@@ -47,6 +47,8 @@ export function historyFor(sessions: Session[], lang: Lang) {
   // Keep each practice's newest completed snapshot in recency order. Updating
   // an existing Map key would leave a continuation at its original position.
   for (const session of [...sessions].sort((a, b) => b.startedAt - a.startedAt)) {
+    // Romance scenes are story saves, not practice history (G23).
+    if (session.origin === "love-play") continue;
     if (session.status !== "assessed" && session.status !== "ended") continue;
     const id = session.sceneContext?.practiceId ?? session.id;
     if (!latest.has(id)) latest.set(id, session);

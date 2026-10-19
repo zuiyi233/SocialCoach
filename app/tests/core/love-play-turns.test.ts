@@ -9,6 +9,7 @@ import { scenarioById } from '../../src/data/corpus';
 const scenario = scenarioById('love-trust-eve-what-you-told')!;
 const learnerId = scenario.characters.find((c) => c.playable)!.id;
 const npcId = scenario.opening.characterId;
+const shortScenario = scenarioById('love-approach-hobby-event')!;
 
 const VALID = {
   line: { zh: '那句是你加的，还是我的原话？', en: 'Was that line yours or mine?' },
@@ -80,4 +81,24 @@ test('silence events keep their place in the script without spending a learner t
   await runLovePlay(input([opening, { role: 'learner', text: '我先说清一句。', ts: 2 }, { role: 'event', text: '', ts: 3, kind: 'silence' } as LovePlayMessage]), llm, 'fake');
   assert.match(seen[0]!.messages[0]!.content, /says nothing/);
   assert.match(systemText(seen[0]!), /已用 1 \/ \d+/);
+});
+
+test('a six-turn romance scene keeps its own maxTurns instead of the practice 12-turn floor', async () => {
+  assert.equal(shortScenario.maxTurns, 6, 'the fixture must stay the six-turn hobby scene');
+  const shortLearnerId = shortScenario.characters.find((c) => c.playable)!.id;
+  const { llm, seen } = recorder(JSON.stringify(VALID));
+  await runLovePlay(
+    {
+      scenario: shortScenario,
+      learnerCharacterId: shortLearnerId,
+      language: 'zh',
+      messages: [{ role: 'npc', characterId: shortScenario.opening.characterId, text: shortScenario.opening.text.zh, ts: 1 }],
+      turnLimit: shortScenario.maxTurns,
+    },
+    llm,
+    'fake',
+  );
+  const system = systemText(seen[0]!);
+  assert.match(system, /已用 0 \/ 6/, 'an explicit six-turn scene must not be widened to twelve');
+  assert.doesNotMatch(system, /已用 \d+ \/ 12/);
 });

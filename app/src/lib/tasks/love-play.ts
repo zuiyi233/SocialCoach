@@ -11,15 +11,27 @@ import { pick } from "@/lib/i18n";
 import { z } from "zod";
 import { roleplaySystem } from "@/lib/prompts";
 import { extractJSON, LLMError, type ChatOpts, type LLM, type SystemPart } from "@/lib/llm-core";
-import { practiceTurnLimit } from "@/lib/practice-policy";
+import { speakerOf } from "../session-utils";
 import { ReplyRejected, RoleplayFactError, RoleplayBoundaryError, replyBoundaryProblem } from "@/lib/roleplay-output";
 import { roleplaySpeechGuard } from "@/lib/roleplay-facts";
 import type { ChatMessage } from "@/lib/types";
 import type { Lang } from "@/data/taxonomy";
 import type { Scenario } from "@/data/corpus/types";
 
-/** 回合上限默认逻辑：直接复用 roleplay 的 practiceTurnLimit（场景 maxTurns / turnLimit）。 */
-export const LOVE_PLAY_TURN_LIMIT = practiceTurnLimit;
+/**
+ * 回合上限：尊重场景自己的 maxTurns（六幕就是六回合），不再套用练习段的 12 回合下限；
+ * 显式 turnLimit 只要不越界就优先，上下限 4–24。
+ */
+export function lovePlayTurnLimit(input: { scenario: Scenario; turnLimit?: number }): number {
+  const scenarioMax = Math.trunc(input.scenario.maxTurns) || 12;
+  const base = Math.min(24, Math.max(4, scenarioMax));
+  return Number.isSafeInteger(input.turnLimit) && input.turnLimit! >= 4
+    ? Math.min(24, input.turnLimit!)
+    : base;
+}
+
+/** 兼容旧名字：内部统一走 lovePlayTurnLimit。 */
+export const LOVE_PLAY_TURN_LIMIT = lovePlayTurnLimit;
 
 /**
  * 游戏模式对话历史里的简化消息：前端只带 role / characterId? / text / ts，
@@ -80,12 +92,6 @@ const lovePlayOutputSchema = z.object({
   ended: z.boolean(),
 });
 
-/** 本回合专职配音的角色：优先场景开场人，否则取第一个非学习者角色。 */
-function leadingNpc(s: Scenario, learnerCharacterId: string) {
-  const npcs = s.characters.filter((c) => c.id !== learnerCharacterId);
-  return npcs.find((c) => c.id === s.opening.characterId) ?? npcs[0];
-}
-
 /**
  * 把简化历史组装成本轮的唯一 user 消息（剧本块 + 收束提示）。
  *
@@ -126,7 +132,7 @@ function buildTurns(
 
 /** Galgame 每回合的 system prompt：复用 roleplaySystem，追加本模式的输出契约覆盖。 */
 function lovePlaySystem(s: Scenario, learnerId: string, lang: Lang, learnerName: string, learnerTurns: number, limit: number): string {
-  const npc = leadingNpc(s, learnerId);
+  const npc = speakerOf(s, learnerId);
   const remaining = Math.max(0, limit - learnerTurns);
   const quoteRule =
     lang === "zh"
@@ -177,7 +183,7 @@ function parseLovePlay(raw: string, scenario: Scenario, learnerId: string, messa
     throw new LLMError(pick({ zh: "这次回复的场景信息不完整，你的话已保留，请重试。", en: "This reply has incomplete scene information. Your words are saved; please retry." }, lang), 502);
   }
   const reply = parsed.data;
-  const npcId = leadingNpc(scenario, learnerId).id;
+  const npcId = speakerOf(scenario, learnerId).id;
   // 边界检查覆盖两个语言键：泄底往往发生在「翻译」那一键上。
   const boundary = replyBoundaryProblem(scenario, learnerId, [{ characterId: npcId, text: reply.line.zh }, { characterId: npcId, text: reply.line.en }], reply.revealed ? [npcId] : []);
   if (boundary) throw new RoleplayBoundaryError(boundary, lang);
@@ -200,8 +206,8 @@ function isRepairable(error: unknown): boolean {
 export async function runLovePlay(input: LovePlayInput, llm: LLM, fastModel: string): Promise<LovePlayOutput> {
   const { scenario, learnerCharacterId, messages, language } = input;
   const learnerName = input.learnerName || pick(scenario.characters.find((c) => c.id === learnerCharacterId)!.name, language);
-  const { turns, learnerTurns } = buildTurns(messages, learnerName, leadingNpc(scenario, learnerCharacterId).id);
-  const limit = LOVE_PLAY_TURN_LIMIT({ scenario, turnLimit: input.turnLimit });
+  const { turns, learnerTurns } = buildTurns(messages, learnerName, speakerOf(scenario, learnerCharacterId).id);
+  const limit = lovePlayTurnLimit({ scenario, turnLimit: input.turnLimit });
   const options: ChatOpts = {
     model: fastModel,
     maxTokens: 2000,

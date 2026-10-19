@@ -18,7 +18,7 @@ export const canListen = () =>
 let unlocked = false;
 let context: AudioContext | undefined;
 let active: SpeechHandle | undefined;
-let queue: { text: string; lang: Lang }[] = [];
+let queue: { text: string; lang: Lang; speaker?: SpeakerVoice }[] = [];
 let generation = 0;
 let naturalRetryAt = 0;
 let queuePaused = false;
@@ -149,15 +149,15 @@ export function playNpcLine(text: string, lang: Lang, speaker?: SpeakerVoice, on
 }
 
 /** Queue completed 2D lines in their original order, one speaker at a time. */
-export function speak(text: string, lang: Lang) {
+export function speak(text: string, lang: Lang, speaker?: SpeakerVoice) {
   if (!canSpeak() || !text.trim()) return;
-  queue.push({ text, lang });
+  queue.push({ text, lang, speaker });
   if (active) return;
   const owner = generation;
   const next = () => {
     if (owner !== generation) return;
     const line = queue.shift(); if (!line) return;
-    const handle = playNpcLine(line.text, line.lang);
+    const handle = playNpcLine(line.text, line.lang, line.speaker);
     handle.pause(queuePaused);
     void handle.done.then(next);
   };
