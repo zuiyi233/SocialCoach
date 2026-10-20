@@ -65,7 +65,7 @@ for (const dir of ["scenarios", "library", "en/scenarios", "en/library"]) {
     pages.set(`${dir}/${slug}`, readFileSync(file, "utf8"));
   }
 }
-assert.equal(pages.size, 700, `expected 700 landing pages, found ${pages.size}`);
+assert.equal(pages.size, 704, `expected 704 landing pages, found ${pages.size}`);
 
 const langOf = (key: string): Lang => (key.startsWith("en/") ? "en" : "zh");
 const MIN_BODY = 300;
@@ -147,8 +147,8 @@ console.log("PASS app pages keep the pre-hydration placeholder");
 
 // Indexing plumbing is part of the same promise.
 const sitemap = readFileSync(join(BUILD, "sitemap.xml.body"), "utf8");
-assert.equal((sitemap.match(/<url>/g) || []).length, 705, "sitemap lost entries");
+assert.equal((sitemap.match(/<url>/g) || []).length, 709, "sitemap lost entries");
 const robots = readFileSync(join(BUILD, "robots.txt.body"), "utf8");
 assert.match(robots, /^Sitemap: https:\/\//m, "robots.txt lost its absolute Sitemap line");
 assert.match(robots, /^Disallow: \/api\//m, "robots.txt no longer blocks /api/");
-console.log("PASS sitemap 705 entries, robots.txt absolute Sitemap and /api/ disallow");
+console.log("PASS sitemap 709 entries, robots.txt absolute Sitemap and /api/ disallow");
