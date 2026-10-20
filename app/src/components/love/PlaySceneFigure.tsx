@@ -8,6 +8,7 @@ import { AvatarFigure } from "@/data/avatars";
 import { scenarioIconName } from "@/data/scenario-icons";
 import { uid } from "@/lib/format";
 import type { LovePlayEmotion } from "@/lib/love-play-client";
+import { LOVE_SHOT_SCALE, LOVE_SIDE_OFFSET_PX, type LoveShot, type LoveSide } from "@/lib/love-stage";
 
 /** 与 ScenarioCover 私有 scenarioTone 同口径的色板：由场景图标决定，走 design token。 */
 export function scenarioTone(scenario: Scenario) {
@@ -119,19 +120,29 @@ export function useLovePortrait(characterId: string): { src: string | null; hue:
 
 /** 立绘台：角色有 AI 生成的 PNG 立绘（manifest 命中）就用竖版立绘；否则回退 SVG 占位。
  *  emphasize 用于 hidden 揭示回合：把说话人轻微推近（scale 1.06+）并加一圈 rose 描边，
- *  只影响视觉，不碰立绘管线与表情判定。 */
-export function AvatarStand({ character, lang, emotion, active, emphasize = false, size = 216 }: { character: Character; lang: Lang; emotion: LovePlayEmotion; active: boolean; emphasize?: boolean; size?: number }) {
+ *  只影响视觉，不碰立绘管线与表情判定。
+ *  `shot`（近/中/远景）与 `side`（左右站位）是 spec §4.5 的镜头语言：
+ *  取值来自 `love-stage` 的纯函数，没有动机时保持中景居中（shot="mid"、side=null），
+ *  切换用 spring 过渡——只动 transform，不引起重排。 */
+export function AvatarStand({ character, lang, emotion, active, emphasize = false, size = 216, shot = "mid", side = null }: { character: Character; lang: Lang; emotion: LovePlayEmotion; active: boolean; emphasize?: boolean; size?: number; shot?: LoveShot; side?: LoveSide | null }) {
   const manifest = usePortraitManifest();
   const portraitSrc = portraitSrcOf(manifest, character.id, emotion);
   const highlight = emphasize && active;
   const ring = "0 0 0 3px color-mix(in oklch, var(--rose) 55%, transparent)";
+  const shotScale = LOVE_SHOT_SCALE[shot];
+  const sideX = side ? (side === "right" ? LOVE_SIDE_OFFSET_PX : -LOVE_SIDE_OFFSET_PX) : 0;
 
   return (
     <motion.div
       className="flex flex-col items-center"
       initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0, scale: highlight ? 1.07 : active ? 1.04 : 1 }}
-      transition={{ type: "spring", stiffness: 220, damping: 26 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        x: sideX,
+        scale: shotScale * (highlight ? 1.07 : active ? 1.04 : 1),
+      }}
+      transition={{ type: "spring", stiffness: 200, damping: 26 }}
     >
       {portraitSrc ? (
         // PNG 立绘模式：竖版画布（832×1248，2:3），透明底由模型原生生成，直接叠在场景渐变上。

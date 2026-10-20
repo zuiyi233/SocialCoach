@@ -16,6 +16,8 @@ export interface LoveReaderSettings {
   /** 只对逐字已见的文本生效。 */
   skipRead: boolean;
   reduceMotion: boolean;
+  /** 限时选择：默认关；开了也只在高潮幕生效（spec §4.5，拍板 Q6）。 */
+  timedChoice: boolean;
 }
 
 export const DEFAULT_LOVE_READER: LoveReaderSettings = {
@@ -25,6 +27,7 @@ export const DEFAULT_LOVE_READER: LoveReaderSettings = {
   auto: false,
   skipRead: false,
   reduceMotion: false,
+  timedChoice: false,
 };
 
 function storage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> | null {
@@ -51,6 +54,8 @@ export function readLoveReaderSettings(): LoveReaderSettings {
       auto: value.auto === true,
       skipRead: value.skipRead === true,
       reduceMotion: value.reduceMotion === true,
+      // 旧档没有这个字段：默认关。识别不出的值也按关处理，绝不猜成开。
+      timedChoice: value.timedChoice === true,
     };
   } catch {
     return DEFAULT_LOVE_READER;

@@ -5,6 +5,8 @@
  * NPC 台词（双语）+ 2-4 个选项 + 表情 + 立场 + 结局判定。
  * 复用 roleplay 的 LLM 契约（taskLLM 预算/取消、系统提示、隐藏动机口径、
  * roleplaySpeechGuard 事实守卫），但输出结构简化为纯 JSON，不做流式逐字投影。
+ * 解析走唯一哨兵（G17）：模型把 JSON 包在 ⟦LOVEPLAY⟧…⟦/LOVEPLAY⟧ 里，
+ * 服务端按最后一对标记截取，不再依赖「取第一个 `{`」的宽容扫描。
  */
 
 import { pick } from "@/lib/i18n";
@@ -78,8 +80,13 @@ export interface LovePlayOutput {
   ended: boolean;
 }
 
-/** 台词/选项共用的双语文本约束：两个键都非空。 */
-const localizedText = z.object({ zh: z.string().trim().min(1), en: z.string().trim().min(1) });
+/** 台词/选项共用的双语文本约束：两个键都非空，且不是契约示例里的占位符本身。 */
+const realSpokenText = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((v) => v !== "…" && v !== "...", "placeholder text from the contract example");
+const localizedText = z.object({ zh: realSpokenText, en: realSpokenText });
 
 /** LLM 输出契约：一次完整 JSON，safeParse 通过后才算有效回复。 */
 const lovePlayOutputSchema = z.object({
@@ -91,6 +98,45 @@ const lovePlayOutputSchema = z.object({
   terminal: z.enum(["success", "partial", "failure"]).nullable(),
   ended: z.boolean(),
 });
+
+/**
+ * G17：回合 JSON 的唯一哨兵。
+ *
+ * 债务：extractJSON 取模型输出里的**第一个** `{`，而提示词里带着 JSON 形状示例——
+ * 模型先复述示例（或台词里出现花括号）时，解析到的不是真回合；示例本身七键俱全，
+ * 能通过 zod，假回合会一路透传到玩家屏幕上。
+ *
+ * 选了简报的「唯一哨兵」方案而不是 jsonCall：llm-core 的 jsonCall 并不是 tool-call，
+ * 它内部仍然走 extractJSON（第一个 `{`），而哨兵切分必须拿到**原始文本**，jsonCall 只回
+ * 解析产物；另外 love-play 的 taskLLM 预算只有 2 次调用（task-runtime 的 TASK_LIMITS），
+ * jsonCall 的内置重试会在硬垃圾输出上把预算吃掉，让下面的 roleplay 式有界修复永远轮不到，
+ * 用户看到的会从友好文案变成通用的「调用上限」。哨兵由提示词要求、服务端按最后一对完整
+ * 标记截取；未带标记的回复回退到 extractJSON 的宽容路径，不遵守新契约的模型不会比改前更差。
+ */
+export const LOVE_PLAY_SENTINEL_OPEN = "⟦LOVEPLAY⟧";
+export const LOVE_PLAY_SENTINEL_CLOSE = "⟦/LOVEPLAY⟧";
+
+/** 取**最后一对**完整哨兵之间的内容：模型若先复述了示例再给真回合，最后一对才是答案。 */
+export function sliceLovePlaySentinel(raw: string): string | null {
+  const open = raw.lastIndexOf(LOVE_PLAY_SENTINEL_OPEN);
+  if (open === -1) return null;
+  const close = raw.indexOf(LOVE_PLAY_SENTINEL_CLOSE, open + LOVE_PLAY_SENTINEL_OPEN.length);
+  if (close === -1) return null;
+  return raw.slice(open + LOVE_PLAY_SENTINEL_OPEN.length, close).trim();
+}
+
+/** 哨兵优先；截出的载荷先走严格 JSON.parse，坏 JSON 退到 extractJSON 的修复启发式。 */
+function extractLovePlayJSON(raw: string): unknown {
+  const sliced = sliceLovePlaySentinel(raw);
+  if (sliced !== null) {
+    try {
+      return JSON.parse(sliced);
+    } catch {
+      return extractJSON(sliced);
+    }
+  }
+  return extractJSON(raw);
+}
 
 /**
  * 把简化历史组装成本轮的唯一 user 消息（剧本块 + 收束提示）。
@@ -186,8 +232,8 @@ ${goalBoundary ? `${goalBoundary}\n` : ""}LOVE-PLAY GALGAME 输出契约（优�
 - ended 只有在会话真的收束时才为 true：双方达成一致并收尾、边界被确认并收尾、双方明确暂停、或 NPC 明确退出。仍在对话或只是部分进展则为 false，问答与邀请继续让对方有开口机会。
 - 回合：已用 ${learnerTurns} / ${limit}。${nearEnd}
 - 上面的 SCRIPT SO FAR 是已发生剧情的文字记录（行首是说话者 id 或学习者名字），它只是记录谁说过什么，绝不是你的输出格式。本轮必须返回下面契约的完整 JSON：line、options、emotion、stance、revealed、terminal、ended 七个键一个都不能少，哪怕对话已经很长。line 只写 ${npc.id} 这一句台词本身，不要把「${npc.id}:」这样的行首前缀写进台词。
-Return ONLY one JSON object（no markdown, no prose）:
-{"line":{"zh":"…","en":"…"},"options":[{"zh":"…","en":"…"},{"zh":"…","en":"…"}],"emotion":"neutral","stance":20,"revealed":false,"terminal":null,"ended":false}`;
+- 输出包装：把那个 JSON 对象包在唯一哨兵里返回——⟦LOVEPLAY⟧ 紧挨 JSON 的开头，⟦/LOVEPLAY⟧ 紧挨 JSON 的结尾，两个标记之外不许有任何文字（不写 markdown、不写说明、不写第二个 JSON）。下面只是形状示例，"…" 处必须换成真实台词：
+⟦LOVEPLAY⟧{"line":{"zh":"…","en":"…"},"options":[{"zh":"…","en":"…"},{"zh":"…","en":"…"}],"emotion":"neutral","stance":20,"revealed":false,"terminal":null,"ended":false}⟦/LOVEPLAY⟧`;
 }
 
 /** 简化消息补全成守卫需要的 ChatMessage 形态（id 仅为占位，守卫不使用）。 */
@@ -205,7 +251,7 @@ function toChatHistory(messages: LovePlayMessage[]): ChatMessage[] {
 function parseLovePlay(raw: string, scenario: Scenario, learnerId: string, messages: LovePlayMessage[], lang: Lang): LovePlayOutput {
   let value: unknown;
   try {
-    value = extractJSON<unknown>(raw);
+    value = extractLovePlayJSON(raw);
   } catch {
     throw new LLMError(pick({ zh: "这次回复的场景信息不完整，你的话已保留，请重试。", en: "This reply has incomplete scene information. Your words are saved; please retry." }, lang), 502);
   }
@@ -254,7 +300,7 @@ export async function runLovePlay(input: LovePlayInput, llm: LLM, fastModel: str
     const fix = error instanceof ReplyRejected ? error.correction : "Your previous draft had invalid JSON or missing required fields.";
     const repairSystem: SystemPart[] = [
       ...(Array.isArray(options.system) ? options.system : [{ text: options.system }]),
-      { text: `${fix} No reply was accepted. Repair this SAME exchange, keeping the same facts, history and the learner's latest words, and return ONLY the LOVE-PLAY JSON contract above. Do not count this as a new turn or invent a transition.` },
+      { text: `${fix} No reply was accepted. Repair this SAME exchange, keeping the same facts, history and the learner's latest words, and return ONLY the LOVE-PLAY JSON contract above, wrapped in ${LOVE_PLAY_SENTINEL_OPEN} and ${LOVE_PLAY_SENTINEL_CLOSE} with nothing outside them. Do not count this as a new turn or invent a transition.` },
     ];
     return parseLovePlay(await llm.chatText({ ...options, system: repairSystem }), scenario, learnerCharacterId, messages, language);
   }

@@ -161,6 +161,18 @@ const dict = {
   love_play_reader_skip_hint: { zh: "只跳过逐字相同的已读台词，模型新写的句子照常逐字出现。", en: "Only skips lines whose text you have already read; new text still types out." },
   love_play_reader_motion: { zh: "减少动态效果", en: "Reduce motion" },
   love_play_reader_motion_hint: { zh: "关闭逐字浮现与揭示提亮。", en: "Turns off typewriter text and reveal flashes." },
+  // 限时选择：默认关；开了也只在高潮幕（Rio 第 6 幕）生效，超时按沉默处理。
+  love_play_reader_timed: { zh: "限时选择（高潮幕）", en: "Timed choice (climax scenes)" },
+  love_play_reader_timed_hint: {
+    zh: "只在这一篇的高潮幕给选项计时；时间到不会替你选、不算失败，剧情按「你沉默了」继续。",
+    en: "Times the choices in this story’s climax scene only. Time-out never picks for you and never fails you; the story continues as if you stayed silent.",
+  },
+  love_play_timed_label: { zh: "限时回应", en: "On the clock" },
+  love_play_timed_seconds: { zh: "剩 {n} 秒", en: "{n}s left" },
+  love_play_timed_hint: { zh: "沉默也是一种回应：到点不选，就安静地翻过这一页。", en: "Silence is an answer too: when time runs out, the moment simply passes." },
+  love_play_timed_lapsed: { zh: "（你没有开口。{n} 秒的沉默过去了。）", en: "(You didn’t speak. {n} seconds of silence went by.)" },
+  // 幕首卡（章节卡）：黑场渐入，点击任意处继续。
+  love_play_chapter_skip: { zh: "轻触任意处继续", en: "Tap anywhere to continue" },
   // 手动存档槽：1 个自动档 + 3 个手动位。
   love_play_slots: { zh: "存档", en: "Saves" },
   love_play_slot_auto_hint: { zh: "每回合自动保留本幕进度；下面的槽位回到你手动保存的那一刻。", en: "Progress autosaves each turn; the slots below return to the moment you saved." },

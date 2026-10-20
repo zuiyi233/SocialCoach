@@ -1,8 +1,14 @@
-/** 离线回归：Galgame 回合的历史形状与契约修复路径（不联网，用假 LLM 记录请求）。 */
+/** 离线回归：Galgame 回合的历史形状与契约修复路径（不联网，用假 LLM 记录请求）。G17：唯一哨兵解析。 */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { runLovePlay, type LovePlayInput, type LovePlayMessage } from '../../src/lib/tasks/love-play';
-import type { ChatOpts, LLM } from '../../src/lib/llm-core';
+import {
+  LOVE_PLAY_SENTINEL_CLOSE,
+  LOVE_PLAY_SENTINEL_OPEN,
+  runLovePlay,
+  type LovePlayInput,
+  type LovePlayMessage,
+} from '../../src/lib/tasks/love-play';
+import { LLMError, type ChatOpts, type LLM } from '../../src/lib/llm-core';
 import { systemParts } from '../../src/lib/llm-core';
 import { scenarioById } from '../../src/data/corpus';
 
@@ -101,4 +107,61 @@ test('a six-turn romance scene keeps its own maxTurns instead of the practice 12
   const system = systemText(seen[0]!);
   assert.match(system, /已用 0 \/ 6/, 'an explicit six-turn scene must not be widened to twelve');
   assert.doesNotMatch(system, /已用 \d+ \/ 12/);
+});
+
+// ---------- G17：唯一哨兵解析 ----------
+
+const wrapped = (value: unknown) => `${LOVE_PLAY_SENTINEL_OPEN}${JSON.stringify(value)}${LOVE_PLAY_SENTINEL_CLOSE}`;
+
+test('the output contract itself carries the sentinel so a compliant model can use it', async () => {
+  const { llm, seen } = recorder(wrapped(VALID));
+  await runLovePlay(input([opening, { role: 'learner', text: '第二句是我加的。', ts: 2 }]), llm, 'fake');
+  assert.ok(systemText(seen[0]!).includes(LOVE_PLAY_SENTINEL_OPEN), 'the system prompt must demand the opening marker');
+  assert.ok(systemText(seen[0]!).includes(LOVE_PLAY_SENTINEL_CLOSE), '…and the closing marker');
+});
+
+test('a sentinel-wrapped reply wins even when the prose around it contains stray braces', async () => {
+  // 旧解析取第一个 `{`：这句前缀里的「{注意」会把解析带进沟里。哨兵截取对它免疫。
+  const noisy = `模型：好的，这一回合我来。{注意：这不是 JSON}\n${wrapped(VALID)}\n以上。`;
+  const { llm, seen } = recorder(noisy);
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '第二句是我加的。', ts: 2 }]), llm, 'fake');
+  assert.deepEqual(out, VALID, 'the last complete sentinel pair is the reply — not the first brace in the prose');
+  assert.equal(seen.length, 1, 'a clean sentinel reply takes no repair');
+});
+
+test('replies without sentinels keep the old lenient path, so marker-ignoring models do not regress', async () => {
+  const { llm, seen } = recorder(`好的，这一回合是：\n${JSON.stringify(VALID)}`);
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '第二句是我加的。', ts: 2 }]), llm, 'fake');
+  assert.deepEqual(out, VALID);
+  assert.equal(seen.length, 1);
+});
+
+test('a verbatim echo of the contract example is invalid output and takes the bounded repair', async () => {
+  // G17 的债务形态：示例七键俱全能通过旧校验，复述它会产出一条「…」假回合直达玩家。
+  const echo = `${LOVE_PLAY_SENTINEL_OPEN}{"line":{"zh":"…","en":"…"},"options":[{"zh":"…","en":"…"},{"zh":"…","en":"…"}],"emotion":"neutral","stance":20,"revealed":false,"terminal":null,"ended":false}${LOVE_PLAY_SENTINEL_CLOSE}`;
+  const { llm, seen } = recorder(echo, wrapped(VALID));
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '第二句是我加的。', ts: 2 }]), llm, 'fake');
+  assert.deepEqual(out, VALID);
+  assert.equal(seen.length, 2, 'placeholder-only text must never ship as a turn');
+  const repair = systemParts(seen[1]!.system).at(-1)!.text;
+  assert.match(repair, /LOVE-PLAY JSON contract/, 'the repair rides on the contract restatement');
+  assert.ok(repair.includes(LOVE_PLAY_SENTINEL_OPEN) && repair.includes(LOVE_PLAY_SENTINEL_CLOSE), '…and re-states the sentinel');
+});
+
+test('sentinel-wrapped broken JSON is repaired once, then the bounded repair lands a valid turn', async () => {
+  // 严格 JSON.parse 失败 → 截出载荷走 extractJSON 的修复启发式 → zod 不过 → 一次有界修复。
+  const { llm, seen } = recorder(`${LOVE_PLAY_SENTINEL_OPEN}{"line":{"zh":"你好`, wrapped(VALID));
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '第二句是我加的。', ts: 2 }]), llm, 'fake');
+  assert.deepEqual(out, VALID);
+  assert.equal(seen.length, 2, 'attempts stay at one main call plus one repair');
+});
+
+test('two unparseable replies stop at the attempts cap with the friendly copy', async () => {
+  const { llm, seen } = recorder('抱歉，这一句我说不好。', '真的说不好。');
+  await assert.rejects(
+    runLovePlay(input([opening, { role: 'learner', text: '第二句是我加的。', ts: 2 }]), llm, 'fake'),
+    (e: unknown) => e instanceof LLMError && e.status === 502 && /场景信息不完整/.test(e.message),
+    'the final rejection keeps the user-friendly retry wording',
+  );
+  assert.equal(seen.length, 2, 'one main call plus one bounded repair — nothing more');
 });

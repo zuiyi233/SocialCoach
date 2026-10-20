@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import type { Lang, L } from "@/data/taxonomy";
@@ -8,6 +8,8 @@ import type { LovePlayOutcome } from "@/lib/love-play-client";
 import { t } from "@/lib/i18n";
 import { Button, Sheet } from "@/components/ui";
 import { subscribeLoveSlots } from "@/lib/love-slot-events";
+import { loveTimedChoiceRemainingMs, LOVE_TIMED_CHOICE_MS } from "@/lib/love-timed-choice";
+import type { LoveChapterCard as LoveChapterCardData } from "@/lib/love-chapter-card";
 import {
   LOVE_MEMORY_KEY,
   LOVE_MEMORY_TEXT_MAX,
@@ -408,5 +410,108 @@ export function LoveMemorySheet({
         )}
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * 限时选择的倒计时条（spec §4.5 / 拍板 Q6）：只出现在高潮幕、且设置里开了
+ * 限时选择。只显示剩余时间与「沉默也是一种回应」的口径，不催促、不吓唬、
+ * 不暗示哪个选项正确；到点由 PlayScene 走沉默分支，这里不干预。
+ */
+export function LoveTimedCountdown({ lang, endsAt, now }: { lang: Lang; endsAt: number; now: number }) {
+  const remainingMs = loveTimedChoiceRemainingMs(endsAt, now);
+  const seconds = Math.ceil(remainingMs / 1000);
+  const ratio = LOVE_TIMED_CHOICE_MS > 0 ? Math.max(0, Math.min(1, remainingMs / LOVE_TIMED_CHOICE_MS)) : 0;
+  return (
+    <div className="mt-3 max-w-[var(--measure)]" role="timer" aria-label={t(lang, "love_play_timed_label")}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] text-ink-3">{t(lang, "love_play_timed_label")}</span>
+        <span className="num text-[11px] font-medium text-ink-2">{t(lang, "love_play_timed_seconds", { n: seconds })}</span>
+      </div>
+      <div className="mt-1 h-1 overflow-hidden rounded-full bg-inset">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${ratio * 100}%`, background: "var(--clay)" }}
+        />
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-ink-3">{t(lang, "love_play_timed_hint")}</p>
+    </div>
+  );
+}
+
+/** 幕首卡的自动停留时长；点击/按键可提前跳过。 */
+const CHAPTER_CARD_AUTO_MS = 5200;
+
+/**
+ * 幕首卡（spec §4.5）：黑场渐入，幕号、标题、时间/地点、一句引子。
+ * 覆盖整页，点击任意处或按 Enter/空格继续，超过停留时长自动放行——
+ * 自动阅读的玩家不会被一张卡永远挡在门外。reduceMotion 时直接呈现，不渐入。
+ */
+export function LoveChapterCard({
+  lang,
+  card,
+  reduceMotion,
+  onContinue,
+}: {
+  lang: Lang;
+  card: LoveChapterCardData;
+  reduceMotion: boolean;
+  onContinue: () => void;
+}) {
+  const [shown, setShown] = useState(reduceMotion);
+  // onContinue 会随渲染重建，自动放行只该调用最新那个；ref 在 effect 里跟进。
+  const continueRef = useRef(onContinue);
+  useEffect(() => {
+    continueRef.current = onContinue;
+  });
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const timer = window.setTimeout(() => setShown(true), 30);
+    return () => window.clearTimeout(timer);
+  }, [reduceMotion]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => continueRef.current(), CHAPTER_CARD_AUTO_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const actKey: TKey = card.continuous ? "love_series_act" : "love_series_scene";
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: shown ? 1 : 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reduceMotion ? 0 : 0.9, ease: "easeOut" }}
+      role="button"
+      tabIndex={0}
+      aria-label={t(lang, "love_play_chapter_skip")}
+      onClick={onContinue}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onContinue();
+        }
+      }}
+      className="fixed inset-0 z-50 flex cursor-pointer select-none flex-col items-center justify-center gap-4 px-6 text-center"
+      style={{ background: "var(--slab)", color: "var(--slab-ink)" }}
+    >
+      <div className="flex flex-col items-center gap-3">
+        <p className="eyebrow" style={{ color: "color-mix(in oklch, var(--slab-ink) 62%, transparent)" }}>
+          {card.seriesName[lang]}
+        </p>
+        <p className="text-[12px] tracking-[0.2em]" style={{ color: "color-mix(in oklch, var(--slab-ink) 72%, transparent)" }}>
+          {t(lang, actKey, { n: card.act })}
+        </p>
+        <h2 className="text-[24px] font-semibold leading-snug">{card.title[lang]}</h2>
+        <p className="text-[13px]" style={{ color: "color-mix(in oklch, var(--slab-ink) 78%, transparent)" }}>
+          {card.data.where[lang]} · {card.data.when[lang]}
+        </p>
+        <p className="mt-3 max-w-[var(--measure)] text-[15px] leading-relaxed">{card.data.hook[lang]}</p>
+      </div>
+      <p className="mt-8 text-[11px]" style={{ color: "color-mix(in oklch, var(--slab-ink) 52%, transparent)" }}>
+        {t(lang, "love_play_chapter_skip")}
+      </p>
+    </motion.div>
   );
 }

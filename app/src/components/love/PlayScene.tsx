@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, notFound } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useAnimation } from "framer-motion";
 import { ArrowLeft, ArrowUp, Bookmark, Brain, History, Mic, MicOff, Settings2 } from "lucide-react";
 import { clsx } from "clsx";
 import type { L } from "@/data/taxonomy";
@@ -15,7 +15,7 @@ import { useApp, useLang } from "@/store/useApp";
 import { t, type TKey } from "@/lib/i18n";
 import { uid } from "@/lib/format";
 import { canListen, pauseSpeaking, speak, stopSpeaking, unlockSpeech } from "@/lib/speech";
-import { useLoveVoice, withInterim } from "@/lib/love-play-voice";
+import { useLoveVoice, withInterim, useLoveSpeechActivity } from "@/lib/love-play-voice";
 import { lovePlayTurn, type LovePlayEmotion, type LovePlayOutcome } from "@/lib/love-play-client";
 import { readLoveSeriesProgress, writeLoveSeriesProgress } from "@/lib/love-series-progress";
 import { loveSeriesById } from "@/data/corpus/love-series";
@@ -68,8 +68,27 @@ import {
   writeLoveReaderSettings,
   type LoveReaderSettings,
 } from "@/lib/love-reader-settings";
+import { loveChapterCardFor, type LoveChapterCard } from "@/lib/love-chapter-card";
+import {
+  idleLoveTimedChoice,
+  loveSilenceEvent,
+  loveTimedChoiceEnabled,
+  reduceLoveTimedChoice,
+  LOVE_TIMED_CHOICE_SECONDS,
+  type LoveTimedChoiceEvent,
+  type LoveTimedChoiceState,
+} from "@/lib/love-timed-choice";
+import { createLoveAmbientPlayer, loadLoveAmbientManifest, type LoveAmbientPlayer } from "@/lib/love-ambient";
+import {
+  isHeavyLoveEmotion,
+  loveShotForMoment,
+  loveSideFor,
+  prefersReducedMotion,
+  LOVE_SHAKE_SECONDS,
+  LOVE_SHAKE_X,
+} from "@/lib/love-stage";
 import { AvatarStand, scenarioTone, startHistory } from "./PlaySceneFigure";
-import { LoveStanceBar, LoveRevealBadge, LoveMemorySheet, PlayOptions, PlayEnding } from "./PlayPanels";
+import { LoveChapterCard as LoveChapterCardPanel, LoveStanceBar, LoveRevealBadge, LoveMemorySheet, LoveTimedCountdown, PlayOptions, PlayEnding } from "./PlayPanels";
 import { LoveRecap } from "./LoveRecap";
 import type { LoveCarryTarget } from "./PlayCarryCapture";
 
@@ -202,6 +221,18 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const [beatGroup, setBeatGroup] = useState<RioBeatGroup | null>(null);
   /** 拍点落地后递增，把自动存档从 ref 变更里叫醒（ref 本身不触发渲染）。 */
   const [routeTick, setRouteTick] = useState(0);
+  /** 幕首卡（章节卡）：非 null 时盖在页面上，点掉才开始开局；只在系列场景的新局出现。 */
+  const [chapterCard, setChapterCard] = useState<LoveChapterCard | null>(null);
+  /** 限时选择状态机（spec §4.5）：只在高潮幕、设置打开、台词+TTS 都完成后起表。 */
+  const [timed, setTimed] = useState<LoveTimedChoiceState>(idleLoveTimedChoice);
+  /** 倒计时的显示时钟：250ms 一拍，渲染期不取时钟（保持组件纯）。 */
+  const [timedNow, setTimedNow] = useState(0);
+  /** 超时沉默的本地旁白：显示在台词框上方，直到玩家下一次开口。 */
+  const [silenceAside, setSilenceAside] = useState<{ seconds: number } | null>(null);
+  /** 关键拍点动效：key 是触发源 id，ending 区分「拍点轻震」与「结局闪白」。 */
+  const [beatFx, setBeatFx] = useState<{ key: string; ending: boolean } | null>(null);
+  /** 系统级减少动态（prefers-reduced-motion）：挂载时读一次，与阅读设置双闸。 */
+  const [sysReduced, setSysReduced] = useState(false);
 
   /** 已确认入库的历史（失败的那次尝试不写入，重试用 cmdRef 找回）。 */
   const historyRef = useRef<ChatMessage[]>([]);
@@ -231,6 +262,17 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   /** 开场承接句的 carryId：台词真正显示后只 mark 一次。 */
   const carryIdRef = useRef<string | null>(null);
   const carryMarkedRef = useRef(false);
+  /** BGM 播放器：manifest 为空（当前没有授权音频资产）时整条链路静默待机。 */
+  const ambientRef = useRef<LoveAmbientPlayer | null>(null);
+  /** 拍点/结局动效的触发去重：恢复存档时预置当前值，不把「恢复」当成「时刻」。 */
+  const prevBeatGroupRef = useRef<RioBeatGroup | null>(null);
+  const prevOutcomeRef = useRef<LovePlayOutcome | null>(null);
+  /** 幕首卡放行后的开局只跑一次。 */
+  const chapterStartRef = useRef(false);
+  /** 拍点轻震：命令式动画，只在拍点时刻播一次，不常动。 */
+  const shakeControls = useAnimation();
+  /** 当前这句 TTS 是否还在读：BGM ducking 与限时选择起表共用这个信号。 */
+  const ttsBusy = useLoveSpeechActivity(npcLine?.key ?? null, tts);
 
   const voice = useLoveVoice(lang, !busy && !outcome && !!sc, setInput);
   // startScene / send 是稳定回调，用 ref 拿到最新语音方法，避免依赖抖动。
@@ -260,6 +302,53 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     readerRef.current = loaded;
     seenRef.current = readLoveReadState().seen;
   }, []);
+
+  // 系统级减少动态读一次：与阅读设置里的 reduceMotion 组成双闸（spec §4.5）。
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSysReduced(prefersReducedMotion());
+  }, []);
+
+  // BGM：manifest 为空（当前没有授权音频资产）时整条链路静默待机；
+  // 拉取失败、没有匹配轨、播放被拒都停在待机态，不报错、不崩。
+  useEffect(() => {
+    const player = createLoveAmbientPlayer();
+    ambientRef.current = player;
+    void loadLoveAmbientManifest().then((manifest) => player.setManifest(manifest));
+    return () => {
+      player.dispose();
+      ambientRef.current = null;
+    };
+  }, []);
+
+  // 按场景 tone 选轨；只有场景本身变化才换。
+  useEffect(() => {
+    if (sc) ambientRef.current?.setTone(scenarioTone(sc));
+  }, [sc]);
+
+  // 浏览器自动播放策略：第一次真实手势后才真正起播（与朗读解锁同一时刻）。
+  useEffect(() => {
+    const prime = () => ambientRef.current?.unlock();
+    window.addEventListener("pointerdown", prime, { once: true });
+    window.addEventListener("keydown", prime, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", prime);
+      window.removeEventListener("keydown", prime);
+    };
+  }, []);
+
+  // 页面进后台整体挂起，回来再续——环境音不在后台偷偷放。
+  useEffect(() => {
+    const update = () => ambientRef.current?.setSuspended(document.hidden);
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
+
+  // TTS ducking：朗读开始压低 BGM，读完自动恢复（useLoveSpeechActivity 信号）。
+  useEffect(() => {
+    ambientRef.current?.setDucked(ttsBusy);
+  }, [ttsBusy]);
 
   // 卸载时取消在途请求与朗读（打字机定时器由 useLoveTyping 卸载时自行停表）。
   useEffect(
@@ -609,6 +698,13 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setEndingId(null);
       setEndingKind(null);
       setBeatGroup(null);
+      // 呈现层状态全部归位：拍点/结局动效的触发去重、限时选择、沉默旁白。
+      prevBeatGroupRef.current = null;
+      prevOutcomeRef.current = null;
+      setTimed(idleLoveTimedChoice());
+      setTimedNow(0);
+      setSilenceAside(null);
+      setBeatFx(null);
       // 第 4–6 幕的开场由账本选作者变体（见 resolveRioOpening）；变体本身就是「上次之后」，
       // 与承接句只能出现一个（spec §3.5）。其余场景维持原有的承接句拼接。
       const openingVariant = rio && rioAct ? resolveRioOpening(rio.rio, rioAct) : null;
@@ -685,6 +781,13 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           ? pendingGroup
           : null;
       setBeatGroup(savedGroup);
+      // 恢复不是时刻：把动效触发去重预置成当前值，重开页面不重放轻震/闪白。
+      prevBeatGroupRef.current = savedGroup;
+      prevOutcomeRef.current = view.outcome ?? null;
+      setTimed(idleLoveTimedChoice());
+      setTimedNow(0);
+      setSilenceAside(null);
+      setBeatFx(null);
       setEmotion(view.emotion);
       setStance(view.stance);
       setOutcome(view.outcome);
@@ -756,6 +859,14 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         // empty 时也显式清空：同组件切换场景不应沿用上一幕的坏档提示。
         setSaveNotice(plan.notice);
         setCanRecap(false);
+        chapterStartRef.current = false;
+        // 幕首卡（spec §4.5）：系列场景的新局先黑场报幕，点掉/自动放行后才开局。
+        // 恢复存档、坏档路径都不经过这里——只有「从这一幕开始」才报幕。
+        const card = loveChapterCardFor(sc);
+        if (card) {
+          setChapterCard(card);
+          return;
+        }
         void startScene(sc);
       });
     }
@@ -861,6 +972,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       cmdRef.current = null; // 放弃上一次失败的尝试，从已确认历史继续
       stopSpeaking();
       voiceRef.current.cancel(true);
+      setSilenceAside(null); // 玩家重新开口：超时沉默的旁白完成使命
       const learnerMsg: ChatMessage = { id: uid(), role: "learner", text, ts: Date.now() };
       setInput("");
       // learnerTurns / learnerLines 等请求成功后再记（失败回滚见 requestTurn）。
@@ -931,6 +1043,122 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     voiceRef.current.cancel(true);
     void requestTurn(sc, pending.history, pending.showLine, pending.pending);
   }, [sc, requestTurn]);
+
+  /* ------------------------------------------------------------------ *
+   * 限时选择（spec §4.5 / 拍板 Q6）：默认关；只用于高潮幕（Rio 第 6 幕）；
+   * 计时起点 = 台词打字完成 + TTS 朗读完成；超时按「沉默」推进，不失败、
+   * 不扣分、绝不替玩家选已有选项。
+   * ------------------------------------------------------------------ */
+
+  /** 限时选择是否可能启用：阅读设置开 + 当前是登记过的高潮幕（场景级常量）。 */
+  const timedCapable = sc ? loveTimedChoiceEnabled(reader, sc.id) : false;
+
+  /** 起表条件快照（ref 写入，非 setState）：任一条件破掉，下一拍就撤表。 */
+  const timedGateRef = useRef({ active: false, key: "" });
+  useEffect(() => {
+    const sheetsOpen = slotsOpen || readerOpen || memoryOpen || recapOpen || voiceNotice || !!recovery;
+    const activeTyping = typing && npcLine && typing.key === npcLine.key ? typing : null;
+    const typingDone = !npcLine || skip || !activeTyping || activeTyping.n >= activeTyping.total;
+    timedGateRef.current = {
+      active:
+        timedCapable && !!npcLine && !busy && !outcome && !!options && typingDone && !ttsBusy && !sheetsOpen,
+      key: npcLine?.key ?? "",
+    };
+  });
+
+  /** 超时沉默分支：本地 event 旁白 + 请求下一回合。event 行不是任何人的台词。 */
+  const fireTimedSilence = useCallback(() => {
+    const s = sc;
+    // 在途请求或已经收束：宁可少触发，也不能把沉默塞进一个正在进行的回合。
+    if (!s || requestRef.current || endedAtRef.current) return;
+    stopSpeaking();
+    voiceRef.current.cancel(true);
+    const seconds = LOVE_TIMED_CHOICE_SECONDS;
+    const narration = loveSilenceEvent({ seconds, text: t(lang, "love_play_timed_lapsed", { n: seconds }) });
+    historyRef.current = [...historyRef.current, narration];
+    setSilenceAside({ seconds });
+    // showLine=true：模型的下一句正常展示并进 history；learnerTurns 不增加（沉默不是发言）。
+    void requestTurn(s, historyRef.current, true);
+  }, [sc, lang, requestTurn]);
+  const fireTimedSilenceRef = useRef(fireTimedSilence);
+  useEffect(() => {
+    fireTimedSilenceRef.current = fireTimedSilence;
+  });
+
+  /** 幕首卡放行：挂载时因卡片没有开局，点掉（或超时自动放行）后才 startScene 一次。 */
+  const beginAfterChapterCard = useCallback(() => {
+    setChapterCard(null);
+    const s = sc;
+    if (!s || chapterStartRef.current) return;
+    chapterStartRef.current = true;
+    void startScene(s);
+  }, [sc, startScene]);
+
+  // 状态机的唯一写入口：一只 250ms 的钟。机器状态就在本 effect 的闭包里
+  // （不与渲染共享 ref），起表/撤表/超时判定全在定时回调里做，setState
+  // 不发生在 effect 体内（避免同步联级渲染）。
+  useEffect(() => {
+    let machine = idleLoveTimedChoice();
+    let firedKey: string | null = null;
+    const iv = window.setInterval(() => {
+      const gate = timedGateRef.current;
+      const now = Date.now();
+      if (gate.key !== machine.key) firedKey = null; // 换台词：沉默护栏按句重置
+      // 这一句已经沉默过（lapsed）就不再起表：模型响应慢也不能重复触发沉默。
+      const settled = machine.phase === "lapsed" && machine.key === gate.key;
+      const event: LoveTimedChoiceEvent =
+        !gate.active || settled ? { type: "cancel" } : { type: "arm", key: gate.key, now };
+      const armed = reduceLoveTimedChoice(machine, event);
+      let state = armed.state;
+      let lapsed = armed.lapsed;
+      // 计数中的每一拍都走一次 tick：越线时状态机只回报一次 lapsed。
+      if (!lapsed && state.phase === "counting" && state.endsAt !== null) {
+        const ticked = reduceLoveTimedChoice(state, { type: "tick", now });
+        state = ticked.state;
+        lapsed = ticked.lapsed;
+      }
+      if (state !== machine) {
+        machine = state;
+        setTimed(state);
+      }
+      if (machine.phase === "counting") setTimedNow(now);
+      if (lapsed && firedKey !== gate.key) {
+        firedKey = gate.key;
+        fireTimedSilenceRef.current();
+      }
+    }, 250);
+    return () => window.clearInterval(iv);
+  }, []);
+
+  /* ------------------------------------------------------------------ *
+   * 关键拍点动效（spec §4.5）：只在拍点与结局时刻，遵守双重减少动态。
+   * 拍点（作者拍点组出现）= 轻震 + 静音一拍；结局 = 闪白 + 静音一拍。
+   * 恢复存档不重放：applyResume 已把去重 ref 预置成当前值。
+   * ------------------------------------------------------------------ */
+
+  useEffect(() => {
+    const prev = prevBeatGroupRef.current;
+    prevBeatGroupRef.current = beatGroup;
+    if (!beatGroup || prev === beatGroup) return;
+    setBeatFx({ key: `beat:${beatGroup.id}`, ending: false });
+  }, [beatGroup]);
+
+  useEffect(() => {
+    const prev = prevOutcomeRef.current;
+    prevOutcomeRef.current = outcome;
+    if (!outcome || prev === outcome) return;
+    setBeatFx({ key: `ending:${outcome}:${endingId ?? ""}`, ending: true });
+  }, [outcome, endingId]);
+
+  useEffect(() => {
+    if (!beatFx) return;
+    if (readerRef.current.reduceMotion || sysReduced || prefersReducedMotion()) return;
+    if (!beatFx.ending) {
+      void shakeControls.start({ x: LOVE_SHAKE_X }, { duration: LOVE_SHAKE_SECONDS, ease: "easeOut" });
+    }
+    // 静音一拍：BGM 短暂归零再恢复；没有素材/没在播时是 no-op，不报错。
+    ambientRef.current?.beatMute();
+  }, [beatFx, shakeControls, sysReduced]);
 
   const voiceSupported = canListen();
 
@@ -1233,6 +1461,16 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           ? t(lang, "love_play_partial_text")
           : sc.success[lang];
   const tone = scenarioTone(sc);
+  // 镜头语言（spec §4.5）：说话人随拍点/结局推近，开场远景定场；减少动态时保持中景。
+  const reducedFx = reader.reduceMotion || sysReduced;
+  const speakerShot = reducedFx
+    ? "mid"
+    : loveShotForMoment({
+        opening: stance === null && !outcome,
+        reveal: revealKey !== null && revealKey === npcLine?.key,
+        ending: !!outcome,
+        heavyEmotion: isHeavyLoveEmotion(emotion),
+      });
   const lineTextClass =
     reader.textSize === "sm" ? "text-[14px]" : reader.textSize === "lg" ? "text-[18px]" : "text-[15.5px]";
   const slotWhen = (save: LovePlaySave) =>
@@ -1295,8 +1533,12 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         <span className="num hidden sm:inline text-[12px] text-ink-3 whitespace-nowrap">{t(lang, "love_play_turns", { n: Math.max(1, learnerTurns) })}</span>
       </header>
 
-      {/* 背景区：渐变 + 图标装饰 + 立绘 */}
-      <section className="relative flex-1 min-h-0 flex items-end justify-center overflow-hidden" aria-label={sc.title[lang]}>
+      {/* 背景区：渐变 + 图标装饰 + 立绘。轻震只在这块舞台上做单次位移，不常动。 */}
+      <motion.section
+        animate={shakeControls}
+        className="relative flex-1 min-h-0 flex items-end justify-center overflow-hidden"
+        aria-label={sc.title[lang]}
+      >
         <div
           className="absolute inset-0"
           aria-hidden
@@ -1308,7 +1550,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         {/* hidden 揭示：背景短暂提亮（纸色 token 的 color-mix，不写死颜色），
             亮起→保持→淡出约 3s，与徽标节奏一致，不常驻。 */}
         <AnimatePresence>
-          {revealKey && !reader.reduceMotion && (
+          {revealKey && !reducedFx && (
             <motion.div
               key={revealKey}
               initial={{ opacity: 0 }}
@@ -1318,6 +1560,21 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
               className="pointer-events-none absolute inset-0"
               aria-hidden
               style={{ background: "color-mix(in oklch, var(--paper) 26%, transparent)" }}
+            />
+          )}
+        </AnimatePresence>
+        {/* 关键拍点：拍点=轻震伴随的一记短闪，结局=更亮更慢的一记；全部走纸色 token。 */}
+        <AnimatePresence>
+          {beatFx && !reducedFx && (
+            <motion.div
+              key={beatFx.key}
+              initial={{ opacity: beatFx.ending ? 0.5 : 0.28 }}
+              animate={{ opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: beatFx.ending ? 0.9 : 0.45, ease: "easeOut" }}
+              className="pointer-events-none absolute inset-0"
+              aria-hidden
+              style={{ background: "var(--paper)" }}
             />
           )}
         </AnimatePresence>
@@ -1333,10 +1590,12 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
               emotion={c.id === speaker.id ? emotion : "neutral"}
               active={c.id === speaker.id}
               emphasize={c.id === speaker.id && revealKey !== null && revealKey === npcLine?.key}
+              shot={c.id === speaker.id ? speakerShot : "mid"}
+              side={!reducedFx && npcs.length === 1 ? loveSideFor(sc.id, c.id) : null}
             />
           ))}
         </div>
-      </section>
+      </motion.section>
 
       {/* 底部：开放度条 + 揭示徽标 + 台词 + 选项 + 自由输入（或收束界面） */}
       <div className={clsx("relative z-10 shrink-0 border-t border-line bg-paper px-4 lg:px-8 pt-3 pb-safe", outcome && "pb-6")}>
@@ -1353,6 +1612,13 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
 
         {resumed && (
           <p className="mt-2 text-[12px] text-ink-3" role="status">{t(lang, "love_play_resumed")}</p>
+        )}
+
+        {/* 超时沉默的本地旁白：跟着沉默后的那句回复一起在场，玩家再开口时消失。 */}
+        {silenceAside && (
+          <p className="mt-2 text-[12px] italic leading-relaxed text-ink-3" role="status">
+            {t(lang, "love_play_timed_lapsed", { n: silenceAside.seconds })}
+          </p>
         )}
 
         {saveNotice && (
@@ -1414,6 +1680,10 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
 
         {!outcome && (
           <>
+            {/* 限时选择：只在高潮幕 + 设置打开时出现；超时由状态机走沉默分支。 */}
+            {timed.phase === "counting" && timed.endsAt !== null && options && (
+              <LoveTimedCountdown lang={lang} endsAt={timed.endsAt} now={timedNow} />
+            )}
             {options && (
               <PlayOptions
                 options={options}
@@ -1501,6 +1771,19 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           />
         )}
       </div>
+
+      {/* 幕首卡（章节卡）：系列场景的新局先黑场报幕；点击/按键/超时放行后才开局。 */}
+      <AnimatePresence>
+        {chapterCard && (
+          <LoveChapterCardPanel
+            key="chapter-card"
+            lang={lang}
+            card={chapterCard}
+            reduceMotion={reader.reduceMotion || sysReduced}
+            onContinue={beginAfterChapterCard}
+          />
+        )}
+      </AnimatePresence>
 
       <LoveRecap open={recapOpen} onClose={closeRecap} save={recapSave} scenario={sc} />
 
@@ -1623,6 +1906,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
             ["auto", "love_play_reader_auto", "love_play_reader_auto_hint"],
             ["skipRead", "love_play_reader_skip", "love_play_reader_skip_hint"],
             ["reduceMotion", "love_play_reader_motion", "love_play_reader_motion_hint"],
+            ["timedChoice", "love_play_reader_timed", "love_play_reader_timed_hint"],
           ] as const).map(([field, label, hint]) => (
             <div key={field} className="flex items-start justify-between gap-3">
               <div className="min-w-0">
