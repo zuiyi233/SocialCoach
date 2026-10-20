@@ -29,17 +29,18 @@
 - [x] P1 引擎：G08 请求 generation、G09 承接纯读、G20 承诺逐字、G10 系列 v2、G12 `ended`/`terminal`/`maxTurns`、G22 每幕承接/order
 - [x] P1 测试闸门：G11 不写分、G13 回归
 - [x] 存档/续玩 + 回想 sheet + 单句重播（本地实现；刷新续玩与坏档恢复 sheet 的浏览器回归待验）
-- [ ] 外部 TTS 配音同步：64 场景 / 54 人物声线已接；**真机听感、iOS 手势解锁、开麦回声仍待自测**
-- [ ] Rio 第 4 幕已落地；**3–5 人试玩闸门未做**，通过后才写第 5–6 幕与两结局
-- [ ] 下批/只记录：G06 其他 NPC 承接台词（本批只写 Rio 与通用回退）、G17 `extractJSON`、G18 `retryAt`/响应校验、G19 `parseRoleplay`、G24 非 series 入口
+- [x] 外部 TTS 配音同步：64 场景 / 54 人物声线已接；**真机听感、iOS 手势解锁、开麦回声仍待自测**
+- [x] Rio 六幕全部落地（第 5–6 幕试玩闸门按产品决定豁免，**未经玩家验证**）；两命名结局契约测试 + 浏览器走通「把话说清」
+- [ ] 下批/只记录：G06 其他 NPC 承接台词（本批只写 Rio 与通用回退）、G17 `extractJSON`、G18 `retryAt`/响应校验、G19 `parseRoleplay`
+- [x] G24 非 series 入口：P0 已把全部 64 场接进 `/love/play`（含独立场景）
 
-## 恋爱互动叙事与陪伴层（2026-10-20，方案已写，未开工）
+## 恋爱互动叙事与陪伴层（2026-10-20，进行中）
 
 目标：64 场都能像 GALGAME 一样读；关掉再回来，角色在故事里记得上次的选择/承诺。只动恋爱域，真机/真人不在计划内。方案见 [spec-love-interactive-story.md](./specs/spec-love-interactive-story.md)，外部依据见 [galgame-companion-research.md](./refs/galgame-companion-research.md)。
 
-- [ ] P0 入口/阅读层：G24 全量 `/love/play` 入口；auto、skip-read、已读标记、字号/速度；每场 1 自动 + 3 手动槽；章节选择（账本快照）；结局图鉴
-- [ ] P1 陪伴层：设备端记忆档案（来源可追/可编辑/可删/锁定）、回归开场（零模型调用）、承诺扩到 5–6 幕、角色 goal/redLine/secret；导出与擦除覆盖新键
-- [ ] P2 Rio 5–6 + `said-it-plain` / `clean-parting`：人工闸门按产品决定豁免，验收记录标「未验证」
+- [x] P0 入口/阅读层：G24 全量 `/love/play` 入口；auto、skip-read、已读标记、字号/速度；每场 1 自动 + 3 手动槽；章节选择（账本快照）；结局图鉴（2026-10-20 交付）
+- [ ] P1 陪伴层：设备端记忆档案（来源可追/可编辑/可删/锁定）、回归开场（零模型调用）、承诺扩到 5–6 幕、角色 goal/redLine/secret；导出与擦除覆盖新键（进行中）
+- [x] P2 Rio 5–6 + `said-it-plain` / `clean-parting`：人工闸门按产品决定豁免，验收记录标「未经玩家验证」（2026-10-20 交付，浏览器真实走通「把话说清」）
 - [ ] P3 电影感：章节卡、景别/站位、关键拍点动效、限时选择（默认关闭）、BGM/SFX/CG manifest
 - [ ] 横切：G17/G18 模型契约健壮性、G06 按人物承接句、浏览器 E2E 与 live 六类回应探针
 
