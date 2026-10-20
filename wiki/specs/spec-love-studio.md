@@ -63,6 +63,8 @@ Love Studio（独立服务，AnimaVN fork）
 
 **v1 选 A**：它保留 AnimaVN 的完整能力，不把主站变成多租户 Python 服务，也不破坏「主站无账号/无服务端存储」。v2 是单独的产品决策，不是 v1 的技术债。
 
+> 健康检查现状（2026-10-21）：AnimaVN 后端 health 在 `:8000`，`:5180` 是 vite dev/preview（`strictPort`）；已用 vite 反代 `/api → :8000`，因此主站检测用 `http://127.0.0.1:5180/api/health` 即可，契约不变（后端未起时 vite 反代回 502，主站应报 degraded 而非已运行）。
+
 ### 3.3 主站与 Studio 的桥
 
 - **Persona**：Studio 做完整 Tavern 卡/世界书导入；主站导出 `socialcoach.love-persona.v1` / `.scpersona`（name / lang / bio / goals），Studio 导入为 persona；主站恋爱系统反向只吃 `.scpersona` + 基础 JSON（2026-10-21 拍板）。不传密钥、不传练习记录。
@@ -77,7 +79,7 @@ Love Studio（独立服务，AnimaVN fork）
 - **恋爱优先**：角色可以亲近、主动、讨好；不要求阻力、不需要每场有拒绝；冲突只服务戏剧，不服务教学。
 - **不做教学评分**：不显示能力雷达、不写 `assess`、不强制复盘；可以有可选的「关系回顾」，但由用户主动打开。
 - **内容分级**：默认 SFW；成人内容只在本地版、年龄门控、默认关闭；未成年人、真人肖像、非自愿内容是硬限制。
-- **UGC 授权**：用户对导入的卡/图/音负责；manifest 记录 `source` / `license`；不随仓库分发第三方素材。
+- **UGC 授权**：用户对导入的卡/图/音负责；UGC / 新资产 manifest 一律**同时**记录 `source` 与 `license`（内置语料只有 `source`、无 `license`，`license` 只在 ambient 素材 manifest），不随仓库分发第三方素材。
 - **不冒充主站**：Studio 的品牌是「SocialCoach · Love Studio」，但不继承主教练的定位与承诺；入口文案明确「生成式故事，不是教练评分」。
 
 ## 5. P0–P3
@@ -157,6 +159,8 @@ Love Studio（独立服务，AnimaVN fork）
 | 上游分叉漂移 | 记录上游 commit；只同步安全/关键修复；不追全量功能 |
 
 **待拍板**：v1 是否接受本地安装；Studio 默认语言；生图默认关还是手动；TTS 默认浏览器还是本地 GPT-SoVITS；Studio 放本仓库还是独立仓库。
+
+**已拍板（2026-10-21）：Studio 本地版 BYOK 默认存进自己的本地 SQLite，并提供「记住密钥」开关（默认开）。** 关掉时密钥只在当前进程内存里，重启需重填。理由：平台不变式「密钥不落库」针对主站（每请求携带、不经服务端）；本地伴生应用若不落库，每次重填会让 BYOK 不可用。约束：密钥不进日志、不回显、不提交；导出/擦除不包含密钥。
 
 ## 8. 非目标
 

@@ -72,6 +72,8 @@ interface LoveRelationshipState {
 }
 ```
 
+> **实现命名（2026-10-21 订正）**：类型名仍叫 `LoveRelationshipState`，但新模块必须另起文件 `app/src/lib/love-relationship.ts`——`LoveRelationshipState` 这个名字已被 Rio 路线账本 `app/src/lib/love-relationship-state.ts`（`RioRelationshipState`：promises / boundaries / flags / finalDecision）占用，**不得复用或覆盖 Rio 的模块**。`LoveRelationshipState.v` 是关系子形状自身的版本号，与 story store 的 v2/v3（见 §6）无关。
+
 - 列表页用**定性描述**（「她最近会先问你今天怎么样」），不展示可刷的百分比；调试/无障碍场景可用 `role="meter"` 的三段式，但不做成主 UI。
 - `stance` 仍是单回合的开放程度，不直接等于关系状态；关系状态由多个稳定节点计算，避免一次模型波动就跳档。
 - 每次场景结束最多推进一档；同一场景同一节点幂等，重复刷同一幕不涨。
@@ -107,7 +109,7 @@ interface LoveRelationshipState {
 
 ## 6. 数据与隐私
 
-- 关系状态放进 `socialcoach.love-play.story`（`LoveStoryStore`）新增的 `relationships` 映射；schema 升 v2，旧 v1 读取时补空对象。**不新开独立 slot**，避免再欠一次导出/擦除。
+- 关系状态放进 `socialcoach.love-play.story`（`LoveStoryStore`）新增的 `relationships` 映射。store **已经是 v2**（v2 已加 `slots`；v1→v2 迁移在 `app/src/lib/love-story.ts`），加 `relationships` 实为 **v2→v3**；旧 v2（及 v1 迁移后）读取时补空对象。**不新开独立 slot**，避免再欠一次导出/擦除。
 - 导出、恢复、擦除沿用现有 `LOVE_PLAY_PREFIX` 前缀与「重置全部数据」路径；用户可以查看/删除单条 signal，也可以「忘掉这段关系」。
 - 关系状态不写主教练，不进 `/api/assess`、`/api/pattern`、首页教练回访、能力雷达。
 - 不引入账号或服务端存储；跨标签页继续用 revision + 事件总线。
@@ -117,7 +119,7 @@ interface LoveRelationshipState {
 - 纯函数 reducer：三个维度只在允许的节点变化；同场景同节点幂等；每场最多一档；上限与时间窗正确。
 - 主动关心：达到阈值才触发；每场 1 次、24 小时 1 次、夜间静音；关闭开关后不出现；不写分。
 - 关系回顾：只引用自由输入；全程点选项时只描述剧情；跳过不留下副作用。
-- 数据：v1→v2 迁移不丢档；导出/恢复/擦除覆盖 relationships；跨标签页冲突不静默覆盖。
+- 数据：v2→v3 迁移不丢档（旧 v1/v2 读取时补空对象）；导出/恢复/擦除覆盖 relationships；跨标签页冲突不静默覆盖。
 - 浏览器：在 Rio 一场与一条自定义场景走通「关系状态 → 主动关心 → 关系回顾」；桌面 Chromium 通过即可，真机另记。
 - `pnpm check` / `pnpm build` 全绿。
 

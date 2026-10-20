@@ -448,15 +448,16 @@ AppProviders 在确认默认 API 不可用时自动打开可关闭的配置弹�
 - **配音按人物声线。** `lib/love-voices.ts` 用 `LOVE_VOICES_BASE`（角色 id）+ `LOVE_VOICES_SCENE`（`scenarioId:characterId` 覆盖）给 64 个恋爱场景的 54 个 NPC id 定声线；`speak(text, lang, speaker?)` 把 `SpeakerVoice` 透传给设备音色选择，回想单句重播走 `playNpcLine` 而不是排队 `speak()`。
 - **Rio 第 4 幕是「账本 + 作者拍点」。** `lib/love-relationship-state.ts` 定义 `RioRelationshipState`（承诺 / 边界 / 冲突 / 仪式 / flags / quotes，无分数）与两结局谓词；`lib/rio-route.ts` 定义开场变体（邮件见过 / 新邮件 / 中性）、两组拍点（先问她想要什么、答复前的下一步）与 `applyRioBeat`——只接受逐字选项文本当证据，只写本幕允许字段。`routeState` 存 `{rio, appliedBeats}` 快照；收束时把 `lastAct:4`、`lastOutcome`、`stale:false` 的账本写进 `routes[rio]`。第 5–6 幕与两结局的完整场景**尚未写**，等 3–5 人试玩闸门。
 
-## 恋爱半教练与 Love Studio（2026-10-21，方案）
+## 恋爱半教练与 Love Studio（2026-10-21，批次 A 主站侧与 Studio 基座已实现）
 
-方向见 [14-stage-f.md](./14-stage-f.md)，契约见 [spec-love-semi-coach.md](./specs/spec-love-semi-coach.md) 与 [spec-love-studio.md](./specs/spec-love-studio.md)。这一节只记运行时与数据边界；**尚未实现**。
+方向见 [14-stage-f.md](./14-stage-f.md)，契约见 [spec-love-semi-coach.md](./specs/spec-love-semi-coach.md) 与 [spec-love-studio.md](./specs/spec-love-studio.md)。这一节记录运行时与数据边界。**批次 A（Studio 入口 / 基座、Persona 单一 schema + 编辑器、Studio 侧 `.scpersona` 与密钥策略）已实现并通过桌面 Chromium 验收（mock 生成链路；真实 BYOK 未验证）**；半教练关系状态（F1）、桥（F5）、故事包 P2 与完整 Tavern 工作台（F6 P2）尚未实现，下列「计划」部分仍为方案。
 
-- **三套契约，两个新增运行时。** 主教练（Next）不变；剧本模式继续在 Next 里；恋爱半教练在现有 `/love/play` 上增加关系状态与可选回顾；Love Studio 是独立的 AnimaVN fork（React + Vite 前端，FastAPI + SQLite 后端），不并入主站。
-- **关系状态落在 story slot。** `socialcoach.love-play.story` 升 v2，新增 `relationships[characterKey]`（熟悉 / 信任 / 心动 + 最近 20 条 signal）；导出 / 擦除沿用 `LOVE_PLAY_PREFIX`；不新增独立 slot，避免再欠一次导出义务。旧 v1 读取时补空对象。
-- **Studio 不共享主站存储。** v1 本地伴生：用户运行 Studio，主站链接 `http://127.0.0.1:5180`；persona / 故事包 / 角色包通过显式文件或 URL 交接。v2 托管才引入账号、隔离数据库 / 对象存储、GPU TTS、生图代理。
-- **不把 Studio 的 Python/SQLite 塞进 `app/`；也不把主站的账号 / 存储带进 Studio。** 两套运行时各自发布、各自备份；主站的 `pnpm check` / `build` 不依赖 Studio。
+- **两个运行时。** 主站 Next.js（`app/`，Vercel / ModelScope）与 Love Studio（`love-studio/`，AnimaVN fork：React + Vite 前端 + FastAPI + SQLite 后端）。两套运行时各自启动、备份与发布；主站的 `pnpm check` / `build` 不依赖 Studio，也不把 Python/SQLite 塞进 `app/`；主站账号 / 服务端存储不进 Studio。
+- **本地桥只走文件 + 健康检查。** 主站与 Studio 不共享服务端存储；交接仅通过 `.scpersona` 文件（zip pack）与 `http://127.0.0.1:5180/api/health` 健康检查。AnimaVN 后端 health 在 `:8000`，`:5180` 是 vite dev/preview（`strictPort`），已用 vite 反代 `/api → :8000` 满足该地址。主站 `love-studio-link.ts` 探测三态 `up | degraded | down`：先 `no-cors` 判连通、再 `cors` 读版本；健康检查非 `2xx + status==="ok"`（例如反代回 502、后端没起来）报 degraded，不谎报「已运行」。
+- **persona slot 与 archive allowlist 双向注册。** 主站 persona 设备库 slot `socialcoach.love-play.personas` 已注册进 `archive.ts` 的 `loveSlotShape` / `loveValueShape` / `LovePlaySchema` / `parseLovePlaySlot`。**纪律：导出是前缀驱动（`backup.ts` 扫 `LOVE_PLAY_PREFIX`），恢复是 allowlist——任何新 slot 必须同时注册两处，否则导出得到、恢复被隔离。** F1/F5 每个新 slot 都要照做。
+- **关系状态落在 story slot。** `socialcoach.love-play.story`（`LoveStoryStore`）**已经是 v2**（v2 加了 `slots`；v1→v2 迁移在 `app/src/lib/love-story.ts`）；半教练新增 `relationships[characterKey]`（熟悉 / 信任 / 心动 + 最近 20 条 signal）实为 **v2→v3**。导出 / 擦除沿用 `LOVE_PLAY_PREFIX`；不新增独立 slot，避免再欠一次导出义务。旧 v1/v2 读取时补空对象。
+- **Studio 不参与关系养成 / 能力分。** 关系状态在 Studio 只读、默认折叠；Studio 不写 `loveProficiency` / `practiceDays` / 关系状态，不提供提升关系状态的入口、数值或提示。跨系统零能力写入。
 - **桥接边界。** Studio 的故事包只带摘要 / 角色包引用 / 关键选择 / 结局，不自动写 `loveProficiency` / 关系状态；主站导入后由用户确认是否初始化。Studio 不读取主站的 `hidden` / `secret` / 结局谓词。
-- **关系档案与共享人设。** `LoveArchive` 是设备端的跨系统档案（人物 / 故事 / 记忆 / 关系 / 解锁）；Studio 与半教练通过 `.sclove` / `.scpersona` 或本地桥显式交接。人设只有一份 schema：Studio 全量 Tavern 工作台，恋爱系统聚焦编辑器 + 导入导出。权威矩阵、分支/冲突与局外成长见 [spec-love-bridge.md](./specs/spec-love-bridge.md) §4；不做实时同步，不自动写能力分。
-- **2026-10-21 拍板。** Studio 完整导入 Tavern 卡；恋爱系统只吃 `.scpersona` + 基础 JSON，完整 PNG/世界书引导到 Studio（离线直吃卡须共享 Studio parser + round-trip 测试）。玩家 persona 与教练 profile 分表，只做显式「复制到教练档案」。Studio 的关系状态只读、默认折叠。局外成长 = 叙事阶段（陌生/认识/熟络/亲近）+ 关系图鉴 + 故事收藏，无 EXP/战力；等级即便出现也只读派生、不能兑换。
-- **美术升级并行。** [spec-love-scripted-art.md](./specs/spec-love-scripted-art.md) 只改 `/love/play` 的舞台与 beat，不引入运行时生图，也不依赖 Studio。
+- **关系档案与共享人设。** `LoveArchive` 是设备端的跨系统档案（人物 / 故事 / 记忆 / 关系 / 解锁）；Studio 与半教练通过 `.scpersona` 或本地桥显式交接。人设只有一份 schema：主站 `love-persona.ts` 用 `z.looseObject` 保留未知字段，`.scpersona` 为 zip（manifest / persona / 可选 worldbook / style / assets）；Studio 侧 `AnimaBackend/app/scpersona.py` 复刻同一套 `canonicalJson` / `cardHash` / 错误码 / 上限，并用共享 fixtures 做跨语言契约测试。Studio 全量 Tavern 工作台，恋爱系统聚焦编辑器 + 导入导出。权威矩阵、分支/冲突与局外成长见 [spec-love-bridge.md](./specs/spec-love-bridge.md) §4；不做实时同步，不自动写能力分。
+- **2026-10-21 拍板。** Studio 完整导入 Tavern 卡；恋爱系统只吃 `.scpersona` + 基础 JSON，完整 PNG/世界书引导到 Studio（离线直吃卡须共享 Studio parser + round-trip 测试）。玩家 persona 与教练 profile 分表，只做显式「复制到教练档案」。Studio 的关系状态只读、默认折叠。局外成长 = 叙事阶段（陌生/认识/熟络/亲近）+ 关系图鉴 + 故事收藏，无 EXP/战力；等级即便出现也只读派生、不能兑换。Studio 本地版 BYOK 默认存本地 SQLite + 「记住密钥」开关（默认开，关掉只在进程内存），见 [spec-love-studio.md](./specs/spec-love-studio.md) §7；已实现：关闭时把已存密钥从 DB 移入进程内存，重启需重填，密钥不进日志 / 不回显 / 不提交。
+- **美术升级并行。** [spec-love-scripted-art.md](./specs/spec-love-scripted-art.md) 只改 `/love/play` 的舞台与 beat，不引入运行时生图，也不依赖 Studio。`app/public/love-scenes/` 目前不存在，F3 从零建 manifest + 目录。

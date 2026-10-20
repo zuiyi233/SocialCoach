@@ -2,13 +2,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, GraduationCap, Play, Trophy } from "lucide-react";
+import { ArrowRight, GraduationCap, Play, Trophy, UserRound } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { Chip, Empty, Page } from "@/components/ui";
 import { SkillTag } from "@/components/SkillBits";
 import { ScenarioCover } from "@/components/ScenarioCover";
 import { LoveProficiency } from "@/components/LoveProficiency";
 import { LoveCarryFollowUp } from "@/components/love/LoveCarryFollowUp";
+import { LoveEntry } from "@/components/love/LoveEntry";
 import { SCENARIOS, THEORIES, CASES } from "@/data/corpus";
 import type { Scenario } from "@/data/corpus/types";
 import { LOVE_TOPICS, loveTopicById, type LoveTopicId } from "@/data/corpus/love-topics";
@@ -130,8 +131,23 @@ export default function Love() {
         {/* 跟进卡排在最上面：这一趟来访要问的那一句，比列表里还有什么可练更近。 */}
         <LoveCarryFollowUp lang={lang} />
 
+        {/* 两个主入口并列：Studio（初始实践）与剧情模式（继续关系）。 */}
+        <LoveEntry lang={lang} />
+
+        {/* 人设编辑器：与两个入口同级的一张卡，排在入口段下面。 */}
+        <Link href="/love/persona" className="press card card-link p-4 flex items-center gap-3">
+          <span className="shrink-0 w-10 h-10 rounded-full grid place-items-center bg-accent-soft text-accent-deep">
+            <UserRound size={19} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold text-[14px]">{t(lang, "love_persona_entry_title")}</span>
+            <span className="block text-[12px] text-ink-3 mt-0.5">{t(lang, "love_persona_entry_sub")}</span>
+          </span>
+          <ArrowRight size={17} className="shrink-0 text-accent-deep" />
+        </Link>
+
         {LOVE_SERIES.length > 0 && (
-          <section aria-label={t(lang, "love_mode_title")} className="flex flex-col gap-3">
+          <section id="love-series" aria-label={t(lang, "love_mode_title")} className="flex flex-col gap-3 scroll-mt-24">
             <div>
               <h2 className="display text-[20px]">{t(lang, "love_mode_title")}</h2>
               <p className="text-[12px] text-ink-3 mt-1">{t(lang, "love_mode_sub")}</p>

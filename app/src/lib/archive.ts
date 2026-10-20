@@ -5,6 +5,7 @@ import type {CarryPromiseClass} from '@/data/corpus/love-carry-lines';
 import {LOVE_CARRY_CAP, LOVE_CARRY_KEY, LOVE_CARRY_TEXT_MAX, LOVE_PLAY_PREFIX, type LoveCarryState} from './love-carry-store';
 import {LOVE_MEMORY_KEY, LOVE_MEMORY_SCOPE_MAX, LOVE_MEMORY_TEXT_MAX, LOVE_MEMORY_TOTAL_MAX} from './love-memory';
 import {LOVE_STORY_KEY, LoveStoryStoreSchema} from './love-story';
+import {LOVE_PERSONA_KEY, LovePersonaStoreSchema} from './love-persona-store';
 import {LOVE_READ_KEY} from './love-read';
 import {LOVE_READER_KEY} from './love-reader-settings';
 
@@ -130,7 +131,9 @@ export const LoveMemoryStoreSchema=z.object({
  entries:z.record(text.max(240),z.array(LoveMemoryEntrySchema).max(LOVE_MEMORY_SCOPE_MAX)),updatedAt:num,
 }).superRefine((s,ctx)=>{if(Object.values(s.entries).reduce((n,l)=>n+l.length,0)>LOVE_MEMORY_TOTAL_MAX)ctx.addIssue({code:'custom',path:['entries'],message:'Too many memory entries'});});
 const LoveMemorySlotSchema=z.union([LoveMemoryStoreSchema,LovePlayUnreadableSchema]);
-type LoveSlotShape='carry'|'story'|'series'|'read'|'reader'|'memory';
+/** 人设库 slot：与 story/memory 同前缀、形状自成一类；恢复必须原样带回未知字段（loose Persona）。 */
+const LovePersonaSlotSchema=z.union([LovePersonaStoreSchema,LovePlayUnreadableSchema]);
+type LoveSlotShape='carry'|'story'|'series'|'read'|'reader'|'memory'|'persona';
 /** 键名决定形状；其余同前缀键不属于这份闭合联合，导出与恢复都不越界。 */
 function loveSlotShape(key:string):LoveSlotShape|null{
  if(key===LOVE_CARRY_KEY)return 'carry';
@@ -138,6 +141,7 @@ function loveSlotShape(key:string):LoveSlotShape|null{
  if(key===LOVE_READ_KEY)return 'read';
  if(key===LOVE_READER_KEY)return 'reader';
  if(key===LOVE_MEMORY_KEY)return 'memory';
+ if(key===LOVE_PERSONA_KEY)return 'persona';
  if(key.startsWith(LOVE_SERIES_PREFIX)&&key.length>LOVE_SERIES_PREFIX.length)return 'series';
  return null;
 }
@@ -150,9 +154,10 @@ function loveValueShape(value:unknown):LoveSlotShape|null{
  if('seen' in value&&'updatedAt' in value)return 'read';
  if('textSize' in value&&'speed' in value&&'auto' in value)return 'reader';
  if('entries' in value&&'revision' in value)return 'memory';
+ if('personas' in value&&'revision' in value)return 'persona';
  return null;
 }
-export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveStoryStoreSchema,LoveSeriesProgressSchema,LoveReadSlotSchema,LoveReaderSlotSchema,LoveMemoryStoreSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
+export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveStoryStoreSchema,LoveSeriesProgressSchema,LoveReadSlotSchema,LoveReaderSlotSchema,LoveMemoryStoreSchema,LovePersonaStoreSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
  for(const [key,slot] of Object.entries(slots)){
   const target=loveSlotShape(key);
   if(!target){ctx.addIssue({code:'custom',path:[key],message:'Love-play slot key is not part of the archive'});continue;}
@@ -171,6 +176,7 @@ export function parseLovePlaySlot(key:string,value:unknown){
   case 'read':return LoveReadSlotSchema.safeParse(value);
   case 'reader':return LoveReaderSlotSchema.safeParse(value);
   case 'memory':return LoveMemorySlotSchema.safeParse(value);
+  case 'persona':return LovePersonaSlotSchema.safeParse(value);
   default:return {success:false as const};
  }
 }

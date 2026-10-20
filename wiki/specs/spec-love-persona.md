@@ -176,7 +176,7 @@ assets/refs/*        // 可选
 ## 8. 安全、隐私与授权
 
 - 不引入账号或服务端存储（v1）；人设与资产留在设备/本地 Studio。
-- 导入的第三方卡/图/音由用户负责；manifest 记录 `source` / `license`；不随仓库分发。
+- 导入的第三方卡/图/音由用户负责；`.scpersona` / UGC 资产 manifest 一律**同时**记录 `source` 与 `license`——内置语料只有 `source`、无 `license`（`license` 只在 ambient 素材 manifest），新资产沿 ambient 纪律 source + license 双记；不随仓库分发。
 - 不执行卡内脚本、HTML、prompt_order；提示注入告警。
 - 导出/擦除覆盖 persona、资产、世界书、关系档案；删除后不留隐藏副本。
 - 默认 SFW；成人内容本地/年龄门控；未成年人、真人、非自愿是硬限制。

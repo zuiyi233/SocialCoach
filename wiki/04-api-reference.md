@@ -171,7 +171,23 @@ HTTP / 流式错误的 `modelIssue:null` 明确表示任务自身错误，例如
 
 **错误**：无模型 key → `503 {"modelIssue":"setup"}`；body 非法或没有非学习者 NPC → `400`（`taskInput` 口径）；LLM 拒绝 → `422`。
 
-**2026-10-21 计划中（未实现）**：恋爱半教练会在现有请求 / 响应上增加可选的关系上下文与 `beats`（见 [spec-love-semi-coach.md](./specs/spec-love-semi-coach.md)、[spec-love-scripted-art.md](./specs/spec-love-scripted-art.md)）；Love Studio 走独立运行时，不新增到本 API 表；故事 / 人设交接走 `.sclove` / `.scpersona` pack 或 Studio 本地桥，不新增主站 API。现有 `/api/love-play` 契约在落地前不变。
+**2026-10-21 计划中（未实现）**：恋爱半教练会在现有请求 / 响应上增加可选的关系上下文与 `beats`（见 [spec-love-semi-coach.md](./specs/spec-love-semi-coach.md)、[spec-love-scripted-art.md](./specs/spec-love-scripted-art.md)）；Love Studio 走独立运行时，不新增到本 API 表；故事 / 人设交接走 `.scpersona` pack 或 Studio 本地桥，不新增主站 API。现有 `/api/love-play` 契约在落地前不变。
+
+### Love Studio 本地运行时（`love-studio/`，不是主站 API route）
+
+Love Studio 是独立于主站的 AnimaVN fork 本地运行时（React + Vite 前端 + FastAPI + SQLite 后端），**不是主站 API route**；端点只在 `127.0.0.1:5180` 可达（vite，反代 `/api → 127.0.0.1:8000`），与主站同形态的 `/api/health` 不冲突。以下端点在批次 A 已落地（2026-10-21），以 `love-studio/AnimaBackend/app/api/` 的代码为准。
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/api/health` | Studio 后端健康检查（FastAPI `main.py`，经 vite 5180 反代），返回 `{"status":"ok","version":"…","db":"ok"}` |
+| POST | `/api/scpersona/inspect` | multipart `file`（`.scpersona` zip）；解包并校验 schema / 版本 / `cardHash` / 资产哈希，返回 manifest / persona / worldbook / style / assets / notices，不落库 |
+| POST | `/api/scpersona/import` | multipart `file`；校验通过后落成 TavernCard。未知字段原样存进 `extensions.studio_scpersona.persona`，导出可带回；同名不同 id 会新建一张并列卡，不静默覆盖。失败返回 `detail.code`（共享 `LOVE_PERSONA_ERROR` 错误码：`persona/bad-json`、`persona/bad-shape`、`persona/bad-version`、`persona/pack-hash`、`persona/pack-too-large` 等，见 `app/src/lib/love-persona.ts`） |
+| GET | `/api/scpersona/export/{card_id}?public_only=0\|1` | 导出 `.scpersona` zip；导入过的卡以 `extensions.studio_scpersona.persona` 为底，Studio 原生卡按 Tavern 字段反推 Persona；`public_only=1` 剥 `storyConstraints.secret` |
+| GET / PUT | `/api/settings/{key}` | Studio 全局设置（任意 JSON 值）；键规则见 `AnimaBackend/app/api/app_settings.py`：`^[a-z0-9][a-z0-9_.-]{0,63}$`，`secret.*` 前缀禁止经此读写；未存过的 GET 返回 `{key, value: null}` 而非 404。`security.remember_api_keys`（bool，默认 true）是特例：PUT 会走密钥策略，关闭时把已存密钥从 SQLite 移入进程内存 |
+
+**健康检查现状（2026-10-21）**：AnimaVN 后端 health 在 `:8000`，`:5180` 是 vite dev/preview（`strictPort`）；已用 vite 反代 `/api → :8000`，所以主站只需探测 `http://127.0.0.1:5180/api/health`。主站侧不新增 API route；故事 / 人设交接走 `.scpersona` pack 或 Studio 本地桥。
+
+> 注：`.scpersona` 的跨语言契约由 `AnimaBackend/tests/test_scpersona.py` 与 `app/tests/core/love-persona*.test.ts` 共同钉住；Python 侧 `compute_card_hash` 必须等于 TS 侧对同一 fixture 的结果（`with-unknown.scpersona` 的 manifest 值）。
 
 ### `POST /api/track`
 

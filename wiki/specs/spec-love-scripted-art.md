@@ -52,7 +52,8 @@ interface LoveSceneVisual {
 
 - 静态 manifest：`public/love-scenes/manifest.json`，与 `public/love-portraits/manifest.json` 同纪律。
 - 缺失/坏条目静默降级到现有渐变；不显示半张背景。
-- 资产必须登记 `source` / `license`；没有出处的图不进 manifest（与 ambient 同一条纪律）。
+- 资产必须**同时**登记 `source` 与 `license`；没有出处的图不进 manifest。内置语料只有 `source`、无 `license`（`license` 只在 ambient 素材 manifest），**新资产 manifest 一律 source + license 双记**，沿 ambient 纪律。
+- **现状（2026-10-21）**：`app/public/love-scenes/` 目前**不存在**、没有任何背景 / CG 资产文件；F3 是**从零建目录 + manifest**，不是补挂到既有目录——首批产物就是目录、首家 manifest 与首批素材一起落地。
 
 ### 2.3 CG
 
@@ -73,11 +74,13 @@ interface LovePlayBeat {
 }
 
 interface LovePlayTurn {
-  line: L;                    // 兼容旧路径；beats 存在时仍为拼接后的完整台词
-  beats?: LovePlayBeat[];     // 2–4 句；无 beats 时按 line + turn.emotion 渲染
+  line: L;                    // 兼容旧路径；lineBeats 存在时仍为拼接后的完整台词
+  lineBeats?: LovePlayBeat[]; // 代码内字段名（2–4 句）；无时按 line + turn.emotion 渲染
   // ...现有字段不变
 }
 ```
+
+> **命名（2026-10-21 订正）**：代码内字段用 `lineBeats`，不叫 `beats`——`beats` 已被 **Rio 作者拍点**占用（`RioBeatGroup.beats` / `applyAuthoredBeat`，`app/src/lib/rio-route.ts` 与 `PlayScene.tsx`），`beat` 还用于 BGM 拍点。对外契约字段仍可叫 `beats`；**渲染必须区分作者拍点与行拍点**：作者拍点驱动账本状态 / 结局（证据只取 `beat.text`），行拍点只驱动逐句台词与表情。两处不要共用一个名字。
 
 - 后端 schema / prompt 只在场景开关打开时要求 `beats`（先 Rio + custom），避免 66 场全部涨价。
 - 客户端 zod 校验：2–4 条、每条非空、emotion 合法；不合法则丢弃 beats，回退整句，不让坏数据上屏。
@@ -93,7 +96,7 @@ interface LovePlayTurn {
 
 ## 4. 素材与生产
 
-- **第一批**：Rio 六幕各 1 张背景（6 张）+ 2–3 张 CG；用现有 ComfyUI + Qwen 2.1 管线或 ImageGen 生成，832×1248 / 16:9 按舞台需要裁切；manifest 记录模型、prompt、seed、source。
+- **第一批**：Rio 六幕各 1 张背景（6 张）+ 2–3 张 CG；用现有 ComfyUI + Qwen 2.1 管线或 ImageGen 生成，832×1248 / 16:9 按舞台需要裁切；manifest 记录模型、prompt、seed、source、license。
 - **第二批**：其余 5 条剧情线（Eve / 异地 / 初见 / 信任）按线补背景与 CG。
 - **第三批**：独立场景按主题复用背景包（咖啡馆 / 书店 / 餐桌 / 视频通话 / 玄关），不要求一场一张。
 - 生成脚本不进运行时；运行时只加载静态文件。资产大小控制在首屏可接受范围，必要时 WebP/AVIF。

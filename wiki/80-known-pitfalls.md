@@ -1,6 +1,41 @@
-<!-- Last verified: 2026-10-20 | Current stage: E -->
+<!-- Last verified: 2026-10-21 | Current stage: F -->
 
 # 踩坑记录
+
+### 导出是前缀驱动、恢复有 allowlist：新 slot 必须两处同时注册（2026-10-21）
+
+- **现象：** 新增一个 `socialcoach.love-play.*` 的 slot 后，导出文件里能看到它，但恢复 / 导入后被「隔离」——数据回到设备端却读不到。
+- **原因：** `backup.ts` 扫 `LOVE_PLAY_PREFIX`（前缀驱动）把 slot 快照进导出，但 `archive.ts` 的 `loveSlotShape` 是 **allowlist**；没在 allowlist 注册的 slot，导出得到、恢复被丢弃。
+- **解法：** 任何新 slot 必须同时注册两处（`backup.ts` 的前缀 + `archive.ts` 的 `loveSlotShape` / `loveValueShape` / `LovePlaySchema` / `parseLovePlaySlot`）。persona slot（`socialcoach.love-play.personas`）已按此办理；F1/F5 每个新 slot 都要照做。
+- **教训：** 前缀让导出「长得会成功」，allowlist 让恢复「悄悄失败」——两个方向必须成对维护；只改一边就是在导出/擦除契约上欠债。
+
+### anthropic 1.x 换成 httpx2，旧 `http_client` 构造直接抛 TypeError（2026-10-21）
+
+- **现象：** `tests/test_anthropic_provider.py` 20 个用例全红，首条 traceback 是 `AnthropicProvider.__init__` 构造 `AsyncAnthropic` 时抛 `TypeError: Invalid http_client argument; httpx.AsyncClient is from the httpx package, but this SDK uses httpx2`。测试文件与 `app/llm/anthropic_provider.py` 都和上游快照逐字节相同，不是本 fork 改坏的。
+- **原因：** `anthropic >= 1.0` 的依赖从 `httpx` 换成了 `httpx2`（`anthropic-1.16.0.dist-info/METADATA` 写 `Requires-Dist: httpx2<3,>=2.0.0`），而 `app/llm/http_client.py` 返回的是 `httpx.AsyncClient`。SDK 在构造函数里就拒绝，不用等发请求——所以任何 Claude 连接在真实对话 / 配对请求时也会 500。
+- **解法：** `AnimaBackend/pyproject.toml` pin `anthropic>=0.40,<1`（落到 0.125.0，最后一个 httpx 版本线）；`httpx 0.28.1` 满足其 `httpx<1` 依赖。不要只 pin `<1.16`——1.0.0 起就已经是 httpx2。若未来要升 1.x，必须同时改 `http_client.py`、`nai.py` 的异常类型与测试 mock。
+- **教训：** 第三方 SDK 的「最小版本号变化」可能换掉底层 HTTP 栈；先看 `dist-info/METADATA` 的 `Requires-Dist`，不要按测试文件名猜根因。
+
+### 跨语言 canonical JSON 的坑在数字和转义，不在键排序（2026-10-21）
+
+- **现象：** Python 复刻 `.scpersona` 的 `cardHash` 时，键排序一致但哈希仍对不上；典型差异是 `1.0`（Python `"1.0"` vs JS `"1"`）、`1e-7`（Python repr `"1e-07"` vs JS `"1e-7"`）和非 ASCII 被 `json.dumps` 默认转义。
+- **原因：** JS 所有 number 都是 double，`String()` 有 1e21 / 1e-6 阈值与指数格式；`JSON.stringify` 对非 ASCII 原样输出、控制字符短转义。Python 的 `repr(float)` 与 `json.dumps(ensure_ascii=True)` 都不是同一套规则。
+- **解法：** 显式实现 JS 兼容的数字格式化（`int` 在 2^53 内直接 str，超过按 double 舍入；float 走 ECMA-262 ToString）与字符串转义；用 `ensure_ascii=False`；共享 fixtures 的 `manifest.cardHash` 作为跨语言门禁（`AnimaBackend/tests/test_scpersona.py` 断言 `19f9dd…`）。
+- **教训：** 「按键名排序」只是规范化的一半；跨语言哈希契约必须用固定 fixture 钉死，不能两边各自序列化后「看起来一样」。
+
+### 生成文件被换成 CRLF 会让 `test_generated_ts_is_fresh` 假失败（2026-10-21）
+
+- **现象：** 全量 pytest 只剩 `tests/test_contracts.py::test_generated_ts_is_fresh` 失败，断言在 index 114 处 `\r != \n`。
+- **原因：** `frontend/src/debug/generated/contracts.ts` 被某个 Windows 工具写成了 CRLF，而 `app/contracts.py` 用 `newline="\n"` 生成 LF；测试按字节比较。
+- **解法：** 在 `AnimaBackend` 下跑 `python -m app.contracts` 重新生成（生成器本身就是 LF）。不要把生成物加进手工编辑流程。
+- **教训：** 「生成物过期」的报错先看行尾，再看内容；Windows 上任何写文件工具都可能改变行尾。
+
+### CORS allowlist 与测试会随主站域名漂移（2026-10-21）
+
+- **现象：** 加入主站 `http://localhost:3000` / `http://127.0.0.1:3000` 后，`test_cors.py` 仍断言它们「不应放行」，全量测试稳定失败。
+- **原因：** 配置（`app/config.py` 的 `cors_origins`）先改了，测试里的负向清单没同步；局域网 `:3000` 仍然不应放行，但 localhost 两个源是主站入口需要的。
+- **解法：** 把 localhost/127.0.0.1 的 `:3000` 移到允许清单，保留局域网 `:3000` 在拒绝清单；以后新增域名同时改配置与测试。
+- **教训：** CORS 的负向测试是「安全边界」而不是「实现细节」；改 allowlist 时必须同步说明为什么某个源被允许。
 
 ### 把恋爱一局写成练习 Session，等于把 hidden 和空转录送进复盘（2026-10-20）
 
