@@ -6,6 +6,18 @@ import type { Lang, L } from "@/data/taxonomy";
 import type { TKey } from "@/lib/i18n";
 import type { LovePlayOutcome } from "@/lib/love-play-client";
 import { t } from "@/lib/i18n";
+import { Button, Sheet } from "@/components/ui";
+import { subscribeLoveSlots } from "@/lib/love-slot-events";
+import {
+  LOVE_MEMORY_KEY,
+  LOVE_MEMORY_TEXT_MAX,
+  deleteLoveMemoryEntry,
+  integrateLoveMemories,
+  resolveLoveMemoriesForScope,
+  setLoveMemoryLocked,
+  updateLoveMemoryText,
+  type LoveMemoryEntry,
+} from "@/lib/love-memory";
 import { PlayCarryCapture, type LoveCarryTarget } from "./PlayCarryCapture";
 
 /**
@@ -202,5 +214,199 @@ export function PlayEnding({
         {carry && <PlayCarryCapture lang={lang} target={carry} />}
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+/**
+ * 陪伴层记忆面板（Sheet 风格对齐存档/阅读设置）：查看本线本角色的记忆，
+ * 可编辑、删除、锁定；「整理」从已确认的原话里补记，失败只提示、不阻塞剧情。
+ * 作用域严格 seriesId + characterKey，跨线/跨 NPC 的记忆永远不会出现在这里。
+ */
+export function LoveMemorySheet({
+  open,
+  onClose,
+  lang,
+  seriesId,
+  scenarioId,
+  characterKey,
+  getQuotes,
+  getBoundaries,
+}: {
+  open: boolean;
+  onClose: () => void;
+  lang: Lang;
+  seriesId: string;
+  scenarioId: string;
+  characterKey: string;
+  /** 本幕已确认、自己打出来的学习者发言（带消息 id），由 PlayScene 从最新历史里取。 */
+  getQuotes: () => { id: string; text: string }[];
+  /** Rio 账本里学习者立下的边界（仅 Rio 线非空）。 */
+  getBoundaries: () => { id: string; text: string }[];
+}) {
+  const [entries, setEntries] = useState<LoveMemoryEntry[] | null>(null);
+  const [notice, setNotice] = useState<{ key: TKey; vars?: Record<string, string | number> } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+
+  // 打开面板时读一次，之后只听记忆 slot 的变更；读取走定时回调，避免 effect 体内同步级联渲染。
+  useEffect(() => {
+    if (!open) return;
+    let timer = 0;
+    const read = () => setEntries(resolveLoveMemoriesForScope(seriesId, characterKey));
+    timer = window.setTimeout(read, 0);
+    const unsubscribe = subscribeLoveSlots((key) => {
+      if (key !== null && key !== LOVE_MEMORY_KEY) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(read, 0);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [open, seriesId, characterKey]);
+
+  const runTidy = () => {
+    const result = integrateLoveMemories({
+      seriesId,
+      scenarioId,
+      characterKey,
+      quotes: getQuotes(),
+      boundaries: getBoundaries(),
+    });
+    setNotice(
+      result.ok
+        ? {
+            key: result.added > 0 ? "love_play_memory_tidy_done" : "love_play_memory_tidy_none",
+            vars: { n: result.added },
+          }
+        : { key: "love_play_memory_tidy_failed" },
+    );
+  };
+
+  const saveEdit = (entry: LoveMemoryEntry) => {
+    const result = updateLoveMemoryText({ seriesId, characterKey, id: entry.id, text: draft });
+    if (result.ok) {
+      setEditingId(null);
+      setDraft("");
+      setNotice({ key: "love_play_memory_saved" });
+    } else {
+      setNotice({ key: "love_play_memory_write_failed" });
+    }
+  };
+
+  const toggleLock = (entry: LoveMemoryEntry) => {
+    const result = setLoveMemoryLocked({ seriesId, characterKey, id: entry.id, locked: !entry.locked });
+    setNotice(result.ok ? null : { key: "love_play_memory_write_failed" });
+  };
+
+  const remove = (entry: LoveMemoryEntry) => {
+    const result = deleteLoveMemoryEntry({ seriesId, characterKey, id: entry.id });
+    setNotice(result.ok ? { key: "love_play_memory_deleted" } : { key: "love_play_memory_write_failed" });
+  };
+
+  const kindLabel = (entry: LoveMemoryEntry) => t(lang, `love_play_memory_kind_${entry.kind}` as TKey);
+  const valid = (entries ?? []).filter((e) => !e.invalid);
+  const invalid = (entries ?? []).filter((e) => e.invalid);
+
+  const row = (entry: LoveMemoryEntry) => {
+    const editing = editingId === entry.id;
+    return (
+      <div key={entry.id} className="flex flex-col gap-2 rounded-[var(--radius-sm)] border border-line bg-card p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 rounded-full border border-line px-1.5 py-0.5 text-[10px] text-ink-3">
+            {kindLabel(entry)}
+          </span>
+          {entry.locked && (
+            <span className="shrink-0 text-[10px] text-accent-deep">{t(lang, "love_play_memory_locked")}</span>
+          )}
+        </div>
+        {editing ? (
+          <div className="flex flex-col gap-2">
+            <textarea
+              rows={2}
+              value={draft}
+              maxLength={LOVE_MEMORY_TEXT_MAX}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={t(lang, "love_play_memory_edit_ph")}
+              aria-label={t(lang, "love_play_memory_edit")}
+              className="min-h-16 resize-none rounded-[var(--radius-sm)] border border-line bg-card px-3 py-2 text-[13px] leading-snug outline-none placeholder:text-ink-3 focus:border-ink-2"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="ink" onClick={() => saveEdit(entry)}>
+                {t(lang, "save")}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                {t(lang, "cancel")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[13px] leading-relaxed text-ink-2">{entry.text}</p>
+        )}
+        {!editing && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setEditingId(entry.id);
+                setDraft(entry.text);
+              }}
+            >
+              {t(lang, "love_play_memory_edit")}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => toggleLock(entry)}>
+              {t(lang, entry.locked ? "love_play_memory_unlock" : "love_play_memory_lock")}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => remove(entry)}>
+              {t(lang, "love_play_memory_delete")}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} title={t(lang, "love_play_memory_title")}>
+      <div className="flex flex-col gap-3 pt-2">
+        <p className="text-[12px] leading-relaxed text-ink-3">{t(lang, "love_play_memory_hint")}</p>
+        {notice && (
+          <p role="status" className="text-[12px] text-ink-2">
+            {t(lang, notice.key, notice.vars)}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={runTidy}>
+            {t(lang, "love_play_memory_tidy")}
+          </Button>
+          {entries !== null && (
+            <span className="text-[11px] text-ink-3">{t(lang, "love_play_memory_count", { n: valid.length })}</span>
+          )}
+        </div>
+        {entries !== null && entries.length === 0 && (
+          <p className="text-[13px] leading-relaxed text-ink-2">{t(lang, "love_play_memory_empty")}</p>
+        )}
+        {valid.map(row)}
+        {invalid.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-[12px] leading-relaxed text-ink-3">{t(lang, "love_play_memory_invalid_group")}</p>
+            {invalid.map((entry) => (
+              <div key={entry.id} className="flex flex-col gap-2 rounded-[var(--radius-sm)] border border-line bg-inset p-3">
+                <span className="shrink-0 self-start rounded-full border border-line px-1.5 py-0.5 text-[10px] text-ink-3">
+                  {kindLabel(entry)}
+                </span>
+                <p className="text-[13px] leading-relaxed text-ink-3 line-through decoration-line-strong">{entry.text}</p>
+                <div>
+                  <Button size="sm" variant="ghost" onClick={() => remove(entry)}>
+                    {t(lang, "love_play_memory_delete")}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Sheet>
   );
 }

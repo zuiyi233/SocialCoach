@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, notFound } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowUp, Bookmark, History, Mic, MicOff, Settings2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Bookmark, Brain, History, Mic, MicOff, Settings2 } from "lucide-react";
 import { clsx } from "clsx";
 import type { L } from "@/data/taxonomy";
 import type { Scenario } from "@/data/corpus/types";
@@ -19,8 +19,14 @@ import { useLoveVoice, withInterim } from "@/lib/love-play-voice";
 import { lovePlayTurn, type LovePlayEmotion, type LovePlayOutcome } from "@/lib/love-play-client";
 import { readLoveSeriesProgress, writeLoveSeriesProgress } from "@/lib/love-series-progress";
 import { loveSeriesById } from "@/data/corpus/love-series";
-import { markLoveCarryoverShown, peekLoveCarryoverForScene } from "@/lib/love-carryover";
+import { markLoveCarryoverShown, peekLoveCarryoverForScene, peekLoveCarryPromiseForScene } from "@/lib/love-carryover";
 import { subscribeLoveSlots } from "@/lib/love-slot-events";
+import {
+  integrateLoveMemories,
+  loveMemoryBoundaryTexts,
+  loveMemoryQuoteSources,
+  withLoveMemoryTurnMessages,
+} from "@/lib/love-memory";
 import { loveCarryCandidates, type LoveCarryTurn } from "@/lib/love-carry-store";
 import {
   clearLoveStorySlot,
@@ -63,7 +69,7 @@ import {
   type LoveReaderSettings,
 } from "@/lib/love-reader-settings";
 import { AvatarStand, scenarioTone, startHistory } from "./PlaySceneFigure";
-import { LoveStanceBar, LoveRevealBadge, PlayOptions, PlayEnding } from "./PlayPanels";
+import { LoveStanceBar, LoveRevealBadge, LoveMemorySheet, PlayOptions, PlayEnding } from "./PlayPanels";
 import { LoveRecap } from "./LoveRecap";
 import type { LoveCarryTarget } from "./PlayCarryCapture";
 
@@ -162,12 +168,16 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
    * 点选项 ≠ 用户真实表达，所以选项文本永远不会变成「你上次说过的话」。
    */
   const [learnerLines, setLearnerLines] = useState<LoveCarryTurn[]>([]);
+  /** learnerLines 的镜像：幕末整理记忆与「整理」按钮都在回调里取，不走会过期的事件闭包。 */
+  const learnerLinesRef = useRef<LoveCarryTurn[]>([]);
   /** 本回合是否为 hidden 揭示：记该回合台词 key，徽标/背景提亮/立绘强调都跟随它。 */
   const [revealKey, setRevealKey] = useState<string | null>(null);
   /** 阅读偏好与已读：设备端独立 slot，不写主档。 */
   const [reader, setReader] = useState<LoveReaderSettings>(DEFAULT_LOVE_READER);
   const [readerOpen, setReaderOpen] = useState(false);
   const [slotsOpen, setSlotsOpen] = useState(false);
+  /** 陪伴层记忆面板：只看本线本角色（seriesId + characterKey）。 */
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [slots, setSlots] = useState<Partial<Record<LovePlaySlot, LovePlaySave>>>({});
   const [slotNotice, setSlotNotice] = useState<{ key: TKey; vars?: Record<string, string | number> } | null>(null);
   /** 读取手动槽前先确认：会替换当前这一局。 */
@@ -447,7 +457,21 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setBeatGroup(null);
       try {
         const turn = await lovePlayTurn(
-          { scenario: s, learnerCharacterId: defaultLearnerId(s), language: lang, learnerName: profile?.name, messages: history, turnLimit: s.maxTurns },
+          {
+            scenario: s,
+            learnerCharacterId: defaultLearnerId(s),
+            language: lang,
+            learnerName: profile?.name,
+            // 陪伴层：把本线本角色已确认的记忆注进请求（客户端纯本地装配，插在开场白之后
+            // 作为 event 旁白）；没有记忆时逐字返回原数组，请求体不变。
+            messages: withLoveMemoryTurnMessages({
+              seriesId: s.series?.id ?? null,
+              characterKey: speakerOf(s, defaultLearnerId(s)).id,
+              lang,
+              history,
+            }),
+            turnLimit: s.maxTurns,
+          },
           controller.signal,
         );
         // 过期响应 / abort 不写任何 state，也不碰 history。
@@ -469,6 +493,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           // 只有这一回合真正成功，学习者的发言才算「说过」；重试成功也只计一次。
           setLearnerTurns((n) => n + 1);
           setLearnerLines((prev) => [...prev, pending]);
+          learnerLinesRef.current = [...learnerLinesRef.current, pending];
         }
         setEmotion(turn.emotion);
         setStance(turn.stance);
@@ -489,6 +514,18 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           const seriesOutcome = seriesOutcomeFor(turn.terminal, turn.ended);
           if (seriesOutcome && s.series) {
             writeLoveSeriesProgress(s.series.id, s.id, seriesOutcome, actNumberOf(s));
+            // 陪伴层抽取：一幕收束即整理（纯本地、零模型调用）；失败只少记几条，不阻塞收尾。
+            try {
+              integrateLoveMemories({
+                seriesId: s.series.id,
+                scenarioId: s.id,
+                characterKey: speakerOf(s, defaultLearnerId(s)).id,
+                quotes: loveMemoryQuoteSources(historyRef.current, learnerLinesRef.current),
+                boundaries: loveMemoryBoundaryTexts(rioRouteRef.current, lang),
+              });
+            } catch {
+              // 记忆抽取绝不影响剧情。
+            }
           }
           // 第 4–6 幕：progress 落盘后再提交账本；写失败只留提示，不阻断收尾。
           // 第 6 幕收束时按账本判定命名结局（可能为 null：条件没凑齐就不硬给名字）。
@@ -582,8 +619,13 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       // 承接句并进 opening 而不是单独一条气泡：首回合模型返回的 line 是被丢弃的，
       // 玩家能看见的只有本地开场白；而 opening 本来就在 history 里，模型顺带就读到它。
       // 读路径是纯的：mark 由下面的「真正显示」effect 负责。
-      const carry =
-        !openingVariant && s.series ? peekLoveCarryoverForScene(s.series.id, s.id, lang) : null;
+      // 第 4–6 幕（作者变体占用开场）也点名未兑现承诺：把承诺问句接在变体后面（spec §4.4
+      // 「到期必须被点名」）——只取承诺这一半，结局查表句与作者变体互斥。
+      const carry = s.series
+        ? openingVariant
+          ? peekLoveCarryPromiseForScene(s.series.id, s.id, lang)
+          : peekLoveCarryoverForScene(s.series.id, s.id, lang)
+        : null;
       const carryText = carry?.text ?? null;
       carryIdRef.current = carry?.carryId ?? null;
       setCarryoverMark(!!carryText);
@@ -603,6 +645,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setInput("");
       setLearnerTurns(0);
       setLearnerLines([]);
+      learnerLinesRef.current = [];
       setBusy(false);
       await requestTurn(s, historyRef.current, false);
     },
@@ -651,6 +694,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setRecording(false);
       setRecordError(false);
       setLearnerLines(view.learnerLines);
+      learnerLinesRef.current = view.learnerLines;
       setLearnerTurns(view.learnerTurns);
       setCarryoverMark(view.carryover);
       setBusy(false);
@@ -1213,6 +1257,16 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           <ArrowLeft size={20} />
         </button>
         <h1 className="flex-1 min-w-0 truncate text-[15px] font-semibold">{sc.title[lang]}</h1>
+        {sc.series && (
+          <button
+            onClick={() => setMemoryOpen(true)}
+            aria-label={t(lang, "love_play_memory")}
+            aria-haspopup="dialog"
+            className="press h-11 w-11 inline-flex items-center justify-center rounded-full text-ink-2 hover:bg-inset"
+          >
+            <Brain size={19} />
+          </button>
+        )}
         <button
           onClick={() => setSlotsOpen(true)}
           aria-label={t(lang, "love_play_slots")}
@@ -1449,6 +1503,20 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       </div>
 
       <LoveRecap open={recapOpen} onClose={closeRecap} save={recapSave} scenario={sc} />
+
+      {/* 陪伴层记忆：查看/编辑/删除/锁定本线本角色的记忆；整理失败不影响剧情。 */}
+      {sc.series && (
+        <LoveMemorySheet
+          open={memoryOpen}
+          onClose={() => setMemoryOpen(false)}
+          lang={lang}
+          seriesId={sc.series.id}
+          scenarioId={sc.id}
+          characterKey={speaker.id}
+          getQuotes={() => loveMemoryQuoteSources(historyRef.current, learnerLinesRef.current)}
+          getBoundaries={() => loveMemoryBoundaryTexts(rioRouteRef.current, lang)}
+        />
+      )}
 
       {/* 手动存档：1 个自动档在后台，3 个手动位回到保存那一刻。 */}
       <Sheet

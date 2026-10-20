@@ -139,6 +139,18 @@ export const LOVE_SCENARIOS_DEEP_APPROACH: Scenario[] = [
         ),
         stance: L("想保住这段关系，又不想现在见面——「忙」是真的，但不是全部。", "Wants to keep the connection without meeting right now — 'busy' is real, just not the whole story."),
         hidden: L("她新接手的项目一团乱，下周要交，所谓「忙」此刻是真话；但她更不想让人知道项目可能延期、自己压力很大，所以一律用「忙」挡掉。只有你带新信息再约并问一句「你最近在忙什么项目」，她才可能说出截止日期；你把轮次耗在新日期上逼她选，她不会松口。", "Her newly-inherited project is a mess and due next week, so 'busy' is literally true — what she hides is that it might slip and that she's drowning, which is why she deflects everything with 'busy'. Only a re-invite carrying new information, plus a genuine 'what's the project you're buried in?', may surface the deadline; spending your rounds re-rolling dates she'll never cave to."),
+        goal: L(
+          "把手上这摊赶工的事自己撑过去，同时不让这段刚开始的联系断掉——下一次见面要出现在她排得开、也能带着完整状态赴约的时候，而不是被追问挤出来的一次补偿。",
+          "Get through the crunch she's carrying without letting this new connection die — the next meeting should happen when her schedule genuinely opens and she can show up whole, not as a consolation squeezed out of her by follow-ups.",
+        ),
+        redLine: L(
+          "同一轮里连环换日期逼她当场点头，她绝不让步——再客气、再体贴也不行；她宁可把这段联系降温，也不会为了让对方好受就答应一个自己排不出的时间。",
+          "A volley of re-rolled dates in one round will never buy a yes from her — however polite or considerate the pressure; she would rather let the connection cool than promise a time she cannot make just to make someone feel better.",
+        ),
+        secret: L(
+          "她其实查过你看的那个展——展期还有两周，她把排期链接存了下来。她不是对展览或对你没兴趣，是这周真的排不出；只有你问「那你自己想去吗」，她才可能承认存了这个链接。承认了也不等于她答应了你的新邀约，更不等于她欠你一个解释。",
+          "She actually looked up the exhibition you mentioned — it runs two more weeks, and she saved the listing. It is not the show or you she lacks interest in; this week simply cannot hold it. Only 'did you want to go yourself?' may surface the saved link; admitting it is not accepting your new invite, and it buys no owed explanation.",
+        ),
         hue: 118,
       },
     ],

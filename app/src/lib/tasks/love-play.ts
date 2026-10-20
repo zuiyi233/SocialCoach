@@ -16,7 +16,7 @@ import { ReplyRejected, RoleplayFactError, RoleplayBoundaryError, replyBoundaryP
 import { roleplaySpeechGuard } from "@/lib/roleplay-facts";
 import type { ChatMessage } from "@/lib/types";
 import type { Lang } from "@/data/taxonomy";
-import type { Scenario } from "@/data/corpus/types";
+import type { Character, Scenario } from "@/data/corpus/types";
 
 /**
  * 回合上限：尊重场景自己的 maxTurns（六幕就是六回合），不再套用练习段的 12 回合下限；
@@ -130,6 +130,35 @@ function buildTurns(
   };
 }
 
+/**
+ * 角色目标与边界（spec-love-interactive-story §4.4「角色目标与边界」）：
+ * 作者写死的 goal / redLine / secret，作为「不可让步」的约束注入系统提示。
+ *
+ * - goal / redLine：玩家态度再好、再会讨好，NPC 也不放弃 goal、不越过 redLine、
+ *   不因被讨好而让步——让步只能来自 goal 本身的理由被真实动摇，而不是礼貌的回报。
+ * - secret：对齐 hidden 的既有口径——不主动吐露，只有玩家提问真正满足它写明的
+ *   条件时才可能揭示；揭示后同样受 revealed 的当句标记规则约束。
+ * - 三个字段都缺省（或当前语言键为空）时返回空串：没有这些字段的场景，提示与
+ *   既有行为完全一致。
+ */
+export function loveGoalBoundaryBlock(npc: Character, lang: Lang): string {
+  const goal = npc.goal ? pick(npc.goal, lang).trim() : "";
+  const redLine = npc.redLine ? pick(npc.redLine, lang).trim() : "";
+  const secret = npc.secret ? pick(npc.secret, lang).trim() : "";
+  if (!goal && !redLine && !secret) return "";
+  const lines = [
+    `ROLE GOAL & BOUNDARY — ${pick(npc.name, lang)}（${npc.id}），作者写死、优先于上面一切关于让步的弹性表述`,
+    "玩家态度再好、话再周到、再会讨好，这个角色也不放弃 goal、不越过 redLine、不因被讨好而让步；礼貌、道歉、示好永远换不来立场。",
+  ];
+  if (goal) lines.push(`- goal（她自己要什么，不可让步的动机）：${goal}`);
+  if (redLine) lines.push(`- redLine（不可被越过的边界，不可让步）：${redLine}`);
+  if (secret)
+    lines.push(
+      `- secret（她没说出口的信息）：${secret}\n  secret 与 hidden 同一口径：不主动吐露、不提示、不打哑谜，只有玩家的提问真正满足它写明的条件时才可能揭示；揭示后按上面 revealed 的规则只在当句标记 true。`,
+    );
+  return lines.join("\n");
+}
+
 /** Galgame 每回合的 system prompt：复用 roleplaySystem，追加本模式的输出契约覆盖。 */
 function lovePlaySystem(s: Scenario, learnerId: string, lang: Lang, learnerName: string, learnerTurns: number, limit: number): string {
   const npc = speakerOf(s, learnerId);
@@ -142,8 +171,10 @@ function lovePlaySystem(s: Scenario, learnerId: string, lang: Lang, learnerName:
     remaining === 0
       ? "这是练习段的最后一个学习者回合：把当前的张力自然收束到结局方向，给出真诚的结束语，并保留一条可被接受的修复/拒绝路径。不要突然换题，也不要重复施压。"
       : `还剩 ${remaining} 个回合，不要急着收尾，让对话自然展开。`;
+  // 角色目标与边界：带 goal/redLine/secret 的角色卡才注入；没有时保持原提示。
+  const goalBoundary = loveGoalBoundaryBlock(npc, lang);
   return `${roleplaySystem(s, learnerId, lang, learnerName)}
-LOVE-PLAY GALGAME 输出契约（优先于上面的 OUTPUT FORMAT 一节，本契约覆盖它）
+${goalBoundary ? `${goalBoundary}\n` : ""}LOVE-PLAY GALGAME 输出契约（优先于上面的 OUTPUT FORMAT 一节，本契约覆盖它）
 - 你本轮只配音一个角色：${npc.id}（${pick(npc.name, lang)}）。只回应学习者，不让其他角色开口。
 - line：1-3 句口语化短句，先回应学习者最近的原话（自然引用或复述），再推进本回合的转折。
 - options：2-4 个，每个是学习者下一句的一个不同方向的真实可行表达——至少一条通向成功的方向、一条可能受挫/失败的方向、一条保持对话开放的方向。不要全是对的选项，答案不是好感度选择题。

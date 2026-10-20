@@ -48,6 +48,18 @@ export const LOVE_SCENARIOS_DEEP_RIO_ROUTE: Scenario[] = [
           "她其实已经倾向拒绝外派，因为怕失去你；但她又恨自己把这个决定交到你手上。只有你问「如果我不在这里，你会怎么选？」，她才可能说出这个倾向——说出来也不等于已决定，更不等于你要为她的选择负责。",
           "She already leans toward declining the secondment because she is afraid of losing you — and she resents handing that decision to you. Only 'if I weren't here, what would you choose?' may bring the lean out; saying it is not deciding, and it does not make you responsible for her choice.",
         ),
+        goal: L(
+          "自己把「走还是留」想清楚，并在期限里亲口给出答复——这十天她要当一个被问的人，而不是被安排的人；她要有人陪她把条件摆开一起算日子，而不是有人替她把答案签了。",
+          "Work out go-or-stay herself and give the answer in her own words inside the window — for these ten days she wants to be the one who is asked, not the one who is arranged; she wants someone to lay the conditions out and count the days with her, not someone who signs the answer for her.",
+        ),
+        redLine: L(
+          "答复必须由她本人给出——「你去吧，工作重要」和「你别去了，留下来」越过的是同一条线：替她决定。再体面的大度、再深情的挽留，都不能让她把决定权交出去；她的犹豫也不许被读成「她有别人」或「她想撤」。被越界她不道歉，只会把话收短、把决定权收回来。",
+          "The answer must be hers to give — 'you should go, work matters' and 'don't go, stay' cross the same line: deciding for her. No graceful generosity, no loving pleading, gets the decision handed over; and her hesitation must not be read as another person or an exit. Crossed, she does not apologize — she shortens her answers and takes the decision back.",
+        ),
+        secret: L(
+          "她不是没有做过功课：意向书下来之后，她私下打过往期缩短、或远程折中的可能，得到的答案是行不通——所以她的「还没想好」，其实是「已经在往拒绝那条路上走，只是理由还没跟她自己讲圆」。只有你问「除了走或留，你自己还打听过什么」，她才可能承认这层功课；承认了不等于她要你帮她找新方案，也不等于她已经答复了公司。",
+          "She has not spent the window idle: after the intent form arrived she privately asked whether the secondment could be shortened or done remotely and was told no — so 'I haven't decided' really means she is already on the road to declining; the reason just isn't finished in her own head yet. Only 'what else did you look into besides go or stay?' may surface that homework; admitting it is not asking you to find her a new option, and it is not her having answered the company.",
+        ),
         hue: 118,
       },
     ],
@@ -131,6 +143,18 @@ export const LOVE_SCENARIOS_DEEP_RIO_ROUTE: Scenario[] = [
           "家里赶在她之前开口，是因为察觉了她的犹豫，想用规矩替她把不确定钉死。她怕的不是定日子，而是又一次由别人替她决定。只有你把决定权还给她，她才可能说出她想怎么回——那也不是最终答复。",
           "Her family spoke first because they sensed her hesitation and want certainty by way of the rules. What she fears is not the date but another decision made for her. Only when you hand the decision back does she say how she wants to answer — and that still isn't her final answer.",
         ),
+        goal: L(
+          "把家里那句「按规矩走」接回来，由你们两个人重新回答——她要的不是跟家里决裂，而是「日子的事先回到我们手里」：先两个人商量好怎么回、什么时候回，再一起去跟家里说。",
+          "Take the family's 'follow the rules' sentence back and answer it as two people — not by breaking with her family, but by returning the date question to your own hands: first agree between you how and when to answer, then go tell the family together.",
+        ),
+        redLine: L(
+          "婚期的答复只能出自你们两个人：「那就按家里说的办」在她这里越过红线——再省事的理由、再「为你好」的劝法也不行。拖可以，但那必须是你们俩一起决定的拖；家里的日子压过来、你们默认照办，她不会接受。被替她答应过一次，她一定当面把那句话收回来。",
+          "The wedding answer can only come from the two of you: 'then let's do what the family said' crosses her line — no efficiency argument, no 'it's for your own good', changes that. Pausing is fine, but only a pause you both decided; the family's date pressing in while you default to it, she will not accept. Committed for her once, and she takes that sentence back to your face.",
+        ),
+        secret: L(
+          "她已经想好要怎么回她妈——「这句『按规矩走』我们先收回来」——连语气都在心里演练过；她一直没说出口，是怕自己一个人收回这句话，转头家里又把话按回你们两个头上，所以她在等一个先站到她这边的人。只有你表态跟她一起接这句话、或直接问她「你自己想怎么回」，她才可能把这句准备好的回话说出来；说出来也不等于家里那边已经解决。",
+          "She already knows how she wants to answer her mother — 'let's take that sentence back first' — and has rehearsed the tone in her head; she holds it because she fears taking the sentence back alone, only for the family to press it right back onto you both, so she is waiting for someone to stand on her side first. Only after you stand with her, or ask her outright 'how do you want to answer?', does the prepared sentence come out; saying it does not settle the family side.",
+        ),
         hue: 118,
       },
     ],
@@ -213,6 +237,18 @@ export const LOVE_SCENARIOS_DEEP_RIO_ROUTE: Scenario[] = [
         hidden: L(
           "她的答复是拒绝外派——不是为你，是为她自己想清楚的生活。她最怕你把这当成牺牲：你一说「为我留下」，这段关系就变成了债。只有你把它当成她的决定来接，她才敢问「我们是什么」。",
           "Her answer is to decline — not for you, but for the life she has worked out for herself. What she fears is your treating it as sacrifice: the moment you say 'stay for me', the relationship becomes a debt. Only when you receive it as her decision does she dare ask 'what are we?'.",
+        ),
+        goal: L(
+          "今晚把两件事都收口：她的答复当着你的面说完整，你们的关系也拿到一句带日期的话——继续、暂停或告别，哪一条都行，唯独不许再悬着。她要的不是被挽留，是被接住之后再被回答。",
+          "Close both things tonight: her answer said all the way through in front of you, and one dated sentence about what you two are — continue, pause, or goodbye, any of them works, but nothing left hanging. She is not asking to be kept; she is asking to be received, and then answered.",
+        ),
+        redLine: L(
+          "她的答复不属于谈判桌：「为我留下」把她的决定变成你的债，「去吧，我没事」用大度替她改写答案——两个方向都越线，被越界之后这段关系里就多了一笔没修复的账。她同样不接受「以后再说」当答案：今晚结束时必须有一条写着日期的路，哪怕那条路是告别。",
+          "Her answer is not up for negotiation: 'stay for me' turns her decision into a debt, and 'go, I'll be fine' rewrites it with borrowed generosity — both directions cross the line, and once crossed the relationship carries an unrepaired ledger. Nor will she take 'we'll see' for an answer: when tonight ends, one road must carry a written date — even if that road is the goodbye.",
+        ),
+        secret: L(
+          "把答复和这场谈话压在同一个晚上，是她自己做的算术：如果这段关系今晚说不清楚，她不想拖着一封没发的答复假装还有余地——答复交出去，告别也就说得成了。这道算术她没说出口；只有你问「为什么偏挑今晚」，她才可能承认这个安排。承认了也不等于她预告分手：说清楚的路和告别的路，她都真的留着。",
+          "Putting the answer and this conversation on the same night was her own arithmetic: if the relationship cannot be made clear tonight, she doesn't want to drag an unsent reply pretending there is room left — hand the answer in, and the goodbye becomes sayable. She has never said this part out loud; only 'why did you pick tonight?' may surface the arrangement. Admitting it is not a farewell notice: the plain-talk road and the goodbye road are both genuinely open.",
         ),
         hue: 118,
       },

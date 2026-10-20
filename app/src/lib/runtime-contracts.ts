@@ -12,7 +12,7 @@ const CompetencySchema=z.enum(COMPETENCIES.map(c=>c.id) as [CompetencyId,...Comp
 const text=z.string();
 export const LocalizedSchema=z.object({zh:text,en:text});
 const content=LocalizedSchema.refine(v=>!!v.zh.trim()&&!!v.en.trim(),'Both language fields must contain text');
-const character=z.object({id:text.regex(/^[a-zA-Z0-9_-]{1,100}$/),name:content,role:content,personality:LocalizedSchema,stance:LocalizedSchema,hidden:LocalizedSchema.optional(),playable:z.boolean().optional(),hue:z.number().finite()});
+const character=z.object({id:text.regex(/^[a-zA-Z0-9_-]{1,100}$/),name:content,role:content,personality:LocalizedSchema,stance:LocalizedSchema,hidden:LocalizedSchema.optional(),goal:LocalizedSchema.optional(),redLine:LocalizedSchema.optional(),secret:LocalizedSchema.optional(),playable:z.boolean().optional(),hue:z.number().finite()});
 export const ScenarioSchema=z.object({
  id:text.min(1),title:content,hook:content,background:content,simulationFacts:LocalizedSchema.optional(),simulationDirection:LocalizedSchema.optional(),
  context:ContextSchema,contextType:content,competencies:z.array(CompetencySchema).min(1),skills:z.array(SkillSchema).min(1),relatedSkills:z.array(SkillSchema).optional(),

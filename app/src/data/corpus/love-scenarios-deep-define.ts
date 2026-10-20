@@ -284,6 +284,18 @@ export const LOVE_SCENARIOS_DEEP_DEFINE: Scenario[] = [
         ),
         stance: L("想继续这段关系，但拒绝把「确认关系」跳级成「定婚期」；她要你先承认这是两件不同的事。", "Wants the relationship to continue, but refuses to skip from exclusivity to a wedding date; she needs you to admit these are two different questions."),
         hidden: L("手上有一个要在三个月内答复的外派项目意向，接不接还没定；她没提，是怕你把它听成她想撤。只有你不带质问地问她「最近有没有什么你自己在纠结、还没告诉我的变动」，她才可能说出来——说出来也不等于她已经决定要接。", "A secondment offer awaiting her answer within three months, undecided, unmentioned — she fears you will hear it as her leaving. Only a non-accusatory 'is there a change you have been wrestling with alone?' may bring it out; bringing it out is not her decision."),
+        goal: L(
+          "把这段关系继续走下去，但要用她自己站得稳的节奏：先把「我们算什么」答成一句真话，把「婚期」从今晚的议题里摘出去——她要的是两个人对「下一步谈什么、什么时候谈」达成一致，而不是当场给一个只为结束追问的结论。",
+          "Keep walking in this relationship, but at a pace she can stand on: answer 'what are we' as one true sentence first, and take the wedding date off tonight's agenda — she needs the two of you to agree on what gets discussed next and when, not a verdict issued just to end the questioning.",
+        ),
+        redLine: L(
+          "今晚她不把「排他」和「婚期」并成一个结论交出来：被讨好、被体贴对待，不会让她提前拍板；被逼到墙角，她宁可把谈话收短。她的沉默不是在攒分手的理由，也不许被读成那个。",
+          "Tonight she does not hand over exclusivity and a wedding date folded into one verdict: charm and consideration will not move that deadline, and cornered, she would sooner shorten the talk. Her silence is not her collecting reasons to leave, and it must not be read as that.",
+        ),
+        secret: L(
+          "她心里其实已经有了倾向——「先把我们是什么说清楚，婚期另开一场谈」——但她不说，是怕这句话一出口，就变成她单方面替两个人定了议程。只有你先把你想要的节奏完整说出来、再问她「那你想要什么」，她才可能把这个倾向讲出来；讲出来也不等于她同意了任何安排。",
+          "She already has a leaning — 'settle what we are first; open the wedding question in its own conversation' — but she keeps it down: said first, it would become her unilaterally setting the agenda for two. Only after you state the pace you want in full and ask 'what do you want?' may she say the leaning out loud; saying it agrees to nothing.",
+        ),
         hue: 118,
       },
     ],

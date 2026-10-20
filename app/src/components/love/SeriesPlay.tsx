@@ -18,6 +18,7 @@ import {
   type LoveSeriesProgress,
 } from "@/lib/love-series-progress";
 import { RIO_SERIES_ID } from "@/lib/love-relationship-state";
+import { loveReturnOpening, type LoveReturnOpening } from "@/lib/love-memory";
 import { subscribeLoveSlots } from "@/lib/love-slot-events";
 
 /** 剧情线入口页：线名/走向 + 线内进度 + 场景列表（已完成打勾）。进度只存在设备端。 */
@@ -29,6 +30,8 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
   const [progress, setProgress] = useState<LoveSeriesProgress | null>(null);
   const [progressIssue, setProgressIssue] = useState<"corrupt" | null>(null);
   const [playing, setPlaying] = useState<PlayingSceneLike[]>([]);
+  /** 回归开场：离开一段时间后，用作者写死的模板引用一句已确认的原话；没有事实就不显示。 */
+  const [returnLine, setReturnLine] = useState<LoveReturnOpening | null>(null);
   /** 章节选择：选中一幕先给清除范围与警告，确认后才真正重玩。 */
   const [chapterOpen, setChapterOpen] = useState(false);
   const [chapterPick, setChapterPick] = useState<number | null>(null);
@@ -55,6 +58,9 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
         }
       }
       setPlaying(active);
+      // 回归开场是纯读：离开时长取代码里能确认的最新时间戳（save/记录/记忆/承诺），
+      // 槽位只填已确认的原话；刚玩过、或没有可引用的事实，都保持不显示。
+      setReturnLine(loveReturnOpening(series.id));
     };
     // 存储只在挂载后读；同标签页写入由 CustomEvent、跨标签页由 storage 事件触发。
     const schedule = () => {
@@ -158,6 +164,12 @@ export function SeriesPlay({ series }: { series: LoveSeries }) {
         {progressIssue === "corrupt" && (
           <p role="status" className="rounded-[var(--radius-sm)] bg-inset px-3 py-2 text-[12px] leading-relaxed text-ink-2">
             {t(lang, "love_series_progress_corrupt")}
+          </p>
+        )}
+
+        {returnLine && (
+          <p role="status" className="rounded-[var(--radius-sm)] bg-inset px-4 py-3 text-[13px] leading-relaxed text-ink-2">
+            {t(lang, "love_return_opening", { quote: returnLine.quote })}
           </p>
         )}
 

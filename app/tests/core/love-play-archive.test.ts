@@ -1,8 +1,9 @@
 /** 恋爱玩法设备端 slot 的导出/校验回归：它们不进 persist archive，导出是唯一能把它们带走的通道。 */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { LovePlaySchema, parseArchive, parseLovePlaySlot } from '../../src/lib/archive';
+import { LovePlaySchema, LoveMemoryStoreSchema, parseArchive, parseLovePlaySlot } from '../../src/lib/archive';
 import { clearLovePlaySlots, LOVE_CARRY_KEY, LOVE_PLAY_PREFIX } from '../../src/lib/love-carry-store';
+import { LOVE_MEMORY_KEY } from '../../src/lib/love-memory';
 import { LOVE_STORY_KEY } from '../../src/lib/love-story';
 import { decodeBackup, lovePlayBackup } from '../../src/lib/backup';
 import { buildSession } from '../../src/lib/session-utils';
@@ -69,6 +70,20 @@ const read = { v: 1, seen: { 'love-approach-soft-decline-reinvite:1a2b3c:8': 1_7
 const reader = { v: 1, textSize: 'lg', speed: 'fast', auto: true, skipRead: true, reduceMotion: false };
 const READ_KEY = `${LOVE_PLAY_PREFIX}read`;
 const READER_KEY = `${LOVE_PLAY_PREFIX}reader`;
+/** 陪伴层记忆 slot：按 `love-memory.ts` 的 LoveMemoryStore 字面写，与恢复口径同源。 */
+const memoryEntry = {
+  id: 'm1',
+  kind: 'promise',
+  text: '周三晚上打给你',
+  sourceText: '周三晚上打给你',
+  sourceMessageIds: ['carry:c1'],
+  seriesId: 'love-arc-rio-clarify',
+  characterKey: 'rio',
+  createdAt: 1_700_000_000_010,
+  updatedAt: 1_700_000_000_011,
+  locked: false,
+};
+const memory = { v: 1, revision: 1, entries: { 'love-arc-rio-clarify:rio': [memoryEntry] }, updatedAt: 1_700_000_000_012 };
 const wrap = (lovePlay: unknown) => JSON.stringify({ state: { sessions: [] }, version: 0, lovePlay });
 const decodeLove = async (lovePlay: unknown) => decodeBackup(wrap(lovePlay));
 
@@ -163,19 +178,20 @@ test('read and reader slots cannot be swapped with one another', () => {
 });
 
 
-test('the whole-table schema accepts carry, story, series, read and reader side by side', () => {
+test('the whole-table schema accepts carry, story, series, read, reader and memory side by side', () => {
   const result = LovePlaySchema.safeParse({
     [CARRY_KEY]: [carry],
     [STORY_KEY]: story,
     [seriesKey('love-arc-rio-clarify')]: progress,
     [READ_KEY]: read,
     [READER_KEY]: reader,
+    [LOVE_MEMORY_KEY]: memory,
   });
   assert.equal(result.success, true);
   const saved = result.data as Record<string, unknown>;
   assert.deepEqual(
     Object.keys(saved).sort(),
-    [CARRY_KEY, STORY_KEY, seriesKey('love-arc-rio-clarify'), READ_KEY, READER_KEY].sort(),
+    [CARRY_KEY, STORY_KEY, seriesKey('love-arc-rio-clarify'), READ_KEY, READER_KEY, LOVE_MEMORY_KEY].sort(),
   );
 });
 
@@ -397,6 +413,7 @@ test('erasing everything really erases the love slots, promises included', () =>
   localStorage.setItem(CARRY_KEY, JSON.stringify([{ ...carry, text: '我这周一定打给你' }]));
   localStorage.setItem(seriesKey('love-arc-eve-after-no'), JSON.stringify({ completed: ['love-reject-shared-circle'], lastScene: 'love-reject-shared-circle', outcome: {} }));
   localStorage.setItem(STORY_KEY, JSON.stringify(story));
+  localStorage.setItem(LOVE_MEMORY_KEY, JSON.stringify(memory));
   localStorage.setItem('socialcoach.dinner', 'keep-me');
   assert.ok(lovePlayBackup(), 'the slots are exportable before the wipe');
   // 同一个 slot Map 被本文件多个用例共用，所以这里只按「擦除前应有多少」来断言，不写死条数。
@@ -404,11 +421,78 @@ test('erasing everything really erases the love slots, promises included', () =>
 
   const removed = clearLovePlaySlots();
 
-  assert.ok(before >= 3);
+  assert.ok(before >= 4);
   assert.equal(removed, before);
   assert.equal(localStorage.getItem(CARRY_KEY), null);
   assert.equal(localStorage.getItem(seriesKey('love-arc-eve-after-no')), null);
   assert.equal(localStorage.getItem(STORY_KEY), null, 'the story slot sits under the same prefix and must go with it');
+  assert.equal(localStorage.getItem(LOVE_MEMORY_KEY), null, 'the memory slot is under the same prefix too (G16)');
   assert.equal(localStorage.getItem('socialcoach.dinner'), 'keep-me', 'the wipe may not reach outside its own prefix');
   assert.equal(lovePlayBackup(), null);
+});
+
+test('the memory slot is exported and restored verbatim beside the other love slots', async () => {
+  slots.clear();
+  slots.set(CARRY_KEY, JSON.stringify([carry]));
+  slots.set(STORY_KEY, JSON.stringify(story));
+  slots.set(LOVE_MEMORY_KEY, JSON.stringify(memory));
+  const snapshot = lovePlayBackup();
+  assert.ok(snapshot);
+  assert.deepEqual(Object.keys(snapshot).sort(), [CARRY_KEY, STORY_KEY, LOVE_MEMORY_KEY].sort());
+  const decoded = await decodeLove(snapshot);
+  assert.equal(decoded.lovePlayIssue, undefined);
+  assert.deepEqual(JSON.parse(decoded.lovePlay![LOVE_MEMORY_KEY]), memory, 'memory entries travel byte for byte');
+  assert.deepEqual(JSON.parse(decoded.lovePlay![CARRY_KEY]), [carry]);
+});
+
+test('a memory slot that fails validation is quarantined without blocking the others', async () => {
+  const broken = { ...memory, entries: { 's:r': [{ ...memoryEntry, locked: 'yes' }] } };
+  const decoded = await decodeLove({ [LOVE_MEMORY_KEY]: broken, [CARRY_KEY]: [carry] });
+  assert.equal(decoded.lovePlayIssue, 'invalid');
+  assert.equal(decoded.lovePlay![LOVE_MEMORY_KEY], undefined, 'the broken memory slot is not written back');
+  assert.deepEqual(JSON.parse(decoded.lovePlay![CARRY_KEY]), [carry]);
+  assert.ok(decoded.lovePlayOriginal!.includes(LOVE_MEMORY_KEY));
+});
+
+test('memory caps and enums are checked like every other slot', () => {
+  assert.equal(parseLovePlaySlot(LOVE_MEMORY_KEY, memory).success, true);
+  assert.equal(LoveMemoryStoreSchema.safeParse(memory).success, true);
+  assert.equal(parseLovePlaySlot(STORY_KEY, memory).success, false, 'memory bytes under the story key are refused');
+  assert.equal(parseLovePlaySlot(CARRY_KEY, memory).success, false);
+  assert.equal(parseLovePlaySlot(LOVE_MEMORY_KEY, story).success, false);
+  assert.equal(parseLovePlaySlot(LOVE_MEMORY_KEY, { ...memory, v: 2 }).success, false, 'unknown version is refused, not migrated');
+  assert.equal(
+    parseLovePlaySlot(LOVE_MEMORY_KEY, { ...memory, entries: { 's:r': [{ ...memoryEntry, kind: 'mood' }] } }).success,
+    false,
+    'an unknown memory kind is refused',
+  );
+  assert.equal(
+    parseLovePlaySlot(LOVE_MEMORY_KEY, {
+      ...memory,
+      entries: { 's:r': Array.from({ length: 41 }, (_, i) => ({ ...memoryEntry, id: `m${i}` })) },
+    }).success,
+    false,
+    'a scope over the store cap is refused',
+  );
+  assert.equal(
+    parseLovePlaySlot(LOVE_MEMORY_KEY, { ...memory, entries: { 's:r': [{ ...memoryEntry, text: '长'.repeat(501) }] } }).success,
+    false,
+    'a memory longer than the store cap is refused',
+  );
+  assert.equal(
+    parseLovePlaySlot(LOVE_MEMORY_KEY, { ...memory, entries: { 's:r': [{ ...memoryEntry, sourceMessageIds: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'] }] } }).success,
+    false,
+    'more evidence pointers than the store can write are refused',
+  );
+});
+
+test('restoring memory slots cannot smuggle a scored field into the device', async () => {
+  const polluted = { ...memory, entries: { 'love-arc-rio-clarify:rio': [{ ...memoryEntry, proficiency: 5, stars: 3 }] } };
+  const decoded = await decodeLove({ [LOVE_MEMORY_KEY]: polluted });
+  assert.equal(decoded.lovePlayIssue, undefined);
+  const json = decoded.lovePlay![LOVE_MEMORY_KEY];
+  for (const forbidden of ['proficiency', 'loveProficiency', 'stars', 'practiceDays']) {
+    assert.ok(!json.includes(forbidden), `${forbidden} never reaches the memory slot`);
+  }
+  assert.deepEqual(JSON.parse(json), memory, 'zod strips the pollution and the rest travels verbatim');
 });

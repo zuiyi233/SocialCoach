@@ -150,6 +150,17 @@ for (const s of rioLine) {
     ["rio"],
     `${s.id}: Rio line must stay single-NPC`,
   );
+  // 角色目标与边界（spec-love-interactive-story §4.4）：六幕每张 rio 角色卡都
+  // 必须带非空双语的 goal/redLine/secret；其他恋爱场景不在此要求内。
+  const rioCard = s.characters.find((c) => c.id === "rio");
+  assert.ok(rioCard, `${s.id}: rio card missing`);
+  for (const field of ["goal", "redLine", "secret"] as const) {
+    const value = rioCard[field];
+    assert(
+      !!value && value.zh.trim().length > 0 && value.en.trim().length > 0,
+      `${s.id}: rio card missing bilingual ${field}`,
+    );
+  }
 }
 const rioAct4 = SCENARIOS.find((s) => s.id === "love-rio-secondment-deadline");
 assert(rioAct4, "Rio act 4 is not registered in SCENARIOS");

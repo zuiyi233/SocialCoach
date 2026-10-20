@@ -163,6 +163,23 @@ function npcOf(scenario: Scenario): string {
 }
 
 /**
+ * 取开场点名的「承诺」这一半：同一条线、同一个说话人、还没答过的承诺原话，
+ * 不看结局查表。Rio 第 4–6 幕的开场被作者变体占用后，未兑现承诺仍要被点名——
+ * 失望/追问的口径全部来自 `CARRY_LINES`（不扣分、不给结局、只把问题摆回桌面）。
+ */
+export function peekLoveCarryPromiseForScene(seriesId: string, scenarioId: string, lang: Lang): LoveCarryover {
+  const series = loveSeriesById(seriesId);
+  if (!series || !series.continuous) return NONE;
+  const actIndex = series.scenarios.findIndex((s) => s.id === scenarioId);
+  if (actIndex < 1) return NONE;
+  const scenario = series.scenarios[actIndex];
+  const carry = pendingLoveCarryForOpening(series.id, npcOf(scenario), scenario.id);
+  const ask = carry ? loveCarryAskLine(carry, lang) : null;
+  if (carry && ask) return { text: ask, outcome: null, actIndex, carryId: carry.id };
+  return NONE;
+}
+
+/**
  * 取本场开场该带的承接句（**纯读**，G09），优先级两条：
  * 1. 学习者在**同一条线、同一个 NPC** 别的场次里亲手留下的承诺——引用他的原话；
  * 2. 否则回到 P1：只看**紧邻的前一幕**（不是「任意已完成的场景」）的结局查表，

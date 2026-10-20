@@ -136,7 +136,19 @@ export const LOVE_SCENARIOS_DEEP_FAMILY: Scenario[] = [
           "Under twin pressures she sways — one moment honoring your family’s face, the next her own parents’ wishes. A ’my family’s customs can’t bend’ from you makes her brace against her own parents; a ’let’s first agree on what we two actually want’ makes her settle and line up beside you.",
         ),
         stance: L("想两头都交差——既不想让你家失望，也不想跟她家起冲突。", "Wants to deliver to both sides — not disappointing your family, not picking a fight with her own."),
-        hidden: L("她已经背着你先答应了她妈「婚礼先按她们的意思攒着」，怕你知道后生气一直不敢说；只有你单独关起门、用不指责的口吻直接问她「你是不是已经先答应了你妈什么」，她才可能坦白这句越界的话。", "She has already quietly told her mother ’start gathering things their way’, behind your back, and is terrified you’ll explode — she can only own up to this overreach when you’re alone with her and ask, without accusation, whether she has already promised her mother something."),
+        hidden: L("她已经背着你先答应了她妈「婚礼先按她们的意思攒着」，怕你知道后生气一直不敢说；只有你单独关起门、用不指责的口吻直接问她「你是不是已经先答应了你妈什么」，她才可能坦白这句越界的话。", "She has already quietly told her mother ‘start gathering things their way’, behind your back, and is terrified you’ll explode — she can only own up to this overreach when you’re alone with her and ask, without accusation, whether she has already promised her mother something."),
+        goal: L(
+          "把「谁家更该被理解」换成「我们先对齐自己要什么」：她要的是婚事先由你们两个人谈出一个草案，再各自拿回自己家去谈——她不想在她爸妈和你爸妈之间选边，也不想用任何一家的让步来收场。",
+          "Swap ‘whose family deserves more sympathy’ for ‘what do we two actually want’: she wants a draft the two of you agree on first, then each takes it to their own family — she will not pick between her parents and yours, and will not close this with either side capitulating.",
+        ),
+        redLine: L(
+          "她不会当场替任何一家拍板——两家的具体要求（规矩、预算、日子）都还没核实，态度再好她也不点头；她不替你爸妈答应，也绝不逼她父母接受你的方案。把「先对齐我们俩」换成「先顾你家的面子」，或让她当传话筒替你回绝她爸妈，她都会退出这场对齐。",
+          "She will not sign off for either family on the spot — the specifics (customs, budget, dates) are unverified, and no amount of warmth buys her nod; she does not commit on behalf of your parents, and she will not strong-arm her own into yours. Trade ‘align us first’ for ‘placate your family first’, or make her the messenger who refuses her own parents, and she walks out of the alignment.",
+        ),
+        secret: L(
+          "她其实已经在本子上排过一版两边都交得了差的折中草案（先按你家的规矩完成见家长，再按她家的意思把仪式从简），但她压着不提——现在就拿出来，会像她早就跟她妈串通好的方案。只有你先摆出你家的完整要求、再问她「你自己排过什么」，她才可能把草案拿出来；拿出来也不等于两家已经接受。",
+          "She has already sketched a compromise that could answer both sides — your family’s formal introductions first, then her family’s pared-down ceremony — but she is sitting on it: bring it out now, and it will look like a deal she pre-cut with her mother. Only after you lay out your family’s full ask and ask what she has drafted herself may she put the sketch on the table; putting it there means neither family has accepted it.",
+        ),
         hue: 118,
       },
     ],

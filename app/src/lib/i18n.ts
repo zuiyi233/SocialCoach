@@ -182,6 +182,48 @@ const dict = {
   love_play_slot_confirm_load: { zh: "读取存档", en: "Load save" },
   love_play_slot_status_playing: { zh: "进行中 · 第 {n} 回合", en: "In progress · Turn {n}" },
   love_play_slot_status_ended: { zh: "已收束 · 第 {n} 回合", en: "Ended · Turn {n}" },
+  // 陪伴层记忆档案：每条都可追到学习者的原话；原文被删后记忆失效，仅留审计。
+  love_play_memory: { zh: "记忆", en: "Memory" },
+  love_play_memory_title: { zh: "这段剧情的记忆", en: "Memories of this story" },
+  love_play_memory_hint: {
+    zh: "只记这条线、这个人身上你说过的话，全部保存在这台设备上。原文被删除后，对应的记忆会失效。",
+    en: "Only what you said in this story, to this person — all kept on this device. When the original line is gone, its memory expires.",
+  },
+  love_play_memory_empty: {
+    zh: "还没有记忆。收束一幕，或点下面的「整理这段记忆」，会从你说过的话里记下几条。",
+    en: "No memories yet. Finish an act, or tap “Tidy up” below, and a few will be kept from your own words.",
+  },
+  love_play_memory_count: { zh: "{n} 条有效记忆", en: "{n} active memories" },
+  love_play_memory_tidy: { zh: "整理这段记忆", en: "Tidy up memories" },
+  love_play_memory_tidy_done: { zh: "已整理 · 新记下 {n} 条。", en: "Tidied · {n} new memories kept." },
+  love_play_memory_tidy_none: { zh: "已整理 · 这次没有新要记的。", en: "Tidied · nothing new to keep this time." },
+  love_play_memory_tidy_failed: {
+    zh: "这次没能整理。剧情不受影响，可以稍后再试。",
+    en: "Couldn’t tidy this time. The story is unaffected; try again later.",
+  },
+  love_play_memory_edit: { zh: "编辑", en: "Edit" },
+  love_play_memory_edit_ph: { zh: "改成你想要的说法", en: "Rewrite it your way" },
+  love_play_memory_saved: { zh: "已保存。", en: "Saved." },
+  love_play_memory_lock: { zh: "锁定", en: "Lock" },
+  love_play_memory_unlock: { zh: "解锁", en: "Unlock" },
+  love_play_memory_locked: { zh: "已锁定 · 整理不会改动这条", en: "Locked · tidying won’t touch this one" },
+  love_play_memory_delete: { zh: "删除", en: "Delete" },
+  love_play_memory_deleted: { zh: "已删除。", en: "Deleted." },
+  love_play_memory_write_failed: { zh: "这次没能写入记忆。", en: "The memory couldn’t be saved this time." },
+  love_play_memory_invalid_group: {
+    zh: "已失效 · 原文不在了，只留档，可手动删除",
+    en: "Expired · the original is gone; kept for audit, delete anytime",
+  },
+  love_play_memory_kind_fact: { zh: "事实", en: "Fact" },
+  love_play_memory_kind_preference: { zh: "偏好", en: "Preference" },
+  love_play_memory_kind_promise: { zh: "承诺", en: "Promise" },
+  love_play_memory_kind_boundary: { zh: "边界", en: "Boundary" },
+  love_play_memory_kind_event: { zh: "事件", en: "Event" },
+  // 回归开场：离开一段时间后回到这条线时，用作者写死的模板引用一句已确认的原话。
+  love_return_opening: {
+    zh: "隔了些日子回来。上次你说「{quote}」——这句话还在这段剧情里等着你。",
+    en: "It’s been a while. Last time you said “{quote}” — it’s still waiting in this story.",
+  },
   // 收束时的「带走一句话」：只收学习者自己打的那句，下次同一个 NPC 逐字问起。
   love_carry_title: { zh: "带走一句话", en: "Carry one line" },
   love_carry_sub: { zh: "你打的这句会被留着，问起它的永远是接过这句话的那个人——在同一串剧情里由 ta 开口，其余时候在恋爱首页那张跟进卡上。点过的选项不会被带走，只有你打出来的话才算。这句话只存在这台设备上。", en: "A line you typed is kept, and whoever it was said to is the one who asks about it — inside the story when the same person speaks next, otherwise as a follow-up card on the Love home screen. Tapped options are never carried; only words you typed count. This stays on your device." },

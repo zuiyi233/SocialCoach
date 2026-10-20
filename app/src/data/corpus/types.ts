@@ -12,6 +12,15 @@ export interface Character {
   stance: L;
   /** Something they don't say up-front; the learner can uncover it. */
   hidden?: L;
+  /**
+   * The outcome they will not trade away, however well the learner argues —
+   * the non-negotiable motive behind their stance (love story mode).
+   */
+  goal?: L;
+  /** The line the learner cannot cross; courtesy never buys a crossing. */
+  redLine?: L;
+  /** Information they hold back until the learner asks exactly as its condition requires. */
+  secret?: L;
   /** Can the learner take this role? */
   playable?: boolean;
   /** OKLCH hue for the avatar */
