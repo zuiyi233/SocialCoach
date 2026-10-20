@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight, GraduationCap, Play, Trophy } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { Chip, Empty, Page } from "@/components/ui";
 import { SkillTag } from "@/components/SkillBits";
@@ -14,6 +14,7 @@ import type { Scenario } from "@/data/corpus/types";
 import { LOVE_TOPICS, loveTopicById, type LoveTopicId } from "@/data/corpus/love-topics";
 import { LOVE_SERIES } from "@/data/corpus/love-series";
 import { readLoveSeriesProgress } from "@/lib/love-series-progress";
+import { buildLoveEndingGallery } from "@/lib/love-endings";
 import { readLoveStoryStore, type LovePlayRecord } from "@/lib/love-story";
 import { useApp, useLang, useLoveProficiency } from "@/store/useApp";
 import { t } from "@/lib/i18n";
@@ -67,13 +68,15 @@ export default function Love() {
       stars: assessed.reduce((a, s) => a + (s.report && s.report.scoringVersion === 2 ? s.report.stars : 0), 0),
     };
   }, [sessions, records]);
+  const gallery = useMemo(() => buildLoveEndingGallery(records ?? []), [records]);
   /** Least-practiced topic with an unseen scene: a gentle "what to do next". */
   const nextPick = useMemo(() => {
     const unseen = loveScenarios.filter((s) => !counts.has(s.id) && s.loveTopic);
     if (!unseen.length) return null;
     return [...unseen].sort((a, b) => (love[a.loveTopic!] ?? 2.5) - (love[b.loveTopic!] ?? 2.5))[0];
   }, [loveScenarios, counts, love]);
-  const start = (scenario: Scenario) => {
+  /** 教练带练是次要入口：主入口进剧情，只有明确点「教练带练」才建练习 session。 */
+  const startCoach = (scenario: Scenario) => {
     if (starting.current) return;
     starting.current = true;
     const session = buildSession(scenario, scenario.custom ? "rehearse" : "arena", lang);
@@ -183,14 +186,14 @@ export default function Love() {
         </section>
 
         {nextPick && (
-          <button onClick={() => start(nextPick)} className="press card card-link text-left p-5 flex items-center gap-4">
+          <Link href={`/love/play/${nextPick.id}`} className="press card card-link text-left p-5 flex items-center gap-4">
             <ScenarioCover scenario={nextPick} size={48} />
             <span className="flex-1 min-w-0">
               <span className="block text-[11px] text-ink-3 mb-1">{t(lang, "love_next")}</span>
               <span className="block font-semibold text-[16px] leading-snug">{nextPick.title[lang]}</span>
             </span>
             <ArrowRight size={17} className="shrink-0 text-accent-deep" />
-          </button>
+          </Link>
         )}
 
         <section aria-label={t(lang, "love_stats")} className="grid grid-cols-3 gap-3">
@@ -207,6 +210,19 @@ export default function Love() {
             <span className="text-[12px] text-ink-3">{t(lang, "love_stars", { n: stats.stars })}</span>
           </div>
         </section>
+
+        <Link href="/love/endings" className="press card card-link p-4 flex items-center gap-3">
+          <span className="shrink-0 w-10 h-10 rounded-full grid place-items-center bg-accent-soft text-accent-deep">
+            <Trophy size={19} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold text-[14px]">{t(lang, "love_gallery_title")}</span>
+            <span className="block text-[12px] text-ink-3 mt-0.5">
+              {t(lang, "love_gallery_count", { n: gallery.length })}
+            </span>
+          </span>
+          <ArrowRight size={17} className="shrink-0 text-accent-deep" />
+        </Link>
 
         <section aria-labelledby="proficiency-title" className="flex flex-col gap-3">
           <div>
@@ -238,42 +254,57 @@ export default function Love() {
             {list.map((sc) => {
               const count = counts.get(sc.id) ?? 0;
               return (
-                <button
+                <div
                   key={sc.id}
-                  onClick={() => start(sc)}
-                  className="notebook-row group text-left flex items-start gap-3 md:gap-5 py-5 md:p-5 -mx-1 px-1"
+                  className="notebook-row group flex items-start gap-2 md:gap-4 py-5 md:p-5 -mx-1 px-1"
                 >
-                  <ScenarioCover scenario={sc} size={48} />
-                  <span className="flex-1 min-w-0 flex flex-col gap-2">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-[16px] leading-snug">{sc.title[lang]}</span>
-                      {sc.series && (
-                        <span className="rounded-full border border-accent-soft text-accent-deep px-2 py-0.5 text-[11px]">{sc.series.name[lang]}</span>
-                      )}
-                      {sc.custom && (
-                        <span className="rounded-full bg-accent-soft text-accent-deep px-2 py-0.5 text-[11px]">{t(lang, "custom_badge")}</span>
-                      )}
-                    </span>
-                    <span className="text-[13px] text-ink-2 leading-relaxed max-w-[var(--measure)]">{sc.hook[lang]}</span>
-                    <span className="flex flex-wrap items-center gap-2 mt-0.5">
-                      {sc.skills.slice(0, 2).map((id) => (
-                        <SkillTag key={id} id={id} lang={lang} small />
-                      ))}
-                      {sc.loveTopic && <span className="text-[12px] text-ink-3">{loveTopicById(sc.loveTopic)?.name[lang]}</span>}
-                      <span className="text-[12px] text-ink-3 md:hidden">
-                        {sc.minutes} {t(lang, "min")} · {t(lang, `diff_${sc.difficulty}` as "diff_1")}
+                  {/* 主入口：剧情模式。教练带练只作为右侧的次要动作，不再抢走默认点击。 */}
+                  <Link
+                    href={`/love/play/${sc.id}`}
+                    className="flex flex-1 min-w-0 items-start gap-3 md:gap-5 text-left"
+                  >
+                    <ScenarioCover scenario={sc} size={48} />
+                    <span className="flex-1 min-w-0 flex flex-col gap-2">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-[16px] leading-snug">{sc.title[lang]}</span>
+                        {sc.series && (
+                          <span className="rounded-full border border-accent-soft text-accent-deep px-2 py-0.5 text-[11px]">{sc.series.name[lang]}</span>
+                        )}
+                        {sc.custom && (
+                          <span className="rounded-full bg-accent-soft text-accent-deep px-2 py-0.5 text-[11px]">{t(lang, "custom_badge")}</span>
+                        )}
                       </span>
-                      {count > 0 && <span className="text-[11px] text-teal">{t(lang, "arena_practiced", { n: count })}</span>}
+                      <span className="text-[13px] text-ink-2 leading-relaxed max-w-[var(--measure)]">{sc.hook[lang]}</span>
+                      <span className="flex flex-wrap items-center gap-2 mt-0.5">
+                        {sc.skills.slice(0, 2).map((id) => (
+                          <SkillTag key={id} id={id} lang={lang} small />
+                        ))}
+                        {sc.loveTopic && <span className="text-[12px] text-ink-3">{loveTopicById(sc.loveTopic)?.name[lang]}</span>}
+                        <span className="text-[12px] text-ink-3 md:hidden">
+                          {sc.minutes} {t(lang, "min")} · {t(lang, `diff_${sc.difficulty}` as "diff_1")}
+                        </span>
+                        {count > 0 && <span className="text-[11px] text-teal">{t(lang, "arena_practiced", { n: count })}</span>}
+                      </span>
                     </span>
-                  </span>
-                  <span className="hidden md:flex flex-col items-end gap-2 shrink-0 text-[12px] text-ink-3 pt-0.5">
-                    <span className="num">
-                      {sc.minutes} {t(lang, "min")}
+                    <span className="hidden md:flex flex-col items-end gap-2 shrink-0 text-[12px] text-ink-3 pt-0.5">
+                      <span className="num">
+                        {sc.minutes} {t(lang, "min")}
+                      </span>
+                      <span>{t(lang, `diff_${sc.difficulty}` as "diff_1")}</span>
                     </span>
-                    <span>{t(lang, `diff_${sc.difficulty}` as "diff_1")}</span>
-                  </span>
-                  <ArrowRight size={17} className="shrink-0 mt-1 text-ink-3 group-hover:text-accent-deep hidden md:block" />
-                </button>
+                    <ArrowRight size={17} className="shrink-0 mt-1 text-ink-3 group-hover:text-accent-deep hidden md:block" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => startCoach(sc)}
+                    aria-label={`${t(lang, "love_coach_mode")} · ${sc.title[lang]}`}
+                    title={t(lang, "love_coach_mode")}
+                    className="press shrink-0 inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-line px-2 text-[11px] text-ink-3 hover:border-line-strong hover:text-ink-2 md:px-3"
+                  >
+                    <GraduationCap size={16} />
+                    <span className="hidden lg:inline">{t(lang, "love_coach_mode")}</span>
+                  </button>
+                </div>
               );
             })}
           </div>

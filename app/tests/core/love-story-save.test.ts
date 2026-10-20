@@ -132,7 +132,7 @@ const okRead = () => {
 test("an empty slot reads empty and a saved scene round-trips with its raw bytes", () => {
   reset();
   assert.deepEqual(readLoveStoryStore(), { status: "empty" });
-  assert.deepEqual(emptyLoveStoryStore(), { v: 1, revision: 0, saves: {}, records: [], routes: {}, updatedAt: 0 });
+  assert.deepEqual(emptyLoveStoryStore(), { v: 2, revision: 0, saves: {}, slots: {}, records: [], routes: {}, updatedAt: 0 });
 
   const save = sceneSave({ routeState: { act: 2, asked: true } });
   const written = saveLovePlayScene(save);
@@ -207,12 +207,12 @@ test("a wrong shape or a save keyed by another scenario reads as corrupt/shape",
 
 test("a future store version reads as incompatible instead of corrupt", () => {
   reset();
-  const v2 = { v: 2, revision: 7, saves: {}, records: [], routes: {}, updatedAt: 99 };
-  putRaw(v2);
-  assert.deepEqual(readLoveStoryStore(), { status: "incompatible", raw: JSON.stringify(v2) });
+  const v3 = { v: 3, revision: 7, saves: {}, records: [], routes: {}, updatedAt: 99 };
+  putRaw(v3);
+  assert.deepEqual(readLoveStoryStore(), { status: "incompatible", raw: JSON.stringify(v3) });
   assert.deepEqual(readLovePlaySave("love-arc-rio-clarify-1"), {
     status: "incompatible",
-    raw: JSON.stringify(v2),
+    raw: JSON.stringify(v3),
   });
 });
 

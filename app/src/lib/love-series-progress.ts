@@ -139,6 +139,46 @@ export function writeLoveSeriesProgress(
 }
 
 /**
+ * 章节重玩：把指定场景及之后的完成记录从这条线上抹掉。
+ * `lastAct` 由调用方按仍保留的幕重新算好传入（本模块不知道幕序）；`null` 表示一幕都不剩，
+ * 不传则保持旧值。坏档/不可用时不写、也不通知——与 `writeLoveSeriesProgress` 同一口径。
+ */
+export function forgetLoveSeriesScenes(
+  seriesId: string,
+  sceneIds: readonly string[],
+  lastAct?: number | null,
+): LoveSeriesProgressWrite {
+  const removed = new Set(sceneIds.filter(Boolean));
+  const state = readLoveSeriesProgressState(seriesId);
+  const cur = state.progress;
+  const completed = cur.completed.filter((id) => !removed.has(id));
+  const outcome: Record<string, LovePlayOutcome> = {};
+  for (const [id, value] of Object.entries(cur.outcome)) {
+    if (!removed.has(id)) outcome[id] = value;
+  }
+  const next: LoveSeriesProgress = {
+    v: 2,
+    completed,
+    lastScene: removed.has(cur.lastScene) ? (completed[completed.length - 1] ?? "") : cur.lastScene,
+    outcome,
+  };
+  if (lastAct === null) delete next.lastAct;
+  else if (lastAct !== undefined) next.lastAct = lastAct;
+  else if (cur.lastAct !== undefined) next.lastAct = cur.lastAct;
+
+  if (state.status === "corrupt") return { ok: false, progress: next, issue: "corrupt" };
+  if (state.status === "unavailable") return { ok: false, progress: next, issue: "unavailable" };
+  if (state.status === "empty") return { ok: true, progress: next };
+  try {
+    localStorage.setItem(loveSeriesProgressKey(seriesId), JSON.stringify(next));
+  } catch {
+    return { ok: false, progress: next, issue: "unavailable" };
+  }
+  notifyLoveSlotsChanged(loveSeriesProgressKey(seriesId));
+  return { ok: true, progress: next };
+}
+
+/**
  * 显式恢复入口：只给用户在恢复 UI 里主动确认后调用，不在读失败时自动清。
  * 删除成功后通知订阅者（与其他 slot 的 clear 同一口径）。
  */

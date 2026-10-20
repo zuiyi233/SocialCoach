@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, notFound } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowUp, History, Mic, MicOff } from "lucide-react";
+import { ArrowLeft, ArrowUp, Bookmark, History, Mic, MicOff, Settings2 } from "lucide-react";
 import { clsx } from "clsx";
 import type { L } from "@/data/taxonomy";
 import type { Scenario } from "@/data/corpus/types";
@@ -10,7 +10,7 @@ import type { ChatMessage } from "@/lib/types";
 import type { SpeechNotice } from "@/features/dinner/lib/speech";
 import { defaultLearnerId, npcsOf, speakerOf } from "@/lib/session-utils";
 import { ScenarioIcon } from "@/data/scenario-icons";
-import { Button, Sheet } from "@/components/ui";
+import { Button, Chip, Sheet, Switch } from "@/components/ui";
 import { useApp, useLang } from "@/store/useApp";
 import { t, type TKey } from "@/lib/i18n";
 import { uid } from "@/lib/format";
@@ -25,13 +25,17 @@ import { loveCarryCandidates, type LoveCarryTurn } from "@/lib/love-carry-store"
 import {
   clearLoveStorySlot,
   deleteLovePlayScene,
+  deleteLovePlaySlot,
   readLovePlayRoute,
   readLovePlaySave,
+  readLovePlaySlots,
   readLoveStoryStore,
   saveLovePlayScene,
+  saveLovePlaySlot,
   writeLovePlayRoute,
   LOVE_STORY_KEY,
   type LovePlaySave,
+  type LovePlaySlot,
 } from "@/lib/love-story";
 import {
   buildLovePlaySave,
@@ -40,6 +44,7 @@ import {
   nextRioBeatGroup,
   planLovePlayRestore,
   planRioRouteEntry,
+  restoreLovePlayView,
   rioBeatForOption,
   rioRouteSnapshot,
   seriesOutcomeFor,
@@ -50,6 +55,13 @@ import { RIO_SERIES_ID, type RioRelationshipState } from "@/lib/love-relationshi
 import { RIO_ACT4_SCENE_ID, applyRioBeat, resolveRioOpening, type RioBeat, type RioBeatGroup } from "@/lib/rio-route";
 import { resolveLoveVoice } from "@/lib/love-voices";
 import { useLoveTyping } from "@/lib/love-play-typing";
+import { loveContentKey, markLoveTextSeen, readLoveReadState } from "@/lib/love-read";
+import {
+  DEFAULT_LOVE_READER,
+  readLoveReaderSettings,
+  writeLoveReaderSettings,
+  type LoveReaderSettings,
+} from "@/lib/love-reader-settings";
 import { AvatarStand, scenarioTone, startHistory } from "./PlaySceneFigure";
 import { LoveStanceBar, LoveRevealBadge, PlayOptions, PlayEnding } from "./PlayPanels";
 import { LoveRecap } from "./LoveRecap";
@@ -94,6 +106,7 @@ const SAVE_NOTICE_KEY: Record<SaveNotice, TKey> = {
 
 type PendingTurn = { history: ChatMessage[]; showLine: boolean; pending?: LoveCarryTurn };
 type EndingKind = "terminal" | "ended";
+const SLOT_IDS: readonly LovePlaySlot[] = ["1", "2", "3"];
 
 /** 幕号（1 起），供 series v2 的 `lastAct`；缺省由线内顺序推出。 */
 function actNumberOf(scenario: Scenario): number | undefined {
@@ -153,8 +166,20 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const [learnerLines, setLearnerLines] = useState<LoveCarryTurn[]>([]);
   /** 本回合是否为 hidden 揭示：记该回合台词 key，徽标/背景提亮/立绘强调都跟随它。 */
   const [revealKey, setRevealKey] = useState<string | null>(null);
+  /** 阅读偏好与已读：设备端独立 slot，不写主档。 */
+  const [reader, setReader] = useState<LoveReaderSettings>(DEFAULT_LOVE_READER);
+  const [readerOpen, setReaderOpen] = useState(false);
+  const [slotsOpen, setSlotsOpen] = useState(false);
+  const [slots, setSlots] = useState<Partial<Record<LovePlaySlot, LovePlaySave>>>({});
+  const [slotNotice, setSlotNotice] = useState<{ key: TKey; vars?: Record<string, string | number> } | null>(null);
+  /** 读取手动槽前先确认：会替换当前这一局。 */
+  const [slotPending, setSlotPending] = useState<LovePlaySlot | null>(null);
+  const [lineWasSeen, setLineWasSeen] = useState(false);
+  const seenRef = useRef<Set<string>>(new Set());
+  /** 最新阅读偏好给 putLine 用，避免为它重建开局回调。 */
+  const readerRef = useRef(reader);
   /** 台词打字机：新台词逐字浮现，skipNow 立即显示全文。 */
-  const { typing, skip, putLine: typeLine, skipNow } = useLoveTyping();
+  const { typing, skip, putLine: typeLine, skipNow } = useLoveTyping(reader.speed);
   /** 首次用麦克风前的一次性隐私提示；与 Chat 共用 settings.voiceNoticeSeen。 */
   const [voiceNotice, setVoiceNotice] = useState(false);
   /** 自动存档的状态提示：不阻塞剧情，只在台词框上方占一行。 */
@@ -206,14 +231,27 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     voiceRef.current = voice;
   });
 
-  /** 换台词：同步重置打字机，点跳过态随新台词清除。 */
+  /** 换台词：同步重置打字机；已读/自动/减少动态直接出全文。 */
   const putLine = useCallback(
     (line: { key: string; characterId: string; text: string }) => {
       setNpcLine(line);
-      typeLine(line.key, line.text);
+      const seen = sc ? seenRef.current.has(loveContentKey(sc.id, line.text)) : false;
+      setLineWasSeen(seen);
+      const r = readerRef.current;
+      typeLine(line.key, line.text, r.reduceMotion || r.auto || (r.skipRead && seen));
     },
-    [typeLine],
+    [typeLine, sc],
   );
+
+  // 阅读偏好与已读索引都是设备端独立 slot：挂载时只读一次，之后按需写。
+  // 首帧必须与服务端默认值一致，所以在 effect 里读 localStorage（lazy init 会造成 hydration 不一致）。
+  useEffect(() => {
+    const loaded = readLoveReaderSettings();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReader(loaded);
+    readerRef.current = loaded;
+    seenRef.current = readLoveReadState().seen;
+  }, []);
 
   // 卸载时取消在途请求与朗读（打字机定时器由 useLoveTyping 卸载时自行停表）。
   useEffect(
@@ -579,6 +617,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       carryIdRef.current = null;
       carryMarkedRef.current = true;
       setNpcLine({ key: view.npcLine.key, characterId: view.npcLine.characterId ?? speaker.id, text: view.npcLine.text });
+      setLineWasSeen(seenRef.current.has(loveContentKey(s.id, view.npcLine.text)));
       // 恢复不重播打字机/揭示：当前句直接全文，skip=true。
       skipNow();
       setOptions(view.options);
@@ -622,6 +661,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     if (!sc || startedRef.current === sc.id) return;
     startedRef.current = sc.id;
     let alive = true;
+    setSlots(readLovePlaySlots(sc.id).slots);
     const read = readLovePlaySave(sc.id);
     const plan = planLovePlayRestore(read);
     // 第 4 幕：在决定 resume/fresh 之前先读账本与系列进度（只读，不写盘）。
@@ -681,11 +721,14 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   }, [sc?.id]);
 
   // 另一标签页清空数据：本页停止保存，绝不把刚被删掉的进度重建回来（spec §3.4）。
+  // 同一 slot 的其它变化（手动存/删）顺手刷新槽位列表。
   useEffect(() => {
     if (!sc?.id) return;
     return subscribeLoveSlots((key) => {
       if (key !== LOVE_STORY_KEY) return;
-      if (readLoveStoryStore().status !== "empty") return;
+      const read = readLoveStoryStore();
+      setSlots(read.status === "ok" ? read.store.slots[sc.id] ?? {} : {});
+      if (read.status !== "empty") return;
       autosaveRef.current = false;
       revisionRef.current = null;
       lastSavedSignatureRef.current = null;
@@ -703,6 +746,26 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     carryMarkedRef.current = true;
     markLoveCarryoverShown(id);
   }, [npcLine, typing]);
+
+  /**
+   * 已读索引：整句完整显示后才记（自动/减少动态/已读跳过都是一次到全文）。
+   * 坏 slot 不覆盖由 `markLoveTextSeen` 负责；seenRef 先记，避免 StrictMode 双跑重复写。
+   */
+  useEffect(() => {
+    if (!sc || !npcLine || !npcLine.text) return;
+    if (!skip && typing && typing.key === npcLine.key && typing.n < typing.total) return;
+    const key = loveContentKey(sc.id, npcLine.text);
+    if (seenRef.current.has(key)) return;
+    seenRef.current.add(key);
+    markLoveTextSeen(sc.id, [key]);
+  }, [sc, npcLine, typing, skip]);
+
+  // 存档/阅读提示只占一行，3 秒后自行消失，不打断剧情。
+  useEffect(() => {
+    if (!slotNotice) return;
+    const timer = window.setTimeout(() => setSlotNotice(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [slotNotice]);
 
   /**
    * 自动存档：只在稳定边界写——请求不在途、当前句已进 history、playing 已有 2–4 个选项
@@ -982,6 +1045,129 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     stopSpeaking();
   };
 
+  /** 当前界面是否已经到一个可以安全落盘的稳定点；在途回合不存。 */
+  const snapshotForSlot = (): LovePlaySave | null => {
+    if (!sc || !npcLine || busy || !historyRef.current.some((m) => m.id === npcLine.key && m.role === "npc")) {
+      return null;
+    }
+    return buildLovePlaySave({
+      scenario: sc,
+      lang,
+      history: historyRef.current,
+      currentLineKey: npcLine.key,
+      options,
+      emotion,
+      stance,
+      carryover: carryoverMark,
+      learnerLines,
+      outcome,
+      endingId,
+      routeState: routeStateRef.current,
+      recorded,
+      startedAt: startedAtRef.current,
+    });
+  };
+
+  /** 手动槽写入失败的提示口径：冲突与自动归档同源，其它原因各自说清楚。 */
+  const slotWriteFailure = (reason: "conflict" | "quota" | "unavailable" | "invalid") => {
+    if (reason === "conflict") {
+      autosaveRef.current = false;
+      setSlotNotice({ key: "love_play_slot_conflict" });
+      return;
+    }
+    setSlotNotice({
+      key:
+        reason === "quota"
+          ? "love_play_save_quota"
+          : reason === "unavailable"
+            ? "love_play_save_unavailable"
+            : "love_play_slot_failed",
+    });
+  };
+
+  const saveToSlot = (slot: LovePlaySlot) => {
+    if (!sc) return;
+    if (!autosaveRef.current) {
+      setSlotNotice({ key: "love_play_slot_stopped" });
+      return;
+    }
+    const save = snapshotForSlot();
+    if (!save) {
+      setSlotNotice({ key: "love_play_slot_unstable" });
+      return;
+    }
+    const result = saveLovePlaySlot(sc.id, slot, save, revisionRef.current ?? undefined);
+    if (!result.ok) {
+      slotWriteFailure(result.reason);
+      return;
+    }
+    revisionRef.current = result.store.revision;
+    setSlots(result.store.slots[sc.id] ?? {});
+    setSlotNotice({ key: "love_play_slot_saved", vars: { n: slot } });
+  };
+
+  /**
+   * 读取手动槽：中止在途回合、停朗读，再按同一套恢复投影原地换局。
+   * 本幕的关系账本用槽里的 routeState 快照重新规划，和挂载恢复同一口径。
+   */
+  const loadFromSlot = (slot: LovePlaySlot) => {
+    if (!sc) return;
+    const save = slots[slot];
+    if (!save) return;
+    const view = restoreLovePlayView(save);
+    if (!view) {
+      setSlotNotice({ key: "love_play_slot_unreadable" });
+      return;
+    }
+    generationRef.current += 1;
+    requestRef.current?.abort();
+    requestRef.current = null;
+    cmdRef.current = null;
+    stopSpeaking();
+    voiceRef.current.cancel(true);
+    const rioPlan = isRioAct4Scene(sc)
+      ? planRioRouteEntry({
+          saved: save.routeState,
+          committed: readLovePlayRoute(RIO_SERIES_ID),
+          progress: readLoveSeriesProgress(RIO_SERIES_ID),
+        })
+      : null;
+    const store = readLoveStoryStore();
+    const writable = store.status === "ok" || store.status === "empty";
+    autosaveRef.current = writable;
+    revisionRef.current = writable ? (store.status === "ok" ? store.store.revision : 0) : null;
+    routeCommitRef.current = null;
+    lastSavedSignatureRef.current = null;
+    applyResume(view, save, sc, rioPlan);
+    setSlotsOpen(false);
+    setSlotPending(null);
+    setSlotNotice({ key: "love_play_slot_loaded", vars: { n: slot } });
+  };
+
+  const removeSlot = (slot: LovePlaySlot) => {
+    if (!sc) return;
+    if (!autosaveRef.current) {
+      setSlotNotice({ key: "love_play_slot_stopped" });
+      return;
+    }
+    const result = deleteLovePlaySlot(sc.id, slot, revisionRef.current ?? undefined);
+    if (!result.ok) {
+      slotWriteFailure(result.reason);
+      return;
+    }
+    revisionRef.current = result.store.revision;
+    setSlots(result.store.slots[sc.id] ?? {});
+    setSlotPending(null);
+    setSlotNotice({ key: "love_play_slot_deleted", vars: { n: slot } });
+  };
+
+  const updateReader = (patch: Partial<LoveReaderSettings>) => {
+    const next = { ...reader, ...patch };
+    setReader(next);
+    readerRef.current = next;
+    writeLoveReaderSettings(next);
+  };
+
   const endingText = !outcome
     ? ""
     : endingKind === "ended"
@@ -992,6 +1178,21 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           ? t(lang, "love_play_partial_text")
           : sc.success[lang];
   const tone = scenarioTone(sc);
+  const lineTextClass =
+    reader.textSize === "sm" ? "text-[14px]" : reader.textSize === "lg" ? "text-[18px]" : "text-[15.5px]";
+  const slotWhen = (save: LovePlaySave) =>
+    new Date(save.updatedAt).toLocaleString(lang === "zh" ? "zh-CN" : "en-US", {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const slotLine = (save: LovePlaySave) =>
+    t(lang, save.status === "ended" ? "love_play_slot_status_ended" : "love_play_slot_status_playing", {
+      n: Math.max(1, save.history.filter((m) => m.role === "learner").length),
+    });
+  const slotPreview = (save: LovePlaySave) =>
+    [...save.history].reverse().find((m) => m.role === "npc")?.text ?? "";
 
   return (
     <div className="h-dvh flex flex-col bg-paper relative overflow-hidden" data-tone={tone}>
@@ -1002,6 +1203,22 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         </button>
         <h1 className="flex-1 min-w-0 truncate text-[15px] font-semibold">{sc.title[lang]}</h1>
         <button
+          onClick={() => setSlotsOpen(true)}
+          aria-label={t(lang, "love_play_slots")}
+          aria-haspopup="dialog"
+          className="press h-11 w-11 inline-flex items-center justify-center rounded-full text-ink-2 hover:bg-inset"
+        >
+          <Bookmark size={19} />
+        </button>
+        <button
+          onClick={() => setReaderOpen(true)}
+          aria-label={t(lang, "love_play_reader")}
+          aria-haspopup="dialog"
+          className="press h-11 w-11 inline-flex items-center justify-center rounded-full text-ink-2 hover:bg-inset"
+        >
+          <Settings2 size={19} />
+        </button>
+        <button
           onClick={openRecap}
           disabled={!canRecap}
           aria-label={t(lang, "love_play_recap")}
@@ -1010,7 +1227,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         >
           <History size={19} />
         </button>
-        <span className="num text-[12px] text-ink-3 whitespace-nowrap">{t(lang, "love_play_turns", { n: Math.max(1, learnerTurns) })}</span>
+        <span className="num hidden sm:inline text-[12px] text-ink-3 whitespace-nowrap">{t(lang, "love_play_turns", { n: Math.max(1, learnerTurns) })}</span>
       </header>
 
       {/* 背景区：渐变 + 图标装饰 + 立绘 */}
@@ -1026,7 +1243,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         {/* hidden 揭示：背景短暂提亮（纸色 token 的 color-mix，不写死颜色），
             亮起→保持→淡出约 3s，与徽标节奏一致，不常驻。 */}
         <AnimatePresence>
-          {revealKey && (
+          {revealKey && !reader.reduceMotion && (
             <motion.div
               key={revealKey}
               initial={{ opacity: 0 }}
@@ -1089,6 +1306,12 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           </div>
         )}
 
+        {slotNotice && (
+          <p className="mt-2 text-[12px] text-ink-3 max-w-[var(--measure)]" role="status">
+            {t(lang, slotNotice.key, slotNotice.vars)}
+          </p>
+        )}
+
         {/* 台词框：点一下跳过打字动画（收束回合的最后一句也保留可见） */}
         <div
           role="button"
@@ -1104,15 +1327,24 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           className={clsx("min-h-[96px] cursor-pointer select-none rounded-[var(--radius)] border border-line-strong bg-card px-4 py-3 flex flex-col justify-center", carryoverMark ? "mt-1.5" : "mt-3", outcome && "opacity-75")}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[13px] font-semibold text-ink">{npcLine ? speaker.name[lang] : ""}</span>
-            {!typingDone && npcLine && <span className="text-[11px] text-ink-3">{t(lang, "love_play_skip")}</span>}
-            {busy && (
-              <span className="inline-flex items-center gap-1 text-[12px] text-ink-3">
-                <span className="dot" /><span className="dot" /><span className="dot" />
-              </span>
-            )}
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="text-[13px] font-semibold text-ink">{npcLine ? speaker.name[lang] : ""}</span>
+              {lineWasSeen && npcLine && (
+                <span className="shrink-0 rounded-full border border-line px-1.5 py-0.5 text-[10px] text-ink-3">
+                  {t(lang, "love_play_seen")}
+                </span>
+              )}
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              {!typingDone && npcLine && <span className="text-[11px] text-ink-3">{t(lang, "love_play_skip")}</span>}
+              {busy && (
+                <span className="inline-flex items-center gap-1 text-[12px] text-ink-3">
+                  <span className="dot" /><span className="dot" /><span className="dot" />
+                </span>
+              )}
+            </span>
           </div>
-          <p className="text-[15.5px] leading-relaxed text-ink mt-1 whitespace-pre-wrap">{npcLine ? shownText : ""}</p>
+          <p className={clsx("leading-relaxed text-ink mt-1 whitespace-pre-wrap", lineTextClass)}>{npcLine ? shownText : ""}</p>
         </div>
 
         {!outcome && (
@@ -1206,6 +1438,130 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       </div>
 
       <LoveRecap open={recapOpen} onClose={closeRecap} save={recapSave} scenario={sc} />
+
+      {/* 手动存档：1 个自动档在后台，3 个手动位回到保存那一刻。 */}
+      <Sheet
+        open={slotsOpen}
+        onClose={() => {
+          setSlotsOpen(false);
+          setSlotPending(null);
+        }}
+        title={t(lang, "love_play_slots")}
+      >
+        <div className="flex flex-col gap-3 pt-2">
+          <p className="text-[12px] leading-relaxed text-ink-3">{t(lang, "love_play_slot_auto_hint")}</p>
+          {SLOT_IDS.map((slot) => {
+            const save = slots[slot];
+            const confirming = slotPending === slot;
+            return (
+              <div key={slot} className="flex flex-col gap-2 rounded-[var(--radius-sm)] border border-line bg-card p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] font-semibold text-ink">
+                    {t(lang, "love_play_slot_n", { n: slot })}
+                  </span>
+                  <span className="num text-[11px] text-ink-3">
+                    {save ? `${slotWhen(save)} · ${slotLine(save)}` : t(lang, "love_play_slot_empty")}
+                  </span>
+                </div>
+                {save && (
+                  <p className="line-clamp-2 text-[12px] leading-relaxed text-ink-2">{slotPreview(save)}</p>
+                )}
+                {confirming && save ? (
+                  <div className="rounded-[var(--radius-sm)] bg-inset px-3 py-2" role="alertdialog" aria-label={t(lang, "love_play_slot_confirm", { n: slot })}>
+                    <p className="text-[12px] leading-relaxed text-ink-2">
+                      {t(lang, "love_play_slot_confirm", { n: slot })}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button size="sm" variant="ink" onClick={() => loadFromSlot(slot)}>
+                        {t(lang, "love_play_slot_confirm_load")}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setSlotPending(null)}>
+                        {t(lang, "cancel")}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant={save ? "secondary" : "primary"}
+                      onClick={() => saveToSlot(slot)}
+                    >
+                      {t(lang, save ? "love_play_slot_overwrite" : "love_play_slot_save")}
+                    </Button>
+                    {save && (
+                      <>
+                        <Button size="sm" variant="secondary" onClick={() => setSlotPending(slot)}>
+                          {t(lang, "love_play_slot_load")}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => removeSlot(slot)}>
+                          {t(lang, "love_play_slot_delete")}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Sheet>
+
+      {/* 阅读设置：字号/速度/自动/已读跳过/减少动态，全部只影响恋爱模式。 */}
+      <Sheet open={readerOpen} onClose={() => setReaderOpen(false)} title={t(lang, "love_play_reader_title")}>
+        <div className="flex flex-col gap-5 pt-2">
+          <div>
+            <p className="text-[13px] font-semibold text-ink">{t(lang, "love_play_reader_size")}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(["sm", "md", "lg"] as const).map((size) => (
+                <Chip
+                  key={size}
+                  active={reader.textSize === size}
+                  onClick={() => updateReader({ textSize: size })}
+                  sharedSelection={false}
+                >
+                  {t(lang, `love_play_reader_size_${size}` as TKey)}
+                </Chip>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-[13px] font-semibold text-ink">{t(lang, "love_play_reader_speed")}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(["slow", "normal", "fast"] as const).map((speed) => (
+                <Chip
+                  key={speed}
+                  active={reader.speed === speed}
+                  onClick={() => updateReader({ speed })}
+                  sharedSelection={false}
+                >
+                  {t(lang, `love_play_reader_speed_${speed}` as TKey)}
+                </Chip>
+              ))}
+            </div>
+          </div>
+          {([
+            ["auto", "love_play_reader_auto", "love_play_reader_auto_hint"],
+            ["skipRead", "love_play_reader_skip", "love_play_reader_skip_hint"],
+            ["reduceMotion", "love_play_reader_motion", "love_play_reader_motion_hint"],
+          ] as const).map(([field, label, hint]) => (
+            <div key={field} className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-ink">{t(lang, label)}</p>
+                <p className="mt-0.5 text-[12px] leading-relaxed text-ink-3">{t(lang, hint)}</p>
+              </div>
+              <Switch
+                checked={reader[field]}
+                onChange={(value) => {
+                  const patch: Partial<LoveReaderSettings> = { [field]: value };
+                  updateReader(patch);
+                }}
+                label={t(lang, label)}
+              />
+            </div>
+          ))}
+        </div>
+      </Sheet>
 
       <Sheet
         open={!!recovery}

@@ -63,7 +63,12 @@ const storySave = {
   startedAt: 1_700_000_000_000,
   updatedAt: 1_700_000_000_001,
 };
-const story = { v: 1, revision: 2, saves: { [storySave.scenarioId]: storySave }, records: [], routes: {}, updatedAt: 1_700_000_000_002 };
+const story = { v: 2, revision: 2, saves: { [storySave.scenarioId]: storySave }, slots: {}, records: [], routes: {}, updatedAt: 1_700_000_000_002 };
+/** 阅读层两个 slot：形状与 story 完全不同，但同在前缀下，必须跟备份一起走。 */
+const read = { v: 1, seen: { 'love-approach-soft-decline-reinvite:1a2b3c:8': 1_700_000_000_003 }, updatedAt: 1_700_000_000_003 };
+const reader = { v: 1, textSize: 'lg', speed: 'fast', auto: true, skipRead: true, reduceMotion: false };
+const READ_KEY = `${LOVE_PLAY_PREFIX}read`;
+const READER_KEY = `${LOVE_PLAY_PREFIX}reader`;
 const wrap = (lovePlay: unknown) => JSON.stringify({ state: { sessions: [] }, version: 0, lovePlay });
 const decodeLove = async (lovePlay: unknown) => decodeBackup(wrap(lovePlay));
 
@@ -123,11 +128,55 @@ test('the story slot is exported and restored verbatim beside carry and series',
   assert.deepEqual(JSON.parse(decoded.lovePlay![seriesKey('love-arc-rio-clarify')]), progress);
 });
 
-test('the whole-table schema accepts carry, story and series side by side', () => {
-  const result = LovePlaySchema.safeParse({ [CARRY_KEY]: [carry], [STORY_KEY]: story, [seriesKey('love-arc-rio-clarify')]: progress });
+test('a v1 story store is migrated to v2 with an empty manual-slot table', async () => {
+  slots.clear();
+  const v1 = { v: 1, revision: 4, saves: story.saves, records: [], routes: {}, updatedAt: 1_700_000_000_004 };
+  slots.set(STORY_KEY, JSON.stringify(v1));
+  const decoded = await decodeLove(lovePlayBackup());
+  assert.equal(decoded.lovePlayIssue, undefined);
+  const restored = JSON.parse(decoded.lovePlay![STORY_KEY]);
+  assert.equal(restored.v, 2);
+  assert.deepEqual(restored.slots, {});
+  assert.deepEqual(restored.saves, story.saves);
+});
+
+test('read index and reader settings travel under their own keys', async () => {
+  slots.clear();
+  slots.set(READ_KEY, JSON.stringify(read));
+  slots.set(READER_KEY, JSON.stringify(reader));
+  const snapshot = lovePlayBackup();
+  assert.ok(snapshot);
+  assert.deepEqual(Object.keys(snapshot).sort(), [READ_KEY, READER_KEY].sort());
+  const decoded = await decodeLove(snapshot);
+  assert.equal(decoded.lovePlayIssue, undefined);
+  assert.deepEqual(JSON.parse(decoded.lovePlay![READ_KEY]), read);
+  assert.deepEqual(JSON.parse(decoded.lovePlay![READER_KEY]), reader);
+});
+
+test('read and reader slots cannot be swapped with one another', () => {
+  assert.equal(parseLovePlaySlot(READ_KEY, read).success, true);
+  assert.equal(parseLovePlaySlot(READER_KEY, reader).success, true);
+  assert.equal(parseLovePlaySlot(READ_KEY, reader).success, false);
+  assert.equal(parseLovePlaySlot(READER_KEY, read).success, false);
+  assert.equal(parseLovePlaySlot(READ_KEY, story).success, false);
+  assert.equal(parseLovePlaySlot(READER_KEY, { ...reader, textSize: 'huge' }).success, false);
+});
+
+
+test('the whole-table schema accepts carry, story, series, read and reader side by side', () => {
+  const result = LovePlaySchema.safeParse({
+    [CARRY_KEY]: [carry],
+    [STORY_KEY]: story,
+    [seriesKey('love-arc-rio-clarify')]: progress,
+    [READ_KEY]: read,
+    [READER_KEY]: reader,
+  });
   assert.equal(result.success, true);
   const saved = result.data as Record<string, unknown>;
-  assert.deepEqual(Object.keys(saved).sort(), [CARRY_KEY, STORY_KEY, seriesKey('love-arc-rio-clarify')].sort());
+  assert.deepEqual(
+    Object.keys(saved).sort(),
+    [CARRY_KEY, STORY_KEY, seriesKey('love-arc-rio-clarify'), READ_KEY, READER_KEY].sort(),
+  );
 });
 
 test('each love slot is parsed by the shape its key names', () => {

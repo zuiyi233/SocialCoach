@@ -15,7 +15,12 @@ import { notifyLoveSlotsChanged } from "./love-slot-events";
  */
 
 export const LOVE_STORY_KEY = `${LOVE_PLAY_PREFIX}story`;
-export const LOVE_STORY_VERSION = 1;
+export const LOVE_STORY_VERSION = 2;
+/** 单份 save 的形状版本；与 store 版本分开，v1 save 在 v2 store 里原样保留。 */
+export const LOVE_SAVE_VERSION = 1;
+
+/** 手动存档槽：每场 3 个，自动档继续放在 `saves`。 */
+export type LovePlaySlot = "1" | "2" | "3";
 
 export interface LovePlaySaveMessage {
   id: string;
@@ -59,9 +64,12 @@ export interface LovePlayRecord {
 }
 
 export interface LoveStoryStore {
-  v: 1;
+  v: 2;
   revision: number;
+  /** 自动档：每场一份，续玩读这里。 */
   saves: Record<string, LovePlaySave>;
+  /** 手动档：每场最多 3 个；键是场景 id，内层键是槽号。 */
+  slots: Record<string, Partial<Record<LovePlaySlot, LovePlaySave>>>;
   records: LovePlayRecord[];
   routes: Record<string, unknown>;
   updatedAt: number;
@@ -115,7 +123,7 @@ const saveMessageSchema = z.object({
  * `practiceDays` 之类的分数字段即使被写进对象，也不会落盘。
  */
 const saveShape = z.object({
-  v: z.literal(LOVE_STORY_VERSION),
+  v: z.literal(LOVE_SAVE_VERSION),
   scenarioId: z.string().min(1),
   seriesId: z.string().min(1).nullable(),
   lang: langSchema,
@@ -184,25 +192,58 @@ const recordShape = z.object({
   lang: langSchema,
 });
 
-export const LoveStoryStoreSchema: z.ZodType<LoveStoryStore> = z
-  .object({
-    v: z.literal(LOVE_STORY_VERSION),
-    revision: z.number().int().nonnegative(),
-    saves: z.record(z.string(), LovePlaySaveSchema),
-    records: z.array(recordShape),
-    routes: z.record(z.string(), z.unknown()),
-    updatedAt: z.number(),
-  })
+const slotSchema = z.enum(["1", "2", "3"]);
+const storyStoreBaseShape = {
+  revision: z.number().int().nonnegative(),
+  saves: z.record(z.string(), LovePlaySaveSchema),
+  records: z.array(recordShape),
+  routes: z.record(z.string(), z.unknown()),
+  updatedAt: z.number(),
+};
+const storyStoreV1Shape = z.object({ v: z.literal(1), ...storyStoreBaseShape });
+const storyStoreV2Shape = z.object({
+  v: z.literal(2),
+  ...storyStoreBaseShape,
+  slots: z.record(z.string(), z.partialRecord(slotSchema, LovePlaySaveSchema)).default({}),
+});
+const storyStoreUnion = z.union([storyStoreV1Shape, storyStoreV2Shape]);
+
+/**
+ * v1 store 读出来即迁移成 v2（slots 为空），下一次成功写入才落盘成 v2。
+ * 手动槽与自动档同 schema；槽内 save 的 scenarioId 必须与外层场景 key 一致。
+ */
+export const LoveStoryStoreSchema: z.ZodType<LoveStoryStore> = storyStoreUnion
   .superRefine((store, ctx) => {
     for (const [key, save] of Object.entries(store.saves)) {
       if (key !== save.scenarioId) {
         ctx.addIssue({ code: "custom", path: ["saves", key], message: "a save is keyed by its scenarioId" });
       }
     }
-  });
+    if (store.v !== 2) return;
+    for (const [sceneId, slots] of Object.entries(store.slots)) {
+      for (const [slot, save] of Object.entries(slots)) {
+        if (save && save.scenarioId !== sceneId) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["slots", sceneId, slot],
+            message: "a slot save is keyed by its scenarioId",
+          });
+        }
+      }
+    }
+  })
+  .transform((store): LoveStoryStore => ({
+    v: 2,
+    revision: store.revision,
+    saves: store.saves,
+    slots: store.v === 2 ? store.slots : {},
+    records: store.records,
+    routes: store.routes,
+    updatedAt: store.updatedAt,
+  })) as unknown as z.ZodType<LoveStoryStore>;
 
 export function emptyLoveStoryStore(): LoveStoryStore {
-  return { v: LOVE_STORY_VERSION, revision: 0, saves: {}, records: [], routes: {}, updatedAt: 0 };
+  return { v: 2, revision: 0, saves: {}, slots: {}, records: [], routes: {}, updatedAt: 0 };
 }
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -262,10 +303,10 @@ export function readLoveStoryStore(): LoveStoryRead {
     return { status: "corrupt", raw, reason: "json" };
   }
 
-  // 版本先判：v2+ 是「未来写的」，不是「写坏了」，恢复 UI 的文案与处理不同。
+  // 版本先判：1 是旧 store（读时迁移到 v2），2 是当前；其他数字是「未来写的」，不是「写坏了」。
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const v = (value as { v?: unknown }).v;
-    if (typeof v === "number" && v !== LOVE_STORY_VERSION) return { status: "incompatible", raw };
+    if (typeof v === "number" && v !== 1 && v !== 2) return { status: "incompatible", raw };
   }
 
   const parsed = LoveStoryStoreSchema.safeParse(value);
@@ -346,6 +387,13 @@ export function writeLoveStoryStore(store: LoveStoryStore, expectedRevision?: nu
     const raw = serialize(save);
     if (raw === null || byteLength(raw) > SAVE_MAX_BYTES) return { ok: false, reason: "invalid" };
   }
+  for (const slots of Object.values(next.slots)) {
+    for (const save of Object.values(slots)) {
+      if (!save) continue;
+      const raw = serialize(save);
+      if (raw === null || byteLength(raw) > SAVE_MAX_BYTES) return { ok: false, reason: "invalid" };
+    }
+  }
 
   const writable: LoveStoryStore = {
     ...next,
@@ -419,6 +467,94 @@ export function deleteLovePlayScene(scenarioId: string, expectedRevision?: numbe
   const saves = { ...current.store.saves };
   delete saves[scenarioId];
   return writeLoveStoryStore({ ...current.store, saves }, expectedRevision);
+}
+
+export type LoveSlotsRead = {
+  status: "empty" | "ok" | "corrupt" | "incompatible" | "unavailable";
+  slots: Partial<Record<LovePlaySlot, LovePlaySave>>;
+  raw?: string;
+};
+
+/** 读取一场戏的三个手动槽；store 级损坏/版本不兼容原样透出。 */
+export function readLovePlaySlots(scenarioId: string): LoveSlotsRead {
+  const read = readLoveStoryStore();
+  switch (read.status) {
+    case "empty":
+      return { status: "empty", slots: {} };
+    case "unavailable":
+      return { status: "unavailable", slots: {} };
+    case "corrupt":
+      return { status: "corrupt", slots: {}, raw: read.raw };
+    case "incompatible":
+      return { status: "incompatible", slots: {}, raw: read.raw };
+    default:
+      return { status: "ok", slots: read.store.slots[scenarioId] ?? {}, raw: read.raw };
+  }
+}
+
+/** 手动存档：只允许写本场自己的 save；槽号由 UI 固定为 1–3。 */
+export function saveLovePlaySlot(
+  scenarioId: string,
+  slot: LovePlaySlot,
+  save: LovePlaySave,
+  expectedRevision?: number,
+): LoveStoryWrite {
+  if (!scenarioId || save.scenarioId !== scenarioId) return { ok: false, reason: "invalid" };
+  const parsed = LovePlaySaveSchema.safeParse(save);
+  if (!parsed.success) return { ok: false, reason: "invalid" };
+
+  const current = loadForWrite();
+  if (!current.ok) return current.result;
+
+  const sceneSlots = { ...(current.store.slots[scenarioId] ?? {}), [slot]: parsed.data };
+  return writeLoveStoryStore(
+    { ...current.store, slots: { ...current.store.slots, [scenarioId]: sceneSlots } },
+    expectedRevision,
+  );
+}
+
+/** 删除一个手动槽；删空后连同场景 key 一起移除。幂等。 */
+export function deleteLovePlaySlot(
+  scenarioId: string,
+  slot: LovePlaySlot,
+  expectedRevision?: number,
+): LoveStoryWrite {
+  if (!scenarioId) return { ok: false, reason: "invalid" };
+
+  const current = loadForWrite();
+  if (!current.ok) return current.result;
+
+  const sceneSlots = { ...(current.store.slots[scenarioId] ?? {}) };
+  delete sceneSlots[slot];
+  const slots = { ...current.store.slots };
+  if (Object.keys(sceneSlots).length) slots[scenarioId] = sceneSlots;
+  else delete slots[scenarioId];
+  return writeLoveStoryStore({ ...current.store, slots }, expectedRevision);
+}
+
+/**
+ * 章节重玩：删除指定场景的自动档与手动槽；传 seriesId 时同时清掉该线的已提交账本。
+ * 记录（records）不删——它是对局历史，不是可回滚的进度。
+ */
+export function resetLovePlayScenes(
+  scenarioIds: readonly string[],
+  options: { seriesId?: string | null; expectedRevision?: number } = {},
+): LoveStoryWrite {
+  const ids = new Set(scenarioIds.filter(Boolean));
+  if (!ids.size) return { ok: false, reason: "invalid" };
+
+  const current = loadForWrite();
+  if (!current.ok) return current.result;
+
+  const saves = { ...current.store.saves };
+  const slots = { ...current.store.slots };
+  const routes = { ...current.store.routes };
+  for (const id of ids) {
+    delete saves[id];
+    delete slots[id];
+  }
+  if (options.seriesId) delete routes[options.seriesId];
+  return writeLoveStoryStore({ ...current.store, saves, slots, routes }, options.expectedRevision);
 }
 
 /** 追加一条已完成的恋爱记录。同 id 重放不新增；只保留最近 100 条。 */

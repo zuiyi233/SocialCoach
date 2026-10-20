@@ -4,6 +4,8 @@ import {SceneContextSchema} from './scene-context';
 import type {CarryPromiseClass} from '@/data/corpus/love-carry-lines';
 import {LOVE_CARRY_CAP, LOVE_CARRY_KEY, LOVE_CARRY_TEXT_MAX, LOVE_PLAY_PREFIX, type LoveCarryState} from './love-carry-store';
 import {LOVE_STORY_KEY, LoveStoryStoreSchema} from './love-story';
+import {LOVE_READ_KEY} from './love-read';
+import {LOVE_READER_KEY} from './love-reader-settings';
 
 const text=z.string(),strings=z.array(text),num=z.number().finite();
 // 枚举值写死在这里，但用 satisfies 扣回真正的类型：语料或 store 改了取值，这一行就编译不过
@@ -88,13 +90,35 @@ const LovePlayUnreadableSchema=z.object({unreadable:text});
 const LoveCarrySlotSchema=z.union([LoveCarryListSchema,LovePlayUnreadableSchema]);
 const LoveStorySlotSchema=z.union([LoveStoryStoreSchema,LovePlayUnreadableSchema]);
 const LoveSeriesSlotSchema=z.union([LoveSeriesProgressSchema,LovePlayUnreadableSchema]);
+/**
+ * 阅读层两个 slot：已读索引与阅读偏好。
+ * 它们跟着导出走（换设备后已读与字号不该倒退），但形状与 story 完全不同，
+ * 键名与形状必须一一对应，恢复时不得互换。
+ */
+const LoveReadSlotSchema=z.union([
+  z.object({v:z.literal(1),seen:z.record(text.max(200),num),updatedAt:num}),
+  LovePlayUnreadableSchema,
+]);
+const LoveReaderSlotSchema=z.union([
+  z.object({
+    v:z.literal(1),
+    textSize:z.enum(['sm','md','lg']),
+    speed:z.enum(['slow','normal','fast']),
+    auto:z.boolean(),
+    skipRead:z.boolean(),
+    reduceMotion:z.boolean(),
+  }),
+  LovePlayUnreadableSchema,
+]);
 /** `love-series-progress.ts` 按线拼 key；这里只按同一前缀识别，不复制具体 line id。 */
 const LOVE_SERIES_PREFIX=`${LOVE_PLAY_PREFIX}series.`;
-type LoveSlotShape='carry'|'story'|'series';
+type LoveSlotShape='carry'|'story'|'series'|'read'|'reader';
 /** 键名决定形状；其余同前缀键不属于这份闭合联合，导出与恢复都不越界。 */
 function loveSlotShape(key:string):LoveSlotShape|null{
  if(key===LOVE_CARRY_KEY)return 'carry';
  if(key===LOVE_STORY_KEY)return 'story';
+ if(key===LOVE_READ_KEY)return 'read';
+ if(key===LOVE_READER_KEY)return 'reader';
  if(key.startsWith(LOVE_SERIES_PREFIX)&&key.length>LOVE_SERIES_PREFIX.length)return 'series';
  return null;
 }
@@ -104,9 +128,11 @@ function loveValueShape(value:unknown):LoveSlotShape|null{
  if(!value||typeof value!=='object')return null;
  if('saves' in value&&'records' in value&&'routes' in value)return 'story';
  if('completed' in value&&'lastScene' in value&&'outcome' in value)return 'series';
+ if('seen' in value&&'updatedAt' in value)return 'read';
+ if('textSize' in value&&'speed' in value&&'auto' in value)return 'reader';
  return null;
 }
-export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveStoryStoreSchema,LoveSeriesProgressSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
+export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveStoryStoreSchema,LoveSeriesProgressSchema,LoveReadSlotSchema,LoveReaderSlotSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
  for(const [key,slot] of Object.entries(slots)){
   const target=loveSlotShape(key);
   if(!target){ctx.addIssue({code:'custom',path:[key],message:'Love-play slot key is not part of the archive'});continue;}
@@ -122,6 +148,8 @@ export function parseLovePlaySlot(key:string,value:unknown){
   case 'carry':return LoveCarrySlotSchema.safeParse(value);
   case 'story':return LoveStorySlotSchema.safeParse(value);
   case 'series':return LoveSeriesSlotSchema.safeParse(value);
+  case 'read':return LoveReadSlotSchema.safeParse(value);
+  case 'reader':return LoveReaderSlotSchema.safeParse(value);
   default:return {success:false as const};
  }
 }

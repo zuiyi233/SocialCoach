@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   clearLoveSeriesProgressSlot,
+  forgetLoveSeriesScenes,
   loveSeriesProgressKey,
   readLoveSeriesProgress,
   readLoveSeriesProgressState,
@@ -185,4 +186,63 @@ test('the series page only refreshes on its own slots, story, or a clear', () =>
   assert.equal(shouldRefreshLoveSlots(loveSeriesProgressKey('love-arc-eve-after-no'), RIO), false, 'another line is not this page');
   assert.equal(shouldRefreshLoveSlots('socialcoach.love-play.carry', RIO), false);
   assert.equal(shouldRefreshLoveSlots('socialcoach.v1', RIO), false);
+});
+
+test('chapter replay forgets the selected scene and everything after it', () => {
+  reset();
+  putRaw({
+    v: 2,
+    completed: ['scene-a', 'scene-b', 'scene-c'],
+    lastScene: 'scene-c',
+    outcome: { 'scene-a': 'success', 'scene-b': 'partial', 'scene-c': 'failure' },
+    lastAct: 3,
+  });
+  const res = forgetLoveSeriesScenes(RIO, ['scene-b', 'scene-c'], 1);
+  assert.equal(res.ok, true);
+  assert.deepEqual(stored(), {
+    v: 2,
+    completed: ['scene-a'],
+    lastScene: 'scene-a',
+    outcome: { 'scene-a': 'success' },
+    lastAct: 1,
+  }, 'the removed lastScene falls back to the newest surviving completion');
+  reset();
+});
+
+test('forgetting every completed scene clears lastAct instead of keeping a stale act', () => {
+  reset();
+  putRaw({
+    v: 2,
+    completed: ['scene-a'],
+    lastScene: 'scene-a',
+    outcome: { 'scene-a': 'success' },
+    lastAct: 1,
+  });
+  const res = forgetLoveSeriesScenes(RIO, ['scene-a'], null);
+  assert.equal(res.ok, true);
+  const saved = stored();
+  assert.deepEqual(saved.completed, []);
+  assert.equal(saved.lastScene, '');
+  assert.deepEqual(saved.outcome, {});
+  assert.equal('lastAct' in saved, false);
+  reset();
+});
+
+test('a corrupt progress slot refuses a chapter replay without touching the bytes', () => {
+  reset();
+  slots.set(KEY, '{"completed": [');
+  const before = slots.get(KEY);
+  const res = forgetLoveSeriesScenes(RIO, ['scene-a'], null);
+  assert.equal(res.ok, false);
+  if (!res.ok) assert.equal(res.issue, 'corrupt');
+  assert.equal(slots.get(KEY), before);
+  reset();
+});
+
+test('an empty progress slot needs no write for a chapter replay', () => {
+  reset();
+  const res = forgetLoveSeriesScenes(RIO, ['scene-a'], null);
+  assert.equal(res.ok, true);
+  assert.equal(slots.has(KEY), false);
+  reset();
 });

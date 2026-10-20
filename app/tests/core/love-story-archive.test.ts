@@ -67,7 +67,7 @@ const storySave = {
   startedAt: 1_700_000_000_000,
   updatedAt: 1_700_000_000_001,
 };
-const story = { v: 1, revision: 2, saves: { [storySave.scenarioId]: storySave }, records: [], routes: {}, updatedAt: 1_700_000_000_002 };
+const story = { v: 2, revision: 2, saves: { [storySave.scenarioId]: storySave }, slots: {}, records: [], routes: {}, updatedAt: 1_700_000_000_002 };
 
 /** 与 useApp 的持久化快照同形：store 自己的 hydrated / saveIssue 等字段不属于档案，parseArchive 会 strip。 */
 const appState = {

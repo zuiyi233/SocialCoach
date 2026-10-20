@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { LoveTextSpeed } from "./love-reader-settings";
 
 /**
  * 恋爱 Galgame 的"流式打字机"。
@@ -42,7 +43,12 @@ export interface TypeLoveLineHandle {
  * 组件卸载 / 换台词时务必传入新的 AbortController 并 abort，避免 setInterval
  * 类泄漏（内部全部用 setTimeout 链，abort 后不再排队）。
  */
-export function typeLoveLine(text: string, onChar: (n: number) => void, signal?: AbortSignal): TypeLoveLineHandle {
+export function typeLoveLine(
+  text: string,
+  onChar: (n: number) => void,
+  signal?: AbortSignal,
+  speed: LoveTextSpeed = "normal",
+): TypeLoveLineHandle {
   let alive = true;
   let timer = 0;
   let endResolve!: (interrupted: boolean) => void;
@@ -65,13 +71,14 @@ export function typeLoveLine(text: string, onChar: (n: number) => void, signal?:
   const fast =
     typeof window !== "undefined" &&
     !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const factor = fast ? 0 : speed === "slow" ? 1.35 : speed === "fast" ? 0.6 : 1;
 
   /** 从 i 起推一段：返回下一段起点与本段展示前等待的时长。 */
   const nextSegment = (i: number): { next: number; delay: number } => {
     if (i >= text.length) return { next: text.length, delay: 0 };
     const ch = text[i];
     if (CJK_RE.test(ch)) {
-      return { next: i + 1, delay: CJK_BASE_MS + pauseFor(text, i + 1) };
+      return { next: i + 1, delay: (CJK_BASE_MS + pauseFor(text, i + 1)) * factor };
     }
     if (WORD_RE.test(ch)) {
       let next = i + 1;
@@ -80,10 +87,10 @@ export function typeLoveLine(text: string, onChar: (n: number) => void, signal?:
       while (next < text.length && text[next] === " ") next++;
       const wordLen = next - i;
       const delay = Math.min(WORD_BASE_MS + wordLen * WORD_PER_CHAR_MS, WORD_MAX_MS);
-      return { next, delay: delay + pauseFor(text, next - 1) };
+      return { next, delay: (delay + pauseFor(text, next - 1)) * factor };
     }
     // 独立标点 / 空白 / 换行：单字符步，短停顿。
-    return { next: i + 1, delay: PUNCT_BASE_MS + pauseFor(text, i + 1) };
+    return { next: i + 1, delay: (PUNCT_BASE_MS + pauseFor(text, i + 1)) * factor };
   };
 
   /** 刚展示到 index 处（不含），若落在句末/句中标点则追加停顿。 */
@@ -136,28 +143,36 @@ export interface LoveTypingStep {
  * PlayScene 用的打字机状态：新台词 putLine 即启动逐字浮现；skipNow 立即显示全文。
  * 内部用 AbortController 保证换台词 / 卸载时停止上一轮定时器链，不泄漏。
  */
-export function useLoveTyping(): { typing: LoveTypingStep | null; skip: boolean; putLine: (key: string, text: string) => void; skipNow: () => void } {
+export function useLoveTyping(speed: LoveTextSpeed = "normal"): {
+  typing: LoveTypingStep | null;
+  skip: boolean;
+  /** instant = 已读跳过 / 自动全文 / 减少动态：直接把全文放上去，不排定时器。 */
+  putLine: (key: string, text: string, instant?: boolean) => void;
+  skipNow: () => void;
+} {
   const [typing, setTyping] = useState<LoveTypingStep | null>(null);
   const [skip, setSkip] = useState(false);
   const ctlRef = useRef<AbortController | null>(null);
   const skipFnRef = useRef<(() => void) | null>(null);
 
-  const putLine = useCallback((key: string, text: string) => {
+  const putLine = useCallback((key: string, text: string, instant = false) => {
     ctlRef.current?.abort();
     skipFnRef.current = null;
-    setSkip(false);
-    setTyping({ key, n: 0, total: text.length });
+    setSkip(instant);
+    setTyping({ key, n: instant ? text.length : 0, total: text.length });
+    if (instant) return;
     const ctl = new AbortController();
     ctlRef.current = ctl;
     const run = typeLoveLine(
       text,
       (n) => setTyping((prev) => (prev && prev.key === key ? { ...prev, n } : prev)),
       ctl.signal,
+      speed,
     );
     skipFnRef.current = run.skip;
     // 结果只看不打：PlayScene 用 skip 状态 + typing.n 渲染，这里不需要消费。
     void run.promise;
-  }, []);
+  }, [speed]);
 
   const skipNow = useCallback(() => {
     if (skipFnRef.current) {
