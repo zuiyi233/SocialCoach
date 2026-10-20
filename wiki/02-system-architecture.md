@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-20 | Current stage: E -->
+<!-- Last verified: 2026-10-21 | Current stage: F -->
 
 # 系统架构
 
@@ -411,7 +411,7 @@ AppProviders 在确认默认 API 不可用时自动打开可关闭的配置弹�
 - **生命周期**（`src-tauri/src/next_server.rs` + `lib.rs`）：setup 线程 spawn `runtime/node.exe server.js`（`NODE_ENV=production HOSTNAME=127.0.0.1 PORT=3210`）→ `TcpStream` 轮询就绪 → 显示主窗口；`RunEvent::Exit` 时 `child.kill()` 清理子进程，避免端口残留。子进程句柄经 `ServerProcess` managed state 在 setup 与 run 回调间共享。
 - **dev 模式**：不启动 sidecar，`beforeDevCommand` 跑 `next dev`（3000），`devUrl` 指向它——前端热更新，壳照常。
 - **构建链**（`desktop/scripts/build-runtime.mjs`）：next build → 拷贝 standalone 树（`dereference` 解引用符号链接）→ **`flattenPnpmStore()`** 把 pnpm 虚拟 store 摊平到顶层 `node_modules`（pnpm 的 standalone 输出是符号链接农场，直接拷贝会留死链接，报 `Cannot find module '@swc/helpers/…'`）→ 补 `.next/static` + `public`（standalone 故意不带）→ 下载并缓存 node.exe → `smoke-runtime.mjs` 无壳冒烟。`pnpm desktop:runtime / desktop:smoke / desktop:build`（NSIS 安装包，含简体中文）。
-- **托盘语义**（继承模板）：关窗口 = 隐藏到托盘（sidecar 继续跑），托盘 Quit 才 `app.exit(0)` 触发 Exit 清理。强杀（崩溃/任务管理器）会绕过 Exit 回调留下 node 残留——见 [桌面 README](./desktop/README.md) 故障排查。
+- **托盘语义**（继承模板）：关窗口 = 隐藏到托盘（sidecar 继续跑），托盘 Quit 才 `app.exit(0)` 触发 Exit 清理。强杀（崩溃/任务管理器）会绕过 Exit 回调留下 node 残留——见 [桌面 README](../desktop/README.md) 故障排查。
 - **自动更新**：占位 key 会让本地构建崩（`PluginInitialization("updater", …)`），故默认关闭——`Cargo.toml` 预留 `updater` feature（依赖可选化），启用需补 `plugins.updater` 配置 + `--features updater` 构建。
 - **验证**：`desktop:runtime` + `desktop:smoke` 绿；`cargo check` 零警告；release 产物 `SocialCoach_0.1.0_x64-setup.exe`（86.54 MiB）受控冒烟通过（进程存活 + `/api/health` 应答 + 窗口可见 + 关闭隐藏 + 退出清理）。桌面壳改动后必须重建并冒烟（见根 `AGENTS.md` 桌面规范）。
 
@@ -447,3 +447,16 @@ AppProviders 在确认默认 API 不可用时自动打开可关闭的配置弹�
 - **恋爱记录与练习会话分家。** `completeLovePlay` 只追加 `LovePlayRecord` 与既有的 `loveProficiency` / `practiceDays`，不再写 `Session`；`/love` 统计读 `records`，首页未完成 / `Debrief` / `assess` / `historyFor` 显式排除恋爱来源。
 - **配音按人物声线。** `lib/love-voices.ts` 用 `LOVE_VOICES_BASE`（角色 id）+ `LOVE_VOICES_SCENE`（`scenarioId:characterId` 覆盖）给 64 个恋爱场景的 54 个 NPC id 定声线；`speak(text, lang, speaker?)` 把 `SpeakerVoice` 透传给设备音色选择，回想单句重播走 `playNpcLine` 而不是排队 `speak()`。
 - **Rio 第 4 幕是「账本 + 作者拍点」。** `lib/love-relationship-state.ts` 定义 `RioRelationshipState`（承诺 / 边界 / 冲突 / 仪式 / flags / quotes，无分数）与两结局谓词；`lib/rio-route.ts` 定义开场变体（邮件见过 / 新邮件 / 中性）、两组拍点（先问她想要什么、答复前的下一步）与 `applyRioBeat`——只接受逐字选项文本当证据，只写本幕允许字段。`routeState` 存 `{rio, appliedBeats}` 快照；收束时把 `lastAct:4`、`lastOutcome`、`stale:false` 的账本写进 `routes[rio]`。第 5–6 幕与两结局的完整场景**尚未写**，等 3–5 人试玩闸门。
+
+## 恋爱半教练与 Love Studio（2026-10-21，方案）
+
+方向见 [14-stage-f.md](./14-stage-f.md)，契约见 [spec-love-semi-coach.md](./specs/spec-love-semi-coach.md) 与 [spec-love-studio.md](./specs/spec-love-studio.md)。这一节只记运行时与数据边界；**尚未实现**。
+
+- **三套契约，两个新增运行时。** 主教练（Next）不变；剧本模式继续在 Next 里；恋爱半教练在现有 `/love/play` 上增加关系状态与可选回顾；Love Studio 是独立的 AnimaVN fork（React + Vite 前端，FastAPI + SQLite 后端），不并入主站。
+- **关系状态落在 story slot。** `socialcoach.love-play.story` 升 v2，新增 `relationships[characterKey]`（熟悉 / 信任 / 心动 + 最近 20 条 signal）；导出 / 擦除沿用 `LOVE_PLAY_PREFIX`；不新增独立 slot，避免再欠一次导出义务。旧 v1 读取时补空对象。
+- **Studio 不共享主站存储。** v1 本地伴生：用户运行 Studio，主站链接 `http://127.0.0.1:5180`；persona / 故事包 / 角色包通过显式文件或 URL 交接。v2 托管才引入账号、隔离数据库 / 对象存储、GPU TTS、生图代理。
+- **不把 Studio 的 Python/SQLite 塞进 `app/`；也不把主站的账号 / 存储带进 Studio。** 两套运行时各自发布、各自备份；主站的 `pnpm check` / `build` 不依赖 Studio。
+- **桥接边界。** Studio 的故事包只带摘要 / 角色包引用 / 关键选择 / 结局，不自动写 `loveProficiency` / 关系状态；主站导入后由用户确认是否初始化。Studio 不读取主站的 `hidden` / `secret` / 结局谓词。
+- **关系档案与共享人设。** `LoveArchive` 是设备端的跨系统档案（人物 / 故事 / 记忆 / 关系 / 解锁）；Studio 与半教练通过 `.sclove` / `.scpersona` 或本地桥显式交接。人设只有一份 schema：Studio 全量 Tavern 工作台，恋爱系统聚焦编辑器 + 导入导出。权威矩阵、分支/冲突与局外成长见 [spec-love-bridge.md](./specs/spec-love-bridge.md) §4；不做实时同步，不自动写能力分。
+- **2026-10-21 拍板。** Studio 完整导入 Tavern 卡；恋爱系统只吃 `.scpersona` + 基础 JSON，完整 PNG/世界书引导到 Studio（离线直吃卡须共享 Studio parser + round-trip 测试）。玩家 persona 与教练 profile 分表，只做显式「复制到教练档案」。Studio 的关系状态只读、默认折叠。局外成长 = 叙事阶段（陌生/认识/熟络/亲近）+ 关系图鉴 + 故事收藏，无 EXP/战力；等级即便出现也只读派生、不能兑换。
+- **美术升级并行。** [spec-love-scripted-art.md](./specs/spec-love-scripted-art.md) 只改 `/love/play` 的舞台与 beat，不引入运行时生图，也不依赖 Studio。

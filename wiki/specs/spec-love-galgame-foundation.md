@@ -4,6 +4,8 @@
 范围：`/love/play/[scenarioId]` 的幕内存档续玩、回想（backlog）、外部 TTS 配音同步，以及会直接破坏这三件事的引擎层技术债。
 不在本文：Rio 六幕剧情与关系状态（另文）、E6 在场层、Web Push、云存档、账号体系。
 
+> **2026-10-21 方向修订**：本文「不做好感度」的非目标由 [spec-love-semi-coach.md](./spec-love-semi-coach.md) 取代；存档、回想、TTS、引擎债继续有效。Love Studio 是独立的生成式 Galgame 系统，见 [spec-love-studio.md](./spec-love-studio.md)。
+
 ---
 
 ## 0. 结论一句话
@@ -73,7 +75,7 @@
 - BGM / SFX / 背景图 / CG / 全量语音包 / 服务端音频缓存。
 - 逐字/口型同步、按情绪改语气、朗读选项/结局/UI 文案。
 - 多 NPC 同场交替配音；本批保持「每场一个说话人」。
-- 好感度、亲密度、签到、任何可刷的关系数值。
+- ~~好感度、亲密度、签到、任何可刷的关系数值。~~（2026-10-21 修订：允许非可刷的关系状态驱动主动关心，见 [spec-love-semi-coach.md](./spec-love-semi-coach.md)。）
 - E6 在场层 / Web Push；不要借配音把推送通道带进来。
 
 ---
@@ -379,7 +381,7 @@ speak(text: string, lang: Lang, speaker?: SpeakerVoice): void
 - 不写 50 角色 × 16 句承接台词；只写 Rio 六幕需要的专属句。
 - 不做多 NPC 同场 Galgame；不把 `@@speaker` 解析器接进 `/love-play`。
 - 不改非流式 JSON / 不引流式；不重写 `extractJSON`/`parseRoleplay` 全仓。
-- 不引入好感度/关系数值分；`stance` 不进存档、不进结局。
+- 不引入可刷的好感度 / 关系数值分；2026-10-21 起允许熟悉 / 信任 / 心动三维关系状态驱动主动关心，`stance` 仍不进存档、不进结局（见 [spec-love-semi-coach.md](./spec-love-semi-coach.md)）。
 - 不把 `completeLovePlay` 改成 assess/report；不伪造 stars。
 - 不做云存档、手动多槽、音频缓存、全量语音包。
 - 不迁移所有旧 slot 到主 archive；story slot 独立，但必须复制 A21 的必要子集（revision/raw/导出/擦除/删除感知）。
@@ -475,5 +477,5 @@ speak(text: string, lang: Lang, speaker?: SpeakerVoice): void
 - 导出/恢复/擦除：`backup.ts:12-24,31-55,56-79,89-91`；`archive.ts:35-41,54-94`；`settings/page.tsx:63-80,420-429`；`BackupRestore.tsx:36,47,53`；`StorageRecovery.tsx:54-61`；`useApp.ts:359-368`；`archive-storage.ts:4,27-30,42-58`。
 - 语音：`speech.ts:20-25,33-48,57-105,135-174`；`speech-playback.ts:16-99`；`api/speech/route.ts:8-77`；`speech-synthesis.ts:3-38`；`shared-budget.ts:4,10,83-110`；`useDinnerPlayback.ts:31-57`；`cast.ts:3-30`；`Chat.tsx:131-171`；`love-play-typing.ts:12-21,45-173`。
 - 语料/身份：`data/corpus/types.ts:5-19,42-59`；`data/corpus/love-series.ts:22,37,44`；`data/corpus/index.ts:13-21,184-200`；`love-scenarios-deep-approach.ts:27,160`；`love-scenarios-deep-long-distance.ts:135`；`love-scenarios-deep-define.ts:308`；`love-scenarios-deep-family.ts:158`。
-- 产品红线：`AGENTS.md` 项目专有约束；`wiki/00-product-proposal.md:24-27`；`wiki/specs/spec-love-visual-novel.md:121-136`；`wiki/reviews/review-2026-10-13-love-companionship.md:176-179,205-208,230`。
+- 产品红线：`AGENTS.md` 的教练模式约束（2026-10-21 起恋爱 / Galgame 按各自契约，见 [spec-love-semi-coach.md](./spec-love-semi-coach.md) / [spec-love-studio.md](./spec-love-studio.md)）；`wiki/00-product-proposal.md:24-28`；`wiki/specs/spec-love-visual-novel.md:121-140`；`wiki/reviews/review-2026-10-13-love-companionship.md:176-179,205-208,230`。
 - 测试/命令：`app/package.json:9-14`；`tests/core/love-*.test.ts`；`scripts/check-love-play-live.ts`；`wiki/85-backlog.md` 恋爱承接待办。

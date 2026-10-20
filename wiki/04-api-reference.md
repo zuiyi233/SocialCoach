@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-20 | Current stage: E -->
+<!-- Last verified: 2026-10-21 | Current stage: F -->
 
 # API 参考
 
@@ -170,6 +170,8 @@ HTTP / 流式错误的 `modelIssue:null` 明确表示任务自身错误，例如
 **统计口径（2026-10-20 起）**：游戏模式完成场景由前端 `completeLovePlay()` 追加一条 `LovePlayRecord` 到 story slot，**不再写练习 `Session`**；保留 practiceDays + loveProficiency 微增益（success +0.3 / partial +0.15 / failure +0.05，clamp 1-5）。`/love` 的完成数、分钟与结局统计改读 `records`；首页未完成、`Debrief`、`/api/assess`、`historyFor`、调度永远看不到恋爱记录。**不触发证据式 assess**（点选项 ≠ 用户真实表达，不伪造能力评估）。幕内进度另存 `socialcoach.love-play.story`，与 API 无关。→ [spec-love-galgame-foundation.md](./specs/spec-love-galgame-foundation.md)
 
 **错误**：无模型 key → `503 {"modelIssue":"setup"}`；body 非法或没有非学习者 NPC → `400`（`taskInput` 口径）；LLM 拒绝 → `422`。
+
+**2026-10-21 计划中（未实现）**：恋爱半教练会在现有请求 / 响应上增加可选的关系上下文与 `beats`（见 [spec-love-semi-coach.md](./specs/spec-love-semi-coach.md)、[spec-love-scripted-art.md](./specs/spec-love-scripted-art.md)）；Love Studio 走独立运行时，不新增到本 API 表；故事 / 人设交接走 `.sclove` / `.scpersona` pack 或 Studio 本地桥，不新增主站 API。现有 `/api/love-play` 契约在落地前不变。
 
 ### `POST /api/track`
 

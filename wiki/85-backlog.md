@@ -1,6 +1,22 @@
-<!-- Last verified: 2026-10-20 | Current stage: E -->
+<!-- Last verified: 2026-10-21 | Current stage: F -->
 
 # Backlog
+
+## 恋爱与 Galgame 双系统（2026-10-21，方案文档已写，未开工）
+
+Stage F 见 [14-stage-f.md](./14-stage-f.md)。规格：[恋爱半教练](./specs/spec-love-semi-coach.md)、[Love Studio](./specs/spec-love-studio.md)、[剧本模式美术升级](./specs/spec-love-scripted-art.md)、[跨系统桥](./specs/spec-love-bridge.md)、[共享人设](./specs/spec-love-persona.md)；外部依据：[AnimaVN 参考](./refs/animavn.md)。旧规格里「不做好感」「游戏模式 NPC 不讨好」的条目已按 2026-10-21 方向加注修订，实现时按三套契约走。
+
+- [x] F0 文档：五份 spec + AnimaVN 参考 + Stage F；AGENTS 适用范围、产品提案、路线图、架构 / 设计 / API 与旧规格修订（2026-10-21）
+- [ ] F1 恋爱半教练：熟悉 / 信任 / 心动关系状态、主动关心预算与开关、可选关系回顾；不写能力分；关系状态进 story slot v2
+- [ ] F2-P0 Love Studio 基座：fork / build / brand、模型连接、本地完成一局生成故事
+- [ ] F2-P1 入口与 persona：`/love` 双入口、本地 Studio 检测、起始角色 / 场景包、回链
+- [ ] F2-P2 故事包与角色生成向导：`socialcoach.love-story.v1`、Tavern 卡 + 世界书 + 立绘 / 场景生成、Studio 双语
+- [ ] F2-P3 托管 Studio（可选）：账号、隔离存储、GPU TTS、生图代理、审核
+- [ ] F3 剧本模式美术：全幅舞台、Rio 背景 / CG、逐句 beat
+- [ ] F5 跨系统桥：一套关系档案、权威矩阵、StoryPack/PersonaPack、导入预览、分支/冲突、叙事阶段 + 关系图鉴 + 故事收藏；不自动写能力分、无 EXP/等级 → [spec](./specs/spec-love-bridge.md)
+- [ ] F6 共享人设：单一 Persona schema、Studio 全 Tavern 工作台、恋爱聚焦编辑器（`.scpersona` + 基础 JSON）、AI 生成、安全与 round-trip → [spec](./specs/spec-love-persona.md)
+- [ ] 旧口径复核：实现时不再以「不做好感 / NPC 不讨好」拒绝恋爱或 Galgame 需求；按 [半教练 spec](./specs/spec-love-semi-coach.md) §2 的三套契约执行
+- [x] 2026-10-21 四条拍板（已写入 spec）：Studio 完整导入 Tavern 卡，恋爱系统 `.scpersona` + 基础 JSON（离线直吃卡须共享 parser + round-trip 测试）；玩家 persona 与教练 profile 分表 + 显式复制；Studio 关系状态只读折叠；局外成长 = 叙事阶段 + 关系图鉴 + 故事收藏，无 EXP/等级
 
 ## 恋爱承接 P0–P4 落地后剩下的账（2026-10-13）
 
@@ -21,7 +37,7 @@
 
 需求与验收见 [spec-love-galgame-foundation.md](./specs/spec-love-galgame-foundation.md) 和 [spec-love-rio-route.md](./specs/spec-love-rio-route.md)。这一批把**存档、回想、外部 TTS 配音**与引擎债清单一起处理；完整的 G01–G24 表在 foundation spec §6，这里只列执行顺序。**P1 停止信号仍然有效**：玩家没感觉到承接，停的是整条方向，不是「基本盘做完就该继续加幕」。
 
-> 2026-10-20：代码已在本地落地并通过 `pnpm check` / `pnpm build`，尚未推送或发布。真实浏览器 / 真机项与 3–5 人试玩闸门仍未销账。
+> 2026-10-20：代码已落地并通过 `pnpm check` / `pnpm build`；同日提交并推送 `origin`（19e4e65、6c4810d、66b7c88、9d6edeb）。线上发布仍按 `upstream` 线；真实浏览器 / 真机项与 3–5 人试玩闸门仍未销账。
 
 - [x] P0 身份/声线前置：G01 `characterKey`（`tess` 撞 id）、G02 speaker 单一实现、G07 `LOVE_VOICES` + `speak(..., speaker)` 透传
 - [x] P0 记录/存档：G14 不再写空壳练习 Session、G15 `LoveStoryStore`、G21 统计改读 records、G23 `historyFor` 排除
@@ -34,7 +50,7 @@
 - [ ] 下批/只记录：G06 NPC 级**结局句表**（本批已写 NPC 层=同线同 NPC 已答承诺的回提；结局句表需新语料）、G19 `parseRoleplay`
 - [x] G24 非 series 入口：P0 已把全部 64 场接进 `/love/play`（含独立场景）
 
-## 恋爱互动叙事与陪伴层（2026-10-20，进行中）
+## 恋爱互动叙事与陪伴层（2026-10-20，已交付）
 
 目标：64 场都能像 GALGAME 一样读；关掉再回来，角色在故事里记得上次的选择/承诺。只动恋爱域，真机/真人不在计划内。方案见 [spec-love-interactive-story.md](./specs/spec-love-interactive-story.md)，外部依据见 [galgame-companion-research.md](./refs/galgame-companion-research.md)。
 

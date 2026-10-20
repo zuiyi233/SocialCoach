@@ -3,6 +3,7 @@
 > 状态：**方案，未开工**（2026-10-20）
 > 范围：只动恋爱域（`/love`、`/love/play/*`、`components/love/*`、`lib/love-*`）；不碰 `/practice`、`/api/assess`、能力雷达、教练复盘与情商统计。
 > 关联：[视觉小说模式](./spec-love-visual-novel.md) · [GALGAME 基本盘](./spec-love-galgame-foundation.md) · [Rio 六幕](./spec-love-rio-route.md) · [参考研究](../refs/galgame-companion-research.md)
+> **2026-10-21 方向修订**：本文「不做好感数值」的条目由 [spec-love-semi-coach.md](./spec-love-semi-coach.md) 的关系状态取代；阅读层、记忆、Rio 路线与结局继续有效。恋爱域现在分半教练与 Love Studio 两套系统，见 [14-stage-f.md](../14-stage-f.md)。跨系统的局外成长（叙事阶段 + 关系图鉴 + 故事收藏，无 EXP/等级）见 [spec-love-bridge.md](./spec-love-bridge.md) §6。
 
 ## 一、目标
 
@@ -14,7 +15,7 @@
 
 1. **后果可见**：选择改变后续台词、可选行动、条件与结局，而不是只改一句即时回复。
 2. **阅读舒适**：auto、skip-read、backlog、多槽存读档、章节选择、结局图鉴、字号/速度、BGM/SFX。
-3. **陪伴连续**：设备端记忆、时间感知的回归开场、承诺回访、角色自己的目标与边界；**不做**好感数值、签到、惩罚性 streak。
+3. **陪伴连续**：设备端记忆、时间感知的回归开场、承诺回访、角色自己的目标与边界；**不做**签到、惩罚性 streak；好感改为非可刷的关系状态（2026-10-21 修订，见 [spec-love-semi-coach.md](./spec-love-semi-coach.md)）。
 
 ## 二、研究结论（详见 [参考研究](../refs/galgame-companion-research.md)）
 
@@ -112,7 +113,7 @@
 #### 角色目标与边界
 
 - 每幕角色卡增加 `goal`、`redLine`、`secret`（作者写死，双语，带 source）。模型提示里作为“不可让步”的约束；验收检查 NPC 不因玩家态度好而放弃目标。
-- 关系状态仍只记承诺、边界、冲突、仪式、flags、最终决定与逐字证据；**不引入好感/亲密度数值**。
+- 关系状态仍只记承诺、边界、冲突、仪式、flags、最终决定与逐字证据；**2026-10-21 修订**：允许熟悉 / 信任 / 心动三维关系状态，但不做可刷的好感 / 亲密度数值（见 [spec-love-semi-coach.md](./spec-love-semi-coach.md)）。
 
 ### 4.5 呈现层：章节卡与镜头感
 
@@ -207,7 +208,7 @@
 
 - 不做 iOS/Android 客户端、真机推送、云存档、账号体系、服务端存储或服务端密钥。
 - 不做真人 FMV、全动态捕捉、多人投票、实时直播互动。
-- 不做好感度/亲密度/签到/streak/任何可刷的关系数值。
+- 不做可刷的好感 / 亲密度 / 签到 / streak；关系状态只在对的故事节点变化（2026-10-21 修订，见 [spec-love-semi-coach.md](./spec-love-semi-coach.md)）。
 - 不做运行时图像生成、全量语音包、任意跳章、rollback。
 - 不做通用聊天陪伴机器人；陪伴层只服务恋爱故事，不扩展到情商教练。
 - 不把恋爱记录回流到 `/practice`、`assess`、能力雷达、首页教练回访。

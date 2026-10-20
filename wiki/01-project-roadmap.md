@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-10-20 | Current stage: E -->
+<!-- Last verified: 2026-10-21 | Current stage: F -->
 
 # 项目路线图
 
@@ -11,6 +11,7 @@
 | C | 可索引化与 GEO | 🟡 本地实现并验收，线上未发布 | [12-stage-c](./12-stage-c.md) |
 | D | 发布与增长 | 📋 Planned | — 尚未开卡 |
 | E | 持续练习与可验证成长 | 🚧 In Progress | [13-stage-e](./13-stage-e.md) |
+| F | 恋爱与 Galgame 双系统 | 📋 Planned | [14-stage-f](./14-stage-f.md) |
 
 ## 阶段性更新
 
@@ -31,7 +32,21 @@
 | E7 | 恋爱承接：跨幕记忆与承诺回访 | ✅ 本地实现，线上未发布 | P0 love-play 语音（TTS + 麦克风）/ P1 一句开场承接 / P2 结构化承诺对象（只收用户自己打的那句）/ P3 异地 8 场编线并给 `series` 加显式 `order` / P4 台词库回访卡（提问路径零模型调用）。**评审 §10.1 本把 P3/P4 排在 P1 验证之后，本批按「全做完」的指令越过闸门，P1 的停止信号（玩家没感觉到 → 整条方向不成立）仍未销账**；语音项按真机自测清单销账，不得用模拟视口 → [验收依据](./reviews/review-2026-10-13-love-companionship.md)、[落地记录](./reviews/review-2026-10-13-love-companionship.md#11-实施记录2026-10-13)、[待办](./85-backlog.md) |
 | E8 | GALGAME 基本盘：存档、回想、外部 TTS 与引擎债 | ✅ 本地实现，线上未发布；浏览器 / 真机待验 | 幕内自动存档/续玩（恢复不请求模型）、冻结快照回想 + 单句重播、64 场景 / 54 人物声线；G01–G05、G07–G16、G20–G23 已收口，G06 只做 Rio，G17–G19/G24 留待下批。**P1 停止信号仍有效**；语音真机项不得用模拟视口销账 → [规格](./specs/spec-love-galgame-foundation.md)、[验收](./reviews/review-2026-10-20-love-galgame-foundation.md) |
 | E9 | Rio 六幕 vertical slice 与关系账本 | ✅ 六幕全部落地；**结局未经玩家验证** | `RioRelationshipState`、E1「说清楚」/E2「体面收场」两个事实谓词结局、第 4–6 幕开场变体与状态拍点、routes 提交；两个命名结局以作者拍点链达成并有契约测试，浏览器真实走通「把话说清」（图鉴收录）。**3–5 人试玩闸门已按产品决定豁免（2026-10-20），验收标注未经玩家验证**；玩家说不出哪一幕改变了第 6 幕就停整条方向 → [规格](./specs/spec-love-rio-route.md)、[验收](./reviews/review-2026-10-20-love-galgame-foundation.md) |
-| E10 | 恋爱互动叙事与陪伴层（Love Story 2.0） | ✅ P0 已交付（2026-10-20）：64 场景全量进 /love/play、阅读层（auto/skip-read/已读/文本设置）、story slot v2（1 自动 + 3 手动）、章节选择、结局图鉴。P1 已交付：设备端记忆档案（作用域硬隔离、原文唯一真相）、回归开场、承诺扩到 5–6 幕、角色 goal/redLine/secret。P2 已交付：Rio 第 5–6 幕与两个命名结局（闸门豁免、**未经玩家验证**）。P3 已交付：章节卡、景别/站位、拍点动效、限时选择（默认关、超时沉默分支）、BGM/SFX 播放器（manifest 空、静默降级；CG 不做）。引擎债 G17/G18/G06 已修（G06 的 NPC 级结局句表需新语料，留 backlog）。真机/真人不在计划 → [规格](./specs/spec-love-interactive-story.md)、[研究](./refs/galgame-companion-research.md) |
+| E10 | 恋爱互动叙事与陪伴层（Love Story 2.0） | ✅ P0 已交付（2026-10-20）：64 场景全量进 /love/play、阅读层（auto/skip-read/已读/文本设置）、story slot v2（1 自动 + 3 手动）、章节选择、结局图鉴。P1 已交付：设备端记忆档案（作用域硬隔离、原文唯一真相）、回归开场、承诺扩到 5–6 幕、角色 goal/redLine/secret。P2 已交付：Rio 第 5–6 幕与两个命名结局（闸门豁免、**未经玩家验证**）。P3 已交付：章节卡、景别/站位、拍点动效、限时选择（默认关、超时沉默分支）、BGM/SFX 播放器（manifest 空、静默降级；CG 不做）。引擎债 G17/G18/G06 已修（G06 的 NPC 级结局句表需新语料，留 backlog）。真机/真人不在计划；后续归 [Stage F](./14-stage-f.md) → [规格](./specs/spec-love-interactive-story.md)、[研究](./refs/galgame-companion-research.md) |
+
+### Stage F — 恋爱与 Galgame 双系统（2026-10-21）
+
+| # | 功能 | 状态 | 备注 |
+|---|---|---|---|
+| F0 | 规则与 Studio 基座 | 📋 文档已写，未开工 | 五份 spec + AnimaVN 参考 + AGENTS 适用范围；fork / build / brand；本地完成一局生成故事 |
+| F1 | 恋爱半教练 | 📋 方案已写，未开工 | 熟悉/信任/心动关系状态、主动关心、可选关系回顾；不写能力分 → [spec](./specs/spec-love-semi-coach.md) |
+| F2 | Love Studio（P0–P2） | 📋 方案已写，未开工 | AnimaVN fork；P0 基座 → P1 入口/persona → P2 故事包/角色生成；见 [spec](./specs/spec-love-studio.md) |
+| F3 | 剧本模式美术升级 | 📋 方案已写，未开工 | 全幅舞台、Rio 背景/CG、逐句 beat；与 Studio 并行 → [spec](./specs/spec-love-scripted-art.md) |
+| F4 | 托管 Studio（P3，可选） | 📋 待 F2 行为数据 | 账号、隔离存储、GPU TTS、生图代理、审核 |
+| F5 | 跨系统桥与局外成长 | 📋 方案已写，未开工 | 一套关系档案；权威矩阵；StoryPack / PersonaPack；导入预览；分支/冲突；叙事阶段 + 关系图鉴 + 故事收藏（无 EXP/等级）；Studio 关系状态只读折叠 → [spec](./specs/spec-love-bridge.md) |
+| F6 | 共享人设与酒馆卡 | 📋 方案已写，未开工 | 单一 Persona schema；Studio 全 Tavern 工作台；恋爱聚焦编辑器（`.scpersona` + 基础 JSON，PNG 引导到 Studio）；玩家 persona 与教练 profile 分表 → [spec](./specs/spec-love-persona.md) |
+
+2026-10-21 已拍板：Studio 完整导入 Tavern 卡，恋爱系统只吃 `.scpersona` + 基础 JSON（离线直吃卡须共享 Studio parser + round-trip 测试）；玩家 persona 与教练 profile 分表 + 显式复制；Studio 关系状态只读、默认折叠；局外成长用叙事阶段 + 关系图鉴 + 故事收藏，不做战力/EXP，等级即便出现也只读且不能兑换。
 
 ### Stage A — 产品与语料建成
 
