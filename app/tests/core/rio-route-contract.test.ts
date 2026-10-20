@@ -42,11 +42,11 @@ const optionEvidence = (beat: RioBeat): RioEvidence => ({
 
 const rioSeries = loveSeriesById("love-arc-rio-clarify");
 
-test("act 4 is registered at order 4; acts 5-6 stay unwritten behind the playtest gate", () => {
+test("all six acts are authored and registered in order (playtest gate waived, unverified)", () => {
   assert.equal(RIO_ACT4_SCENE_ID, "love-rio-secondment-deadline");
-  assert.deepEqual(RIO_AUTHORED_ACTS, [1, 2, 3, 4]);
+  assert.deepEqual(RIO_AUTHORED_ACTS, [1, 2, 3, 4, 5, 6]);
 
-  // 路线映射必须和状态层的私有 ACT_SCENES 指向同一个场景：迁移时才能把完成记录归到第 4 幕。
+  // 路线映射必须和状态层的私有 ACT_SCENES 指向同一个场景：迁移时才能把完成记录归到幕号。
   const migrated = migrateLegacyRioState({
     completed: [RIO_ACT4_SCENE_ID],
     lastScene: RIO_ACT4_SCENE_ID,
@@ -59,30 +59,34 @@ test("act 4 is registered at order 4; acts 5-6 stay unwritten behind the playtes
   assert.equal(rioSeries.continuous, true, "the Rio line must stay a continuous single-NPC series");
   assert.deepEqual(
     rioSeries.scenarios.map((scenario) => scenario.series?.order),
-    [1, 2, 3, 4],
-    "love-series must pick up act 4 by order",
+    [1, 2, 3, 4, 5, 6],
+    "love-series must pick up acts 5-6 by order",
   );
 
   for (const act of RIO_AUTHORED_ACTS) {
     const scenario = scenarioById(RIO_ROUTE_ACT_SCENES[act]);
     assert.ok(scenario, `act ${act} scene is not in the corpus`);
     assert.equal(scenario.series?.order, act, `act ${act} order drift`);
+    assert.deepEqual(
+      scenario.characters.filter((character) => character.id !== "you").map((character) => character.id),
+      ["rio"],
+      `act ${act} has no second voiced NPC`,
+    );
+    assert.ok(scenario.source.trim(), `act ${act} needs an authored source`);
   }
-  assert.equal(scenarioById(RIO_ROUTE_ACT_SCENES[5]), undefined, "act 5 must not be authored yet");
-  assert.equal(scenarioById(RIO_ROUTE_ACT_SCENES[6]), undefined, "act 6 must not be authored yet");
-
   const act4 = scenarioById(RIO_ACT4_SCENE_ID);
   assert.ok(act4);
-  assert.deepEqual(
-    act4.characters.filter((character) => character.id !== "you").map((character) => character.id),
-    ["rio"],
-    "act 4 has no second voiced NPC; the father/HR stay off cast",
-  );
-  assert.ok(act4.source.trim(), "act 4 needs an authored source");
   assert.ok(!act4.opening.text.zh.includes("怕失去你"), "opening must not reveal the hidden lean");
   assert.ok(
     !act4.opening.text.en.toLowerCase().includes("afraid of losing you"),
     "opening must not reveal the hidden lean",
+  );
+  const act6 = scenarioById(RIO_ROUTE_ACT_SCENES[6]);
+  assert.ok(act6);
+  assert.ok(!act6.opening.text.zh.includes("拒绝"), "act 6 opening must not reveal the decline answer");
+  assert.ok(
+    !/decline|turn (it|the offer) down/i.test(act6.opening.text.en),
+    "act 6 opening must not reveal the decline answer",
   );
 });
 
@@ -94,18 +98,25 @@ test("opening variants match from specific to neutral, and never invent what the
     "stale",
     "secondmentDisclosed",
     "secondmentPreference",
+    "secondmentDecision",
+    "familyHalfPromiseWithdrawn",
+    "weddingTimeline",
+    "unrepairedHarm",
+    "finalDecisionMade",
   ]);
-  for (const variant of authored) {
-    assert.ok(variant.text.zh.trim() && variant.text.en.trim(), `${variant.id}: bilingual text`);
-    for (const key of Object.keys(variant.requires)) {
-      assert.ok(allowed.has(key), `${variant.id}: requires reads ${key}`);
+  for (const act of [4, 5, 6] as const) {
+    for (const variant of RIO_OPENING_VARIANTS[act] ?? []) {
+      assert.ok(variant.text.zh.trim() && variant.text.en.trim(), `${variant.id}: bilingual text`);
+      for (const key of Object.keys(variant.requires)) {
+        assert.ok(allowed.has(key), `${variant.id}: requires reads ${key}`);
+      }
+      assert.ok(
+        !/你上次(说|问|答应)|you (said|asked|promised) last time/i.test(
+          `${variant.text.zh} ${variant.text.en}`,
+        ),
+        `${variant.id}: variants state facts, not the learner's past lines`,
+      );
     }
-    assert.ok(
-      !/你上次(说|问|答应)|you (said|asked|promised) last time/i.test(
-        `${variant.text.zh} ${variant.text.en}`,
-      ),
-      `${variant.id}: variants state facts, not the learner's past lines`,
-    );
   }
 
   const fresh = emptyRioState();
@@ -127,8 +138,22 @@ test("opening variants match from specific to neutral, and never invent what the
   assert.equal(rioOpeningVariants(undefined, 4)[0]?.id, "rio-act4-neutral");
 
   assert.deepEqual(resolveRioOpening(fresh, 4), authored[1].text);
-  assert.equal(resolveRioOpening(fresh, 5), null, "acts without authored variants fall back to Scenario.opening");
-  assert.deepEqual(rioOpeningVariants(fresh, 1), [], "only act 4 has authored opening variants in this batch");
+  // 第 5–6 幕也有变体；新账本（无伤、未知偏好）落到各自的中性兜底。
+  assert.equal(rioOpeningVariants(fresh, 5)[0]?.id, "rio-act5-family-neutral");
+  assert.equal(rioOpeningVariants(fresh, 6)[0]?.id, "rio-act6-deadline-neutral");
+  const harmed: RioRelationshipState = {
+    ...fresh,
+    flags: { ...fresh.flags, unrepairedHarm: ["pressed-secondment"] },
+  };
+  assert.equal(rioOpeningVariants(harmed, 5)[0]?.id, "rio-act5-family-after-pressed");
+  const withdrawn: RioRelationshipState = {
+    ...fresh,
+    flags: { ...fresh.flags, weddingTimeline: "withdrawn" },
+  };
+  assert.equal(rioOpeningVariants(withdrawn, 6)[0]?.id, "rio-act6-deadline-after-withdrawn");
+  assert.deepEqual(rioOpeningVariants(fresh, 1), [], "acts 1-3 keep the static Scenario.opening");
+  assert.deepEqual(rioOpeningVariants(fresh, 2), []);
+  assert.deepEqual(rioOpeningVariants(fresh, 3), []);
 });
 
 test("act 4 beats only write the fields this act owns", () => {
@@ -152,7 +177,7 @@ test("act 4 beats only write the fields this act owns", () => {
     }
     for (const key of Object.keys(beat.effects)) {
       assert.ok(
-        ["flags", "conflict", "boundary", "promise", "harm"].includes(key),
+        ["flags", "conflicts", "boundaries", "promises", "finalDecision", "harm"].includes(key),
         `${beat.id}: effects writes ${key}`,
       );
     }
@@ -163,17 +188,17 @@ test("act 4 beats only write the fields this act owns", () => {
         `${beat.id}: flags.${key} is not an act-4 write`,
       );
     }
-    if (beat.effects.conflict) {
-      assert.equal(beat.effects.conflict.topic, "secondment");
-      assert.equal(typeof beat.effects.conflict.hasMutualNextStep, "boolean");
+    for (const conflict of beat.effects.conflicts ?? []) {
+      assert.equal(conflict.topic, "secondment");
+      assert.equal(typeof conflict.hasMutualNextStep, "boolean");
     }
-    if (beat.effects.boundary) {
-      assert.ok(["secondment", "contact"].includes(beat.effects.boundary.topic));
-      assert.equal(beat.effects.boundary.by, "learner");
+    for (const boundary of beat.effects.boundaries ?? []) {
+      assert.ok(["secondment", "contact"].includes(boundary.topic));
+      assert.equal(boundary.by, "learner");
     }
-    if (beat.effects.promise) {
-      assert.equal(beat.effects.promise.kind, "secondment-answer");
-      assert.equal(beat.effects.promise.dueByAct, 6);
+    for (const promise of beat.effects.promises ?? []) {
+      assert.equal(promise.kind, "secondment-answer");
+      assert.equal(promise.dueByAct, 6);
     }
     assert.ok(
       !/好感|affinity|score|proficiency/i.test(`${beat.text.zh} ${beat.text.en}`),

@@ -85,7 +85,7 @@ const progressWithAct4: RioProgressLike = {
 
 test("state beats appear stance → next-step once per group, then fall back to model options", () => {
   const empty = emptyRioState();
-  const first = nextRioBeatGroup(empty, []);
+  const first = nextRioBeatGroup(empty, [], 4);
   assert.equal(first?.id, "stance");
   assert.deepEqual(first?.title, RIO_ACT4_BEAT_GROUPS[0].title);
   assert.deepEqual(
@@ -96,7 +96,7 @@ test("state beats appear stance → next-step once per group, then fall back to 
   // 任意一条 stance 拍点被选中，就说明「她想要什么」问过了，组不再重复。
   for (const id of ["ask-without-me", "ask-what-she-wants", "decide-for-her"]) {
     const answered = apply(empty, id);
-    const second = nextRioBeatGroup(answered, [id]);
+    const second = nextRioBeatGroup(answered, [id], 4);
     assert.equal(second?.id, "next-step", `${id} must move on to the next step group`);
     assert.deepEqual(
       second?.beats.map((beat) => beat.id),
@@ -105,7 +105,7 @@ test("state beats appear stance → next-step once per group, then fall back to 
   }
 
   assert.equal(
-    nextRioBeatGroup(empty, ["ask-what-she-wants", "agree-next-talk"]),
+    nextRioBeatGroup(empty, ["ask-what-she-wants", "agree-next-talk"], 4),
     null,
     "both groups answered → the model gets its options back",
   );
@@ -118,7 +118,7 @@ test("beat requires filter out questions whose answer the ledger already holds",
     lastOutcome: "success",
     flags: { ...emptyRioState().flags, secondmentDisclosed: true, secondmentPreference: "stay" },
   };
-  const stance = nextRioBeatGroup(known, []);
+  const stance = nextRioBeatGroup(known, [], 4);
   assert.ok(stance);
   assert.equal(stance.id, "stance");
   assert.equal(
@@ -131,7 +131,7 @@ test("beat requires filter out questions whose answer the ledger already holds",
 
   // 写死的失败路径不依赖未知事实，仍然可达。
   const empty = emptyRioState();
-  assert.equal(nextRioBeatGroup(empty, [])?.beats.length, 3);
+  assert.equal(nextRioBeatGroup(empty, [], 4)?.beats.length, 3);
 });
 
 test("option text resolves to the authored beat by exact zh/en text only", () => {

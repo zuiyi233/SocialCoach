@@ -152,6 +152,8 @@ const LEARNER_ROLE: Record<string, { zh: string; en: string }> = {
   "love-family-expectation-clash": L("夹在两家人之间的人", "The one caught between two families"),
   "love-family-decision-pressure": L("被家长拍板的人", "The one whose family decided for them"),
   "love-rio-secondment-deadline": L("面对外派期限的人", "The one facing the secondment deadline"),
+  "love-rio-family-settled": L("被家里催着「按规矩走」的人", "The one pressed by the family's 'do it properly'"),
+  "love-rio-deadline-night": L("在期限最后一晚把话说清楚的人", "The one saying it plainly on the deadline night"),
   // power & family relations (2026-10-09)
   "jm-feedback-deflected": L("带新人三个月的组长", "Lead coaching a new hire"),
   "jm-misread-request": L("把需求交给下属对接的负责人", "Lead who handed the requirement to a junior"),

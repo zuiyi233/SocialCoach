@@ -1,4 +1,4 @@
-import type { L, Lang } from "@/data/taxonomy";
+import { L, type Lang } from "@/data/taxonomy";
 import type { LovePlayOutcome } from "./love-play-client";
 import type { LovePlayRecord } from "./love-story";
 
@@ -29,7 +29,20 @@ export interface LoveNamedEnding {
   hint: L;
 }
 
-export const LOVE_NAMED_ENDINGS: Record<string, LoveNamedEnding> = {};
+export const LOVE_NAMED_ENDINGS: Record<string, LoveNamedEnding> = {
+  "said-it-plain": {
+    scenarioId: "love-rio-deadline-night",
+    seriesId: "love-arc-rio-clarify",
+    title: L("把话说清", "Said it plain"),
+    hint: L("答复、关系和下一步，都在同一个晚上说了清楚。", "The answer, the relationship and the next step — all said plainly in one night."),
+  },
+  "clean-parting": {
+    scenarioId: "love-rio-deadline-night",
+    seriesId: "love-arc-rio-clarify",
+    title: L("好好告别", "A clean parting"),
+    hint: L("没有谁欠谁。这段关系停在了有句号的地方。", "Nobody owes anybody. This story stopped where the period was."),
+  },
+};
 
 export function buildLoveEndingGallery(records: readonly LovePlayRecord[]): LoveGalleryEntry[] {
   const map = new Map<string, LoveGalleryEntry>();

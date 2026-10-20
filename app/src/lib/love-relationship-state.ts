@@ -94,7 +94,9 @@ export type RioConflictShape =
   | "pace-dated"
   | "exclusivity-undefined"
   | "exclusivity-agreed"
-  | "exclusivity-declined";
+  | "exclusivity-declined"
+  | "decision-open"
+  | "decision-shared";
 
 export interface RioConflict {
   id: string;
@@ -333,6 +335,8 @@ const ConflictSchema = z.object({
     "exclusivity-undefined",
     "exclusivity-agreed",
     "exclusivity-declined",
+    "decision-open",
+    "decision-shared",
   ]),
   status: z.enum(["open", "narrowed", "resolved", "shelved"]).catch("open"),
   openedAtAct: ActSchema,

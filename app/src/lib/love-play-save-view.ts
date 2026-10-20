@@ -13,12 +13,13 @@ import {
   type RioRelationshipState,
 } from "./love-relationship-state";
 import {
-  RIO_ACT4_BEAT_GROUPS,
   RIO_ROUTE_ACT_SCENES,
   matchRioRequires,
+  rioBeatGroupsForAct,
   type RioBeat,
   type RioBeatGroup,
 } from "./rio-route";
+import type { RioAct } from "./love-relationship-state";
 
 /**
  * PlayScene 与 story slot 之间的纯决策层。
@@ -432,18 +433,19 @@ export function planRioRouteEntry(sources: {
 }
 
 /**
- * 下一个该出现的作者拍点组：先「她想要什么」，再「答复前的下一步」。
+ * 本幕该出现的下一组作者拍点：按幕取组，组内先「她说/家里说」再「说定」。
  *
  * 一组只出现一次——玩家点过其中任一拍点就算问过这个问题，不要求把三条都点完；
- * 组内按 `requires` 过滤，偏好已知后不再重复给「问她想要什么」。
- * 两组都有记录时返回 null，普通回合继续用模型生成的选项。
+ * 组内按 `requires` 过滤，前置事实已知后不再重复问。
+ * 所有组都有记录时返回 null，普通回合继续用模型生成的选项。
  */
 export function nextRioBeatGroup(
   state: RioRelationshipState | null | undefined,
   appliedBeats: readonly string[],
+  act: RioAct,
 ): RioBeatGroup | null {
   const applied = new Set(appliedBeats);
-  for (const group of RIO_ACT4_BEAT_GROUPS) {
+  for (const group of rioBeatGroupsForAct(act)) {
     if (group.beats.some((beat) => applied.has(beat.id))) continue;
     const beats = group.beats.filter((beat) => matchRioRequires(beat.requires, state));
     if (beats.length) return { ...group, beats };

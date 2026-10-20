@@ -51,8 +51,8 @@ import {
   type LovePlayResumeState,
   type RioRouteSnapshot,
 } from "@/lib/love-play-save-view";
-import { RIO_SERIES_ID, type RioRelationshipState } from "@/lib/love-relationship-state";
-import { RIO_ACT4_SCENE_ID, applyRioBeat, resolveRioOpening, type RioBeat, type RioBeatGroup } from "@/lib/rio-route";
+import { RIO_SERIES_ID, resolveRioEnding, type RioAct, type RioRelationshipState } from "@/lib/love-relationship-state";
+import { applyRioBeat, resolveRioOpening, rioRouteSceneAct, type RioBeat, type RioBeatGroup } from "@/lib/rio-route";
 import { resolveLoveVoice } from "@/lib/love-voices";
 import { useLoveTyping } from "@/lib/love-play-typing";
 import { loveContentKey, markLoveTextSeen, readLoveReadState } from "@/lib/love-read";
@@ -118,13 +118,11 @@ function actNumberOf(scenario: Scenario): number | undefined {
 }
 
 /**
- * 只有 Rio 第 4 幕接路线契约：作者写死的开场变体与两个状态拍点。
+ * 只有 Rio 第 4–6 幕接路线契约：作者写死的开场变体与每幕两组状态拍点。
  * 第 1–3 幕与其他恋爱场景完全走原路径（模型选项 + 静态开场）。
  */
-function isRioAct4Scene(scenario: Scenario | null | undefined): boolean {
-  return (
-    !!scenario && scenario.id === RIO_ACT4_SCENE_ID && scenario.series?.id === RIO_SERIES_ID
-  );
+function rioRouteActOf(scenario: Scenario | null | undefined): RioAct | null {
+  return scenario && scenario.series?.id === RIO_SERIES_ID ? rioRouteSceneAct(scenario.id) : null;
 }
 
 export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null; scenarioId: string }) {
@@ -390,12 +388,12 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
    * 快照同步回 routeState，收束档刷新后仍是同一本账。
    */
   const finalizeRioRoute = useCallback(
-    (outcome: LovePlayOutcome): boolean => {
+    (outcome: LovePlayOutcome, act: RioAct): boolean => {
       const snapshot = rioRouteRef.current;
       if (!snapshot) return false;
       const final: RioRelationshipState = {
         ...snapshot.rio,
-        lastAct: 4,
+        lastAct: act,
         lastOutcome: outcome,
         stale: false,
       };
@@ -492,13 +490,22 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           if (seriesOutcome && s.series) {
             writeLoveSeriesProgress(s.series.id, s.id, seriesOutcome, actNumberOf(s));
           }
-          // 第 4 幕：progress 落盘后再提交账本；写失败只留提示，不阻断收尾。
-          if (isRioAct4Scene(s) && seriesOutcome) finalizeRioRoute(seriesOutcome);
+          // 第 4–6 幕：progress 落盘后再提交账本；写失败只留提示，不阻断收尾。
+          // 第 6 幕收束时按账本判定命名结局（可能为 null：条件没凑齐就不硬给名字）。
+          const rioAct = rioRouteActOf(s);
+          if (rioAct && seriesOutcome) {
+            finalizeRioRoute(seriesOutcome, rioAct);
+            if (rioAct === 6) {
+              const snapshot = rioRouteRef.current;
+              setEndingId(snapshot ? resolveRioEnding(snapshot.rio) : null);
+            }
+          }
         } else {
-          // 第 4 幕：轮到作者拍点时，用 2–3 条写死的选项替换模型选项；
+          // 第 4–6 幕：轮到作者拍点时，用 2–3 条写死的选项替换模型选项；
           // 拍点组一直保留到玩家真的选中一个作者选项，自由输入始终可用。
-          const rio = isRioAct4Scene(s) ? rioRouteRef.current : null;
-          const group = rio ? nextRioBeatGroup(rio.rio, rio.appliedBeats) : null;
+          const rioAct = rioRouteActOf(s);
+          const rio = rioAct ? rioRouteRef.current : null;
+          const group = rio && rioAct ? nextRioBeatGroup(rio.rio, rio.appliedBeats, rioAct) : null;
           if (group) {
             const authored = group.beats.map((beat) => beat.text);
             // 极端情况下作者选项只剩 1 条（requires 过滤后），补模型选项凑够 2 条，
@@ -548,8 +555,9 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       endedAtRef.current = null;
       recordedRef.current = false;
       recordingRef.current = false;
-      // 第 4 幕：账本在挂载时已经读好；重开本幕沿用同一本账，不退回空状态。
-      const rio = isRioAct4Scene(s) ? rioRouteRef.current : null;
+      // 第 4–6 幕：账本在挂载时已经读好；重开本幕沿用同一本账，不退回空状态。
+      const rioAct = rioRouteActOf(s);
+      const rio = rioAct ? rioRouteRef.current : null;
       routeStateRef.current = rio ?? undefined;
       carryMarkedRef.current = false;
       carryIdRef.current = null;
@@ -564,9 +572,9 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setEndingId(null);
       setEndingKind(null);
       setBeatGroup(null);
-      // 第 4 幕的开场由账本选作者变体（见 resolveRioOpening）；变体本身就是「上次之后」，
+      // 第 4–6 幕的开场由账本选作者变体（见 resolveRioOpening）；变体本身就是「上次之后」，
       // 与承接句只能出现一个（spec §3.5）。其余场景维持原有的承接句拼接。
-      const openingVariant = rio ? resolveRioOpening(rio.rio, 4) : null;
+      const openingVariant = rio && rioAct ? resolveRioOpening(rio.rio, rioAct) : null;
       if (openingVariant) {
         const first = historyRef.current[0];
         historyRef.current[0] = { ...first, text: openingVariant[lang] };
@@ -623,7 +631,9 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setOptions(view.options);
       // 存档里显示的若正是某组作者选项，刷新后组标题也要跟着回来；
       // 对不上就按普通模型选项显示，避免标题与按钮错位。
-      const pendingGroup = rioPlan ? nextRioBeatGroup(rioPlan.rio, rioPlan.appliedBeats) : null;
+      const resumeAct = rioRouteActOf(s);
+      const pendingGroup =
+        rioPlan && resumeAct ? nextRioBeatGroup(rioPlan.rio, rioPlan.appliedBeats, resumeAct) : null;
       const savedGroup =
         pendingGroup &&
         (view.options ?? []).some(
@@ -664,10 +674,10 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     setSlots(readLovePlaySlots(sc.id).slots);
     const read = readLovePlaySave(sc.id);
     const plan = planLovePlayRestore(read);
-    // 第 4 幕：在决定 resume/fresh 之前先读账本与系列进度（只读，不写盘）。
+    // 第 4–6 幕：在决定 resume/fresh 之前先读账本与系列进度（只读，不写盘）。
     // saved 是进行中的存档快照（含 appliedBeats），committed 是已提交到 routes 的账本；
-    // 两者都没有才从旧 3 幕进度迁移，进度为空则给空账本。
-    const rioPlan = isRioAct4Scene(sc)
+    // 两者都没有才从旧进度迁移，进度为空则给空账本。
+    const rioPlan = rioRouteActOf(sc)
       ? planRioRouteEntry({
           saved: plan.mode === "resume" ? plan.save.routeState : undefined,
           committed: readLovePlayRoute(RIO_SERIES_ID),
@@ -969,7 +979,8 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       if (sc.series) writeLoveSeriesProgress(sc.series.id, sc.id, outcome, actNumberOf(sc));
       // 兜底：判出结局时如果 routes 因 quota/conflict 没写成，这里再试一次；
       // 同一份账本按签名跳过，不会因为多点一次「记入统计」写出两份。
-      if (isRioAct4Scene(sc)) finalizeRioRoute(outcome);
+      const recordAct = rioRouteActOf(sc);
+      if (recordAct) finalizeRioRoute(outcome, recordAct);
     } else {
       setRecordError(true);
     }
@@ -1125,7 +1136,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     cmdRef.current = null;
     stopSpeaking();
     voiceRef.current.cancel(true);
-    const rioPlan = isRioAct4Scene(sc)
+    const rioPlan = rioRouteActOf(sc)
       ? planRioRouteEntry({
           saved: save.routeState,
           committed: readLovePlayRoute(RIO_SERIES_ID),

@@ -131,15 +131,16 @@ function longestSharedRun(a: string, b: string): number {
   }
   return 0;
 }
-// Rio 六幕线（spec-love-rio-route §6.1）：第 1–4 幕 order 连续、同一 seriesId、
-// 每幕只挂 Rio 一个 NPC；第 5–6 幕在 3–5 人真人试玩闸门通过前不得出现。
+// Rio 六幕线（spec-love-rio-route §6.1）：第 1–6 幕 order 连续、同一 seriesId、
+// 每幕只挂 Rio 一个 NPC。第 5–6 幕的试玩闸门已按产品决定豁免（2026-10-20），
+// 结局判定未经玩家验证——闸门恢复时按 spec §0 停止线复核。
 const rioLine = SCENARIOS
   .filter((s) => s.series?.id === "love-arc-rio-clarify")
   .sort((a, b) => (a.series?.order ?? 0) - (b.series?.order ?? 0));
 assert.deepEqual(
   rioLine.map((s) => s.series?.order),
-  [1, 2, 3, 4],
-  "Rio line: only acts 1-4 may be authored before the playtest gate, with contiguous orders",
+  [1, 2, 3, 4, 5, 6],
+  "Rio line: all six acts are authored (playtest gate waived, unverified), with contiguous orders",
 );
 for (const s of rioLine) {
   assert(s.source.trim(), `${s.id}: missing source`);
