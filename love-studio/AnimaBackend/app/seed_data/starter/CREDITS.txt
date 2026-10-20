@@ -1,0 +1,30 @@
+拾光书栈 · 顾星遥 —— SocialCoach · Love Studio 自带起始内容
+================================================================
+
+作者：SocialCoach 项目
+source: original（原创角色与原创世界书，非移植任何第三方 IP，无第三方素材）
+license: CC-BY-4.0（署名-相同方式共享；详见 https://creativecommons.org/licenses/by/4.0/）
+
+角色与世界书
+------------
+- 角色「顾星遥」与书店「拾光书栈」及其全部设定、开场白、示例对话、世界书条目由
+  SocialCoach 项目原创创作；成文过程使用了本地 LLM 对措辞进行辅助润色，内容方向
+  与设定由项目人工确定。
+- 立绘 / 头像：未提供。这是一个文本起始角色，没有放置占位图冒充成品；立绘待补
+  （补充时沿用 seed_data 立绘包的既有约定：avatar.webp + sprites.json + sprites/）。
+
+场景背景
+--------
+- scenes/ 下三张 1280×720 WebP（bookshop_street / bookshop_interior / rooftop_dusk）
+  由同目录 make_scenes.py 用 Pillow 程序化生成（纵向渐变 + 剪影 + 几何构图 + 柔光），
+  属于原创示意背景 v1，非美术成品，随时可被正式美术替换。生成方法可复现：直接运行
+  python make_scenes.py 即可重建同名文件。
+
+BGM
+---
+- 未提供：没有合规且体积合理的原创音频素材，不使用任何第三方音频。场景包内只有背景。
+
+分发与使用
+----------
+- 本目录内容随 Love Studio（AnimaBackend）仓库分发；按上述 license 使用，署名
+  「SocialCoach 项目」。替换或扩写时请保留本文件的来源说明。

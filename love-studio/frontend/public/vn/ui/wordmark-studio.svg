@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 300" width="1500" height="300" role="img" aria-label="SocialCoach · Love Studio">
+  <!-- SocialCoach · Love Studio 字标(本 fork 自制,SVG 文本;替代上游 wordmark.png)。
+       白色填充:加载页夜空上是白的;封面(paper)那层靠 .vn-tt2-lockup 的 invert 滤镜反成深色。 -->
+  <text x="12" y="218"
+        font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+        font-weight="700" font-size="205" letter-spacing="2" fill="#ffffff">SocialCoach<tspan
+        font-weight="400" font-size="150" letter-spacing="0" fill="#ffffff"> · Love Studio</tspan></text>
+</svg>

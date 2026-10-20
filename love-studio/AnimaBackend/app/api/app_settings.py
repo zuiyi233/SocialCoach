@@ -1,0 +1,59 @@
+"""全局设置的键值存取。
+
+目前只有插件配置在用(键名是 plugin.<插件名>)。值是任意 JSON,
+结构由前端的插件自己定义,后端不校验 —— 以后加插件不用改后端。
+「记住密钥」开关(security.remember_api_keys)是唯一例外:值必须是 bool,
+由 app/api_keys.py 负责,不走通用路径。
+"""
+
+import re
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app import api_keys
+from app.db import get_db
+from app.models import AppSetting
+from app.schemas import AppSettingIn, AppSettingOut
+
+router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
+# secret.* 存的是 key 之类(比如 Jev 的),只由各自的接口写,这里读不到也写不了
+_SECRET_PREFIX = "secret."
+
+
+def check_key(key: str) -> None:
+    """按卡设置(card_prefs.py)和这里用同一套键,规则也一样"""
+    if not _KEY_RE.match(key):
+        raise HTTPException(400, "设置名只能用小写字母、数字和 _ . -")
+    if key.startswith(_SECRET_PREFIX):
+        raise HTTPException(400, "这个设置不能从这里读写")
+
+
+@router.get("/{key}", response_model=AppSettingOut)
+def get_setting(key: str, db: Session = Depends(get_db)):
+    check_key(key)
+    row = db.get(AppSetting, key)
+    # 还没存过就回 null,前端用自己的默认值。不回 404:页面每次打开都要读一遍,
+    # 404 会在浏览器控制台里留一条红色报错,看着像出了故障
+    return AppSettingOut(key=key, value=row.value if row else None)
+
+
+@router.put("/{key}", response_model=AppSettingOut)
+def put_setting(key: str, req: AppSettingIn, db: Session = Depends(get_db)):
+    check_key(key)
+    # 密钥策略开关:值必须是 bool,搬 key 的动作交给 api_keys,别让通用路径把非 bool 写进去
+    if key == api_keys.REMEMBER_KEY:
+        if not isinstance(req.value, bool):
+            raise HTTPException(400, "记住密钥只能设为 true / false")
+        api_keys.set_remember(db, req.value)
+        return AppSettingOut(key=key, value=req.value)
+    row = db.get(AppSetting, key)
+    if row is None:
+        row = AppSetting(key=key, value=req.value)
+        db.add(row)
+    else:
+        row.value = req.value
+    db.commit()
+    return AppSettingOut(key=key, value=row.value)

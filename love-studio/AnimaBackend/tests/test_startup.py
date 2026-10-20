@@ -1,0 +1,237 @@
+import importlib
+import json
+from collections.abc import Callable, Iterator
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.db import Base
+
+db_module = importlib.import_module("app.db")
+main_module = importlib.import_module("app.main")
+
+
+@pytest.fixture
+def start_app(monkeypatch) -> Iterator[Callable[[], TestClient]]:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    testing_session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    monkeypatch.setattr(main_module, "engine", engine)
+    monkeypatch.setattr(main_module, "SessionLocal", testing_session)
+    monkeypatch.setattr(db_module, "SessionLocal", testing_session)
+    monkeypatch.setattr(main_module.settings, "anthropic_api_key", None)
+    monkeypatch.setattr(main_module.settings, "openai_api_key", None)
+    monkeypatch.setattr(main_module.settings, "openai_base_url", None)
+    # 自带角色有立绘,预转 WebP 的后台线程会在测试拆掉内存库之后还在读它
+    monkeypatch.setattr(main_module, "prewarm", lambda session_factory: None)
+    monkeypatch.setattr(main_module, "start_blob_copy", lambda session_factory: None)
+    main_module.app.dependency_overrides.clear()
+
+    yield lambda: TestClient(main_module.app)
+
+    main_module.app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+
+
+def snapshot(client: TestClient) -> dict:
+    return {
+        "personas": client.get("/api/personas").json(),
+        "connections": client.get("/api/connections").json(),
+        "cards": client.get("/api/tavern/cards").json(),
+        "presets": client.get("/api/tavern/presets").json(),
+    }
+
+
+def _write_webp(path, color) -> None:
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (8, 12), color).save(path, "WEBP")
+
+
+@pytest.fixture
+def bundled_character(tmp_path, monkeypatch) -> str:
+    """一个合成的种子角色,替掉本 fork 移除掉的上游自带角色:
+    seed_data/<name>/ 放 card.json(+ avatar.webp、sprites.json、sprites/*.webp),
+    首启时被「扫描 seed_data 下含 card.json 的子目录」这套新机制自动种上。
+    返回角色名 —— 这样测的是种子机制,而不是任何具体角色素材。"""
+    import shutil
+    from pathlib import Path
+
+    import app.seed as seed
+
+    name = "测试娘"
+    root = tmp_path / "seed_data"
+    char = root / name
+    char.mkdir(parents=True)
+    # 默认预设也是从 seed_data/ 读的,照搬一份过来,免得 monkeypatch 后找不到它
+    real_seed_data = Path(seed.__file__).resolve().parent / "seed_data"
+    shutil.copy(real_seed_data / "default-preset.json", root / "default-preset.json")
+    (char / "card.json").write_text(
+        json.dumps(
+            {
+                "spec": "chara_card_v2",
+                "data": {"name": name, "description": "合成种子角色(测试用)", "tags": ["测试"]},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    _write_webp(char / "avatar.webp", (10, 20, 30))
+    (char / "sprites.json").write_text(
+        json.dumps(
+            [
+                {"label": "微笑", "file": "smile.webp", "face_scan": {"face": {"x": 1, "y": 1, "w": 6, "h": 8}}},
+                {"label": "生气", "file": "angry.webp", "face_scan": {"face": {"x": 1, "y": 1, "w": 6, "h": 8}}},
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    _write_webp(char / "sprites" / "smile.webp", (200, 100, 100))
+    _write_webp(char / "sprites" / "angry.webp", (100, 100, 200))
+    monkeypatch.setattr(seed, "_SEED_DATA", root)
+    return name
+
+
+def test_first_start_seeds_every_resource_needed_for_offline_use(start_app):
+    with start_app() as client:
+        data = snapshot(client)
+        health = client.get("/api/health")
+
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+    assert [(item["name"], item["is_active"]) for item in data["personas"]] == [
+        ("旅行者", True)
+    ]
+    assert [item["name"] for item in data["connections"]] == ["Mock（本地测试）"]
+    assert data["connections"][0]["is_active"] is True
+    assert data["connections"][0]["model"] == "mock"
+    # 本 fork 自带的原创起始角色(拾光书栈 · 顾星遥,CC-BY-4.0)首启种上,开箱就有得玩
+    assert [item["name"] for item in data["cards"]] == ["顾星遥"]
+    assert [item["name"] for item in data["presets"]] == ["默认预设"]
+
+
+def test_bundled_card_comes_with_its_sprite_pack(start_app, bundled_character):
+    with start_app() as client:
+        card = client.get("/api/tavern/cards").json()[0]
+        bound = client.get(f"/api/tavern/cards/{card['id']}/sprite-packs").json()
+        packs = client.get("/api/sprite-packs").json()
+        sprites = client.get(f"/api/tavern/cards/{card['id']}/sprites").json()
+        image = client.get(f"/api/sprite-packs/{bound['current']}/sprites/{sprites[0]['id']}/image")
+        preset = client.get("/api/tavern/presets").json()[0]
+
+    assert card["name"] == bundled_character
+    assert [(p["name"], p["sprite_count"], p["card_count"]) for p in packs] == [
+        (f"{bundled_character} · 立绘", 2, 1)
+    ]
+    assert bound["pack_ids"] == [packs[0]["id"]]
+    assert bound["current"] == packs[0]["id"]
+    # 排第一的是默认表情;脸的位置随包带着,首启不用再找
+    assert sprites[0]["label"] == "微笑"
+    assert all(s["face_scan"] and s["face_scan"].get("face") for s in sprites)
+    assert image.status_code == 200
+    assert image.headers["content-type"] == "image/webp"
+    # 默认预设带着世界书和立绘指令,自带角色开箱就能换表情
+    enabled = [o["identifier"] for o in preset["prompt_order"][0]["order"] if o["enabled"]]
+    assert {"worldInfoBefore", "worldInfoAfter", "anima_sprite"} <= set(enabled)
+
+
+def test_bundled_sprites_go_only_into_the_file_store(start_app, bundled_character):
+    """自带角色的立绘和上传的一样,只进文件仓库,库里的原件列留空"""
+    from sqlalchemy import text
+
+    with start_app() as client:
+        client.get("/api/health")
+    with db_module.SessionLocal() as s:
+        rows = s.execute(text("SELECT image IS NULL, image_sha FROM pack_sprites")).all()
+    assert len(rows) == 2
+    assert all(empty and sha for empty, sha in rows)
+
+
+def test_restarting_app_is_idempotent_and_preserves_user_edits(start_app):
+    with start_app() as client:
+        first = snapshot(client)
+        persona_id = first["personas"][0]["id"]
+        response = client.patch(
+            f"/api/personas/{persona_id}", json={"description": "用户修改后的描述"}
+        )
+        assert response.status_code == 200
+
+    with start_app() as client:
+        second = snapshot(client)
+
+    assert {key: len(value) for key, value in second.items()} == {
+        "personas": 1,
+        "connections": 1,
+        # 自带的原创起始角色在,但第二次启动不会凭空再多出一张
+        "cards": 1,
+        "presets": 1,
+    }
+    assert second["personas"][0]["id"] == persona_id
+    assert second["personas"][0]["description"] == "用户修改后的描述"
+
+
+def test_environment_connections_are_seeded_once_and_real_connection_is_preferred(
+    start_app, monkeypatch
+):
+    monkeypatch.setattr(main_module.settings, "anthropic_api_key", "anthropic-test-key")
+    monkeypatch.setattr(main_module.settings, "openai_api_key", "openai-test-key")
+    monkeypatch.setattr(main_module.settings, "openai_base_url", "https://relay.test/v1")
+
+    with start_app() as client:
+        first = client.get("/api/connections").json()
+    with start_app() as client:
+        second = client.get("/api/connections").json()
+
+    assert [item["name"] for item in first] == [
+        "Mock（本地测试）",
+        "Anthropic（来自 .env）",
+        "OpenAI（来自 .env）",
+    ]
+    assert [item["id"] for item in second] == [item["id"] for item in first]
+    assert [item["name"] for item in first if item["is_active"]] == ["OpenAI（来自 .env）"]
+    assert first[-1]["base_url"] == "https://relay.test/v1"
+    assert all(item["has_api_key"] for item in first[1:])
+    assert "anthropic-test-key" not in str(first)
+    assert "openai-test-key" not in str(first)
+
+
+def test_deleted_bundled_card_is_recreated_without_overwriting_existing_preset(start_app, bundled_character):
+    with start_app() as client:
+        card = client.get("/api/tavern/cards").json()[0]
+        preset = client.get("/api/tavern/presets").json()[0]
+        assert client.delete(f"/api/tavern/cards/{card['id']}").status_code == 204
+
+    with start_app() as client:
+        cards = client.get("/api/tavern/cards").json()
+        presets = client.get("/api/tavern/presets").json()
+
+    assert len(cards) == 1
+    assert cards[0]["name"] == bundled_character
+    assert cards[0]["id"] != card["id"]
+    assert len(presets) == 1
+    assert presets[0]["id"] == preset["id"]
+
+
+def test_recreated_bundled_card_reuses_the_existing_sprite_pack(start_app, bundled_character):
+    with start_app() as client:
+        card = client.get("/api/tavern/cards").json()[0]
+        pack = client.get("/api/sprite-packs").json()[0]
+        assert client.delete(f"/api/tavern/cards/{card['id']}").status_code == 204
+
+    with start_app() as client:
+        new_card = client.get("/api/tavern/cards").json()[0]
+        packs = client.get("/api/sprite-packs").json()
+        bound = client.get(f"/api/tavern/cards/{new_card['id']}/sprite-packs").json()
+
+    assert [p["id"] for p in packs] == [pack["id"]]
+    assert bound["current"] == pack["id"]

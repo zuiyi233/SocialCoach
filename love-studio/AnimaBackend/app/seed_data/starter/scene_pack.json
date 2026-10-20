@@ -1,0 +1,33 @@
+{
+  "name": "拾光书栈",
+  "description": "老街尽头的旧书店「拾光书栈」及其周边的场景：夜里的街角门面、亮着暖灯的店内、可以看见城市的天台黄昏。程序化生成的原创示意背景 v1，非美术成品，可替换（见 CREDITS.txt）。",
+  "assets": [
+    {
+      "file": "bookshop_street.webp",
+      "kind": "bg",
+      "label": "书店门口",
+      "aliases": ["老街", "夜晚街角"],
+      "description": "深夜的老街街角，拾光书栈亮着橱窗灯，隔壁卷帘门上贴着「拆」。",
+      "focus_x": 50,
+      "sort": 0
+    },
+    {
+      "file": "bookshop_interior.webp",
+      "kind": "bg",
+      "label": "书店内景",
+      "aliases": ["店内", "书柜之间"],
+      "description": "暖黄吊灯下的书店里，书架堆到天花板，月光从中央大窗照进来。",
+      "focus_x": 50,
+      "sort": 1
+    },
+    {
+      "file": "rooftop_dusk.webp",
+      "kind": "bg",
+      "label": "天台黄昏",
+      "aliases": ["天台", "黄昏"],
+      "description": "书店顶楼天台，落日把城市染成橘红，铁栏杆后的风比楼下大一些。",
+      "focus_x": 50,
+      "sort": 2
+    }
+  ]
+}

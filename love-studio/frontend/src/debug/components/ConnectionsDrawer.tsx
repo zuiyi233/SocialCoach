@@ -1,0 +1,566 @@
+import { useCallback, useEffect, useState } from 'react';
+import {
+  debugApi,
+  type JevKeyStatus,
+  type ApiType,
+  type DebugConnection,
+  type ThinkingLevel,
+} from '../lib/api';
+
+/** 与游戏版 ConnectionsPanel 同一份逻辑(增删改/选中即激活/两步删除/
+ *  模型刷新与未保存预览/ping/测试消息),只是换成控制台顶部的抽屉式呈现 */
+
+const BASE_URL_HINTS: Record<ApiType, string> = {
+  openai_compatible: 'https://api.openai.com/v1 · OpenRouter / Ollama 等兼容地址',
+  anthropic: '留空使用官方 API',
+  mock: '无需填写',
+};
+
+const DEFAULT_TEST_MESSAGE = 'Hi! Reply with one short sentence.';
+
+/** 密钥存哪儿的开关:默认开 = 存本机 SQLite;关 = 只在本进程内存、重启重填 */
+const REMEMBER_KEYS_SETTING = 'security.remember_api_keys';
+
+interface Props {
+  /** 外层(顶栏)手里的连接列表 —— 顶栏切连接/换模型后抽屉靠它跟上 */
+  connections: DebugConnection[];
+  notify: (kind: 'ok' | 'error', message: string) => void;
+  onClose: () => void;
+  /** 连接变化(增删改/启用)后通知外层刷新它自己的连接状态 */
+  onChanged: () => void;
+  /**
+   * 判断模型 Jev 的状态一行(只读):Jev 的 key、地址都只在插件抽屉的「Jev 标注」页填,这里只指路。
+   * 不给就不显示这一行
+   */
+  jev?: { status: JevKeyStatus | null; onOpen: () => void };
+}
+
+interface FormState {
+  name: string;
+  api_type: ApiType;
+  base_url: string;
+  api_key: string;
+  model: string;
+  stream: boolean;
+  thinking: ThinkingLevel | null;
+}
+
+/** 思考的几档。关和深浅三档 DeepSeek、Kimi、GLM 用的是同一套名字(2026-09-26 实测) */
+const THINKING_OPTIONS: { value: ThinkingLevel | ''; name: string }[] = [
+  { value: '', name: '默认(不传,跟服务走)' },
+  { value: 'off', name: '关 —— 不思考,直接写正文' },
+  { value: 'low', name: '低 —— 想得短' },
+  { value: 'high', name: '高' },
+  { value: 'max', name: '最大 —— 想得最多,也最慢' },
+];
+
+type Busy = 'save' | 'delete' | 'refresh' | 'ping' | 'test' | null;
+
+function formFrom(conn: DebugConnection | null): FormState {
+  return {
+    name: conn?.name ?? '',
+    api_type: (conn?.api_type as ApiType) ?? 'openai_compatible',
+    base_url: conn?.base_url ?? '',
+    api_key: '',
+    model: conn?.model ?? '',
+    stream: conn?.stream ?? true,
+    thinking: conn?.thinking ?? null,
+  };
+}
+
+export function ConnectionsDrawer({ connections: shared, notify, onClose, onChanged, jev }: Props) {
+  const [connections, setConnections] = useState<DebugConnection[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(() => formFrom(null));
+  const [cachedModels, setCachedModels] = useState<string[]>([]);
+  const [testMessage, setTestMessage] = useState(DEFAULT_TEST_MESSAGE);
+  const [busy, setBusy] = useState<Busy>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [rememberKeys, setRememberKeys] = useState(true);
+
+  const selected = connections?.find((c) => c.id === selectedId) ?? null;
+  // 表单和这条连接(新建时是空表单)不一样 = 有没保存的改动,包括刚填的 API key
+  const formDirty = JSON.stringify(form) !== JSON.stringify(formFrom(selected));
+  const confirmDiscard = () =>
+    !formDirty || window.confirm('连接的改动还没保存(填了的 API key 也会丢),放弃这些改动?');
+  const active = connections?.find((c) => c.is_active) ?? null;
+
+  const reload = useCallback(async (keepId?: string | null) => {
+    const list = await debugApi.listConnections();
+    setConnections(list);
+    const target =
+      (keepId && list.find((c) => c.id === keepId)) ?? list.find((c) => c.is_active) ?? list[0];
+    if (target) {
+      setSelectedId(target.id);
+      setForm(formFrom(target));
+      setCachedModels(target.cached_models ?? []);
+    } else {
+      setSelectedId(null);
+      setForm(formFrom(null));
+      setCachedModels([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    reload().catch((e: unknown) => notify('error', e instanceof Error ? e.message : String(e)));
+    // 没存过回 null,默认开
+    debugApi
+      .getSetting<boolean>(REMEMBER_KEYS_SETTING)
+      .then((v) => setRememberKeys(v ?? true))
+      .catch((e: unknown) => notify('error', e instanceof Error ? e.message : String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 顶栏的「连接」「模型」下拉改的是同一份后端数据:外层列表一变就换成它。
+  // 正在看的那条如果模型被顶栏改了,表单里的模型名跟过去,其它没保存的编辑不动
+  useEffect(() => {
+    if (shared.length === 0) return;
+    const prev = connections?.find((c) => c.id === selectedId);
+    const next = shared.find((c) => c.id === selectedId);
+    if (prev && next) {
+      if (next.model !== prev.model) setForm((f) => ({ ...f, model: next.model }));
+      setCachedModels(next.cached_models ?? []);
+    }
+    setConnections(shared);
+    // 只跟外层列表走;connections/selectedId 读的是本次渲染的最新值
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shared]);
+
+  const selectConnection = async (id: string) => {
+    const conn = connections?.find((c) => c.id === id);
+    if (!conn) return;
+    // 点的就是正在编辑的这条:表单不动(以前会重置,填了一半的 key 就没了)
+    if (id !== selectedId) {
+      if (!confirmDiscard()) return;
+      setSelectedId(id);
+      setForm(formFrom(conn));
+      setCachedModels(conn.cached_models ?? []);
+    }
+    setDeleteArmed(false);
+    // 和游戏版一致:在列表里选中一条非启用的连接 = 把它设为当前启用
+    if (!conn.is_active) {
+      try {
+        await debugApi.activateConnection(id);
+        await reload(id);
+        onChanged();
+      } catch (e) {
+        notify('error', e instanceof Error ? e.message : String(e));
+      }
+    }
+  };
+
+  const startNew = () => {
+    if (!confirmDiscard()) return;
+    setSelectedId(null);
+    setForm(formFrom(null));
+    setCachedModels([]);
+    setDeleteArmed(false);
+  };
+
+  const save = async () => {
+    if (!form.name.trim()) {
+      notify('error', '请填写连接名称');
+      return;
+    }
+    setBusy('save');
+    try {
+      let savedId = selectedId;
+      if (selectedId && selected) {
+        // 只提交变化了的字段;密钥留空 = 保持已保存的不变
+        const patch: Partial<FormState> = {};
+        if (form.name !== selected.name) patch.name = form.name;
+        if (form.api_type !== selected.api_type) patch.api_type = form.api_type;
+        if (form.base_url !== (selected.base_url ?? '')) patch.base_url = form.base_url;
+        if (form.model !== selected.model) patch.model = form.model;
+        if (form.stream !== selected.stream) patch.stream = form.stream;
+        if (form.thinking !== selected.thinking) patch.thinking = form.thinking;
+        if (form.api_key.trim()) patch.api_key = form.api_key.trim();
+        if (Object.keys(patch).length > 0) {
+          await debugApi.updateConnection(selectedId, patch);
+        }
+      } else {
+        const created = await debugApi.createConnection({
+          name: form.name.trim(),
+          api_type: form.api_type,
+          base_url: form.base_url || null,
+          api_key: form.api_key.trim() || null,
+          model: form.model,
+          stream: form.stream,
+          thinking: form.thinking,
+        });
+        savedId = created.id;
+        await debugApi.activateConnection(created.id);
+      }
+      await reload(savedId);
+      onChanged();
+      notify('ok', '已保存');
+    } catch (e) {
+      notify('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const toggleRemember = async (next: boolean) => {
+    if (!next) {
+      const ok = window.confirm(
+        '关掉后已保存的密钥会从本地数据库移出，只保留在本次进程内存；重启 Love Studio 后需要重新填写。继续？',
+      );
+      if (!ok) return;
+    }
+    setRememberKeys(next);
+    try {
+      await debugApi.putSetting(REMEMBER_KEYS_SETTING, next);
+    } catch (e) {
+      setRememberKeys(!next);
+      notify('error', e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const remove = async () => {
+    if (!selectedId) return;
+    // 两步确认,和游戏版一致
+    if (!deleteArmed) {
+      setDeleteArmed(true);
+      return;
+    }
+    setBusy('delete');
+    try {
+      await debugApi.deleteConnection(selectedId);
+      setDeleteArmed(false);
+      await reload();
+      onChanged();
+    } catch (e) {
+      notify('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const refreshModels = async () => {
+    setBusy('refresh');
+    try {
+      if (selectedId) {
+        const models = await debugApi.refreshConnectionModels(selectedId);
+        setCachedModels(models);
+        setConnections((prev) =>
+          prev
+            ? prev.map((c) => (c.id === selectedId ? { ...c, cached_models: models } : c))
+            : prev,
+        );
+        onChanged();
+      } else {
+        // 还没保存的表单也能拉模型列表(预览接口,用表单里的密钥)
+        const models = await debugApi.previewConnectionModels({
+          api_type: form.api_type,
+          base_url: form.base_url || null,
+          api_key: form.api_key.trim() || null,
+          connection_id: null,
+        });
+        setCachedModels(models);
+      }
+      notify('ok', '模型列表已刷新');
+    } catch (e) {
+      notify('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /** 从列表选模型 = 立刻存进连接,顶栏「模型」读的是同一个字段。新建中的连接只填表单 */
+  const pickModel = async (model: string) => {
+    setForm((f) => ({ ...f, model }));
+    if (!selectedId) return;
+    try {
+      await debugApi.updateConnection(selectedId, { model });
+      setConnections((prev) =>
+        prev ? prev.map((c) => (c.id === selectedId ? { ...c, model } : c)) : prev,
+      );
+      onChanged();
+    } catch (e) {
+      notify('error', e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const ping = async () => {
+    if (!selectedId) return;
+    setBusy('ping');
+    try {
+      const result = await debugApi.pingConnection(selectedId);
+      notify(result.ok ? 'ok' : 'error', result.message);
+    } catch (e) {
+      notify('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const sendTestMessage = async () => {
+    if (!selectedId) return;
+    setBusy('test');
+    try {
+      const result = await debugApi.testConnectionMessage(selectedId, testMessage);
+      notify('ok', result.reply);
+    } catch (e) {
+      notify('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="conn-drawer">
+      <div className="conn-drawer-head">
+        <span className="conn-drawer-title">API · 连接管理</span>
+        <span className="conn-drawer-sub">与游戏内「连接设置」同一份数据,改动互通</span>
+        <div style={{ flex: 1 }} />
+        {active && (
+          <span className="conn-active-chip">
+            <span className="dot on" /> {active.name} · {active.model || '未设模型'}
+          </span>
+        )}
+        <button className="panel-collapse" onClick={() => confirmDiscard() && onClose()} title="收起">
+          ✕
+        </button>
+      </div>
+
+      <div className="conn-drawer-body">
+        <div className="conn-main">
+          <label className="conn-field">
+            <span className="conn-label">已保存的连接 · SAVED</span>
+            <div className="conn-row">
+              <select
+                className="select conn-select"
+                value={selectedId ?? ''}
+                onChange={(e) => (e.target.value ? selectConnection(e.target.value) : startNew())}
+                disabled={busy !== null}
+              >
+                <option value="">＋ 新建连接…</option>
+                {connections?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.is_active ? '（当前启用）' : ''}
+                  </option>
+                ))}
+              </select>
+              <button className="btn small" onClick={startNew} disabled={busy !== null}>
+                新建
+              </button>
+              <button className="btn small accent" onClick={save} disabled={busy !== null}>
+                {busy === 'save' && <span className="spinner" />}
+                {busy === 'save' ? '保存中…' : '保存'}
+              </button>
+              {selectedId && (
+                <button
+                  className={`btn small danger${deleteArmed ? ' armed' : ''}`}
+                  onClick={remove}
+                  disabled={busy !== null}
+                >
+                  {busy === 'delete' ? '删除中…' : deleteArmed ? '确认删除?' : '删除'}
+                </button>
+              )}
+            </div>
+          </label>
+
+          <div className="conn-grid">
+            <label className="conn-field">
+              <span className="conn-label">名称 · NAME</span>
+              <input
+                className="text-input"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="例:OpenRouter / 本地 Ollama"
+              />
+            </label>
+            <label className="conn-field">
+              <span className="conn-label">类型 · API TYPE</span>
+              <select
+                className="select"
+                value={form.api_type}
+                onChange={(e) => setForm((f) => ({ ...f, api_type: e.target.value as ApiType }))}
+              >
+                <option value="openai_compatible">OpenAI 兼容</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="mock">Mock(本地测试)</option>
+              </select>
+            </label>
+
+            {form.api_type !== 'mock' && (
+              <>
+                <label className="conn-field span-2">
+                  <span className="conn-label">BASE URL</span>
+                  <input
+                    className="text-input"
+                    value={form.base_url}
+                    onChange={(e) => setForm((f) => ({ ...f, base_url: e.target.value }))}
+                    placeholder={BASE_URL_HINTS[form.api_type]}
+                  />
+                </label>
+                <label className="conn-field span-2">
+                  <span className="conn-label">API KEY</span>
+                  <input
+                    className="text-input"
+                    type="password"
+                    value={form.api_key}
+                    onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))}
+                    placeholder={selected?.has_api_key ? '已保存密钥(留空保持不变)' : 'sk-…'}
+                    autoComplete="new-password"
+                  />
+                </label>
+                {/* 密钥策略(见 spec-love-studio §7):默认存本机 SQLite,可关 —— 关掉只在本进程内存 */}
+                <label className="conn-field span-2 conn-switch">
+                  <input
+                    type="checkbox"
+                    checked={rememberKeys}
+                    onChange={(e) => toggleRemember(e.target.checked)}
+                  />
+                  <span>
+                    <span className="conn-label">记住密钥(存本地数据库)</span>
+                    <span className="conn-switch-hint">
+                      {rememberKeys
+                        ? '默认开启；密钥只存在本机 SQLite，不进日志、不回显。'
+                        : '已关闭：密钥只在本次进程内存，重启 Love Studio 后需要重新填写。'}
+                    </span>
+                  </span>
+                </label>
+              </>
+            )}
+
+            <label className="conn-field span-2">
+              <span className="conn-label">模型名 · MODEL</span>
+              <div className="conn-row">
+                <input
+                  className="text-input conn-model-input"
+                  value={form.model}
+                  onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
+                  placeholder="例:claude-sonnet-5 / gpt-4o / llama3"
+                />
+                {form.api_type !== 'mock' && (
+                  <button className="btn small" onClick={refreshModels} disabled={busy !== null}>
+                    {busy === 'refresh' && <span className="spinner" />}
+                    {busy === 'refresh' ? '刷新中…' : '刷新列表'}
+                  </button>
+                )}
+              </div>
+            </label>
+
+            {/* 流式是端点的能力,不是我们的偏好 —— 所以开关跟着连接走 */}
+            <label className="conn-field span-2 conn-switch">
+              <input
+                type="checkbox"
+                checked={form.stream}
+                onChange={(e) => setForm((f) => ({ ...f, stream: e.target.checked }))}
+              />
+              <span>
+                <span className="conn-label">流式输出 · STREAMING</span>
+                <span className="conn-switch-hint">
+                  边生成边显示，思维链单独渲染。有些中转站不吃 stream=true，报错就关掉它。
+                </span>
+              </span>
+            </label>
+
+            {/* 和流式一样跟着连接走:认不认、认哪几档是服务和模型的事 */}
+            {form.api_type !== 'mock' && (
+              <label className="conn-field span-2">
+                <span className="conn-label">思考 · THINKING</span>
+                <select
+                  className="select"
+                  value={form.thinking ?? ''}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, thinking: (e.target.value || null) as ThinkingLevel | null }))
+                  }
+                >
+                  {THINKING_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="conn-switch-hint">
+                  想得越少，正文出得越快，剧情和格式可能粗糙一点。DeepSeek、Kimi 都认；GLM-5.3 关不掉思考，只能选低 / 高 / 最大；中转站多半不认，报错就改回默认。
+                </span>
+              </label>
+            )}
+
+            {cachedModels.length > 0 && (
+              <label className="conn-field span-2">
+                <span className="conn-label">可用模型 · {cachedModels.length} 个</span>
+                <select
+                  className="select"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) pickModel(e.target.value);
+                  }}
+                >
+                  <option value="">从列表选择…</option>
+                  {cachedModels.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+
+          {selected && form.api_key === '' && selected.has_api_key && (
+            <div className="conn-note">
+              {rememberKeys
+                ? '密钥已保存在本地数据库,不会回传明文;留空则继续使用。'
+                : '密钥只保留在本次进程内存,不会回传明文;留空则继续使用,重启 Love Studio 后需要重新填写。'}
+            </div>
+          )}
+        </div>
+
+        <div className="conn-side">
+          <label className="conn-field">
+            <span className="conn-label">测试消息 · TEST MESSAGE</span>
+            <textarea
+              className="conn-textarea"
+              value={testMessage}
+              onChange={(e) => setTestMessage(e.target.value)}
+              rows={3}
+            />
+          </label>
+          <div className="conn-side-actions">
+            <button
+              className="btn accent"
+              onClick={ping}
+              disabled={!selectedId || busy !== null}
+            >
+              {busy === 'ping' && <span className="spinner" />}
+              {busy === 'ping' ? '连接中…' : '连接'}
+            </button>
+            <button
+              className="btn"
+              onClick={sendTestMessage}
+              disabled={!selectedId || busy !== null || !testMessage.trim()}
+            >
+              {busy === 'test' && <span className="spinner" />}
+              {busy === 'test' ? '发送中…' : '发送测试消息'}
+            </button>
+          </div>
+          {selectedId === null && (
+            <div className="conn-note">先在左侧选中或保存一条连接,才能测试连通性。</div>
+          )}
+        </div>
+      </div>
+      {jev && (
+        <div className="conn-jev">
+          <span className={`jev-dot ${jev.status?.has_key ? 'ok' : 'missing'}`} aria-hidden="true" />
+          <span className="conn-jev-text">
+            判断模型 Jev(给立绘、背景、音乐、CG 标标签):
+            {jev.status === null
+              ? '正在问后端…'
+              : jev.status.has_key
+                ? `已填 key${jev.status.url_source && jev.status.url_source !== 'default' ? ' · 走中转' : ''}`
+                : '还没填 key'}
+          </span>
+          <button type="button" className="btn small" onClick={jev.onOpen}>
+            去设置 →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

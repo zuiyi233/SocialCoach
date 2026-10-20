@@ -1,0 +1,36 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Env / secrets — keys are entered in the UI, never committed
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Local data: SQLite database, user cards, sprites, scenes, saves
+*.sqlite
+*.sqlite3
+AnimaBackend/data/*
+!AnimaBackend/data/.gitkeep
+AnimaBackend/models/
+
+# Local scratch
+.playwright-mcp/
