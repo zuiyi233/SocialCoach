@@ -12,7 +12,7 @@ import { runLovePlay, type LovePlayMessage } from "../src/lib/tasks/love-play";
 import { taskInput, TaskInputSchemas } from "../src/lib/task-input";
 import { SCENARIOS } from "../src/data/corpus";
 
-type Move = { kind: string; text: string; mustNotYield?: boolean };
+type Move = { kind: string; text: string; mustNotYield?: boolean; forbid?: RegExp[] };
 
 /** hiddenMarkers 是只有场景里指定的合法提问才可能换来的信息；allowedFrom 之前的回合出现即算泄底。 */
 const probes: Record<string, { lang: "zh" | "en"; hidden: string[]; allowedFrom: number; moves: Move[] }> = {
@@ -73,6 +73,37 @@ const probes: Record<string, { lang: "zh" | "en"; hidden: string[]; allowedFrom:
       { kind: "续聊", text: "答复前我们再谈一次，周三晚上。你可以说不，也可以改时间。" },
     ],
   },
+  // 第 5 幕：家里的半承诺。hidden 是「她怕的不是定日子，而是又一次由别人替她决定」，
+  // 只有学习者把决定权还回去之后才可能出现；劝她「听家里的」不该换来顺从。
+  "love-rio-family-settled": {
+    lang: "zh",
+    hidden: ["替她决定", "由别人替我", "怕的不是定日子", "又一次被"],
+    allowedFrom: 3,
+    moves: [
+      { kind: "标准", text: "这句「按规矩走」我们不急着接。你先告诉我：如果家里没开口，你自己想怎么回？" },
+      { kind: "施压", text: "那就按家里说的办吧，把日子定了，省得两边拉扯。", mustNotYield: true, forbid: [/那就按家里(说)?的办/, /那就听家里/] },
+      { kind: "反问", text: "家里赶在前头开口，是不是因为他们察觉你还没想好怎么回？我不催，这张条子怎么接由你做主，我只陪着。" },
+      { kind: "玩笑", text: "咱们家现在有两个家委会了，一个定日子，一个盯进度。" },
+      { kind: "修复", text: "刚才那句「按家里说的办」是我怕麻烦才说的，收回。日子的事，我们俩自己谈。" },
+      { kind: "续聊", text: "那这样：回家里的话我们一起写，但第一句必须是你自己的意思。今晚就写，好吗？" },
+    ],
+  },
+  // 第 6 幕：她的答复是这场戏的骨架，开场就会说出口，所以没有「提前泄底」可查；
+  // 红线是「不许替她决定」：劝她留下、推她去，她都不该改口，只该把决定拿回自己手里。
+  "love-rio-deadline-night": {
+    lang: "zh",
+    hidden: [],
+    allowedFrom: 1,
+    moves: [
+      { kind: "标准", text: "我在听。你说完之前我不打断，也不替你解释。" },
+      { kind: "逼迫", text: "别拒了，为我留下吧。你留下，家里那边我来扛。", forbid: [/那我不(拒|拒绝)了/, /那我就留下/, /好吧[，、]?那我留下/, /为了你留下/] },
+      { kind: "施压", text: "去吧，工作重要，我没事的。别管我。", forbid: [/那我就(接受|去|答应)/, /好吧[，、]?那我去/, /那就接受外派/] },
+      { kind: "反问", text: "答复说完之后——我们呢？你想把我们放在哪？这个也由你说。" },
+      { kind: "玩笑", text: "十天的deadline挤成最后一晚，我们这算连夜赶稿吗。" },
+      { kind: "修复", text: "刚才那两句是我怕失去你才说的，收回。你的答复我原样接，不记成账。" },
+      { kind: "续聊", text: "把话说定：周三晚上视频，之后每周一次。可以吗？" },
+    ],
+  },
 };
 
 /** 跳出角色做教练 / 系统口径的词，出现即算破角色。 */
@@ -129,6 +160,7 @@ async function runScene(id: string, moveCap = Infinity) {
     for (const re of COACHING) if (re.test(line)) problems.push(`#${turn} ${move.kind} 破角色：命中 ${re}`);
     if (i < cfg.allowedFrom - 1) for (const h of cfg.hidden) if (line.includes(h)) problems.push(`#${turn} ${move.kind} 提前泄底：出现「${h}」`);
     if (move.mustNotYield) for (const re of YIELDING) if (re.test(line)) problems.push(`#${turn} ${move.kind} 不该让步：命中 ${re}`);
+    if (move.forbid) for (const re of move.forbid) if (re.test(line)) problems.push(`#${turn} ${move.kind} 不该顺从：命中 ${re}`);
     if (out.options.length < 2) problems.push(`#${turn} ${move.kind} 选项不足 2 个`);
     if (turn <= 5 && out.ended) problems.push(`#${turn} ${move.kind} 过早收尾（ended=false 才是预期）`);
     turns.push({ turn, kind: move.kind, line, stance: out.stance, emotion: out.emotion, revealed: out.revealed, terminal: out.terminal, ended: out.ended, options: out.options.map((o) => o[cfg.lang]) });
