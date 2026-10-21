@@ -191,7 +191,9 @@ test("a stale expectedRevision is a conflict and leaves the disk untouched; the 
 
 test("appendStoryRecord is idempotent by id, canonical flips only the same branch, deletes are idempotent and unlocks dedupe", () => {
   reset();
-  assert.equal(appendStoryRecord(storyRecord("s1", { canonical: true })).ok, true);
+  // 全新设备：槽不存在（status empty），第一次导入必须能从 revision 0 写进去。
+  assert.equal(readLoveArchive().status, "empty");
+  assert.equal(appendStoryRecord(storyRecord("s1", { canonical: true }), 0).ok, true);
   assert.equal(appendStoryRecord(storyRecord("s1")).ok, true, "same id is an idempotent success");
   let read = okRead();
   assert.equal(read.archive.stories.length, 1, "the same id does not grow the list");

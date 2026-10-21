@@ -718,8 +718,10 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
             }),
             turnLimit: s.maxTurns,
             relationship: relationshipRef.current,
-            // 逐句 beat：先对 Rio / 自定义场景打开，避免 66 场全部涨价。
-            beats: !!s.series || !!s.custom,
+            // 逐句 beat：先对 Rio 六幕（有舞台 manifest 的场景）/ 自定义场景打开，避免 66 场全部涨价。
+            // 不能只看 `s.series`：系列里有一半场景对象本身没挂 series 字段（系列只按 id 引用它们），
+            // 那样 Rio 首幕会被静默漏掉。
+            beats: !!s.custom || !!loveSceneFor(s.id),
           },
           controller.signal,
         );

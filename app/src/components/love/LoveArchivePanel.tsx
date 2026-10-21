@@ -17,6 +17,7 @@ import {
   deleteCharacterArchive,
   deleteStoryRecord,
   deriveNarrativeStage,
+  emptyLoveArchive,
   readLoveArchive,
   setCanonicalStory,
   upsertCharacterArchive,
@@ -203,15 +204,17 @@ export function LoveArchivePanel() {
   };
 
   const applyImport = () => {
-    if (!pack || !archive) return;
+    if (!pack) return;
     setBusy(true);
     setNotice(null);
     try {
+      // 第一次导入时还没有档案槽：从空档案起步（revision 0），否则全新设备上点「确认导入」会静默什么都不做。
+      const base = archive ?? emptyLoveArchive();
       const story: StoryRecord =
         importMode === "public"
           ? { ...pack.story, keyChoices: [] }
           : pack.story;
-      const appended = appendStoryRecord(story, archive.revision);
+      const appended = appendStoryRecord(story, base.revision);
       if (!appended.ok) {
         setNotice(
           appended.reason === "conflict"
@@ -510,7 +513,7 @@ export function LoveArchivePanel() {
                     ["endings", "love_gallery_title"],
                     ["characters", "love_archive_characters"],
                     ["scenes", "love_scenarios"],
-                    ["cgs", "love_archive_unlocks"],
+                    ["cgs", "love_archive_cgs"],
                   ] as const
                 ).map(([key, label]) => (
                   <div key={key} className="card p-4 flex flex-col gap-1">
@@ -535,3 +538,4 @@ export function LoveArchivePanel() {
 
 /** 供 `/love/archive` 页面直接渲染。 */
 export default LoveArchivePanel;
+

@@ -415,7 +415,8 @@ async def generate_character(
         db.flush()
         bindings.replace(db, card.id, bindings.SCENE, [pack.id], pack.id)
         scene_pack_id = pack.id
-    else:
+    elif scene_count > 0:
+        # 只要了 0 张场景时不该报「没生成成功」——那不是失败，是没要求。
         warnings.append("没有一张场景生成成功，未建场景包")
 
     db.commit()

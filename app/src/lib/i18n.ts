@@ -550,6 +550,7 @@ const dict = {
   love_archive_characters: { zh: "人物", en: "Characters" },
   love_archive_stories: { zh: "故事收藏", en: "Story collection" },
   love_archive_unlocks: { zh: "关系图鉴", en: "Relationship codex" },
+  love_archive_cgs: { zh: "CG", en: "CGs" },
   love_archive_import: { zh: "导入故事包", en: "Import story pack" },
   love_archive_export: { zh: "导出故事包", en: "Export story pack" },
   love_archive_afterstory: { zh: "续写这段关系", en: "Write an afterstory" },
