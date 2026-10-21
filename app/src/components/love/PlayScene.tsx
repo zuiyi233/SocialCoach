@@ -1490,6 +1490,15 @@ export function PlayScene({
       </div>
     );
   }
+  // 卡驱动游玩在读盘落地前 `sc` 必然为空（读卡在 effect 的微任务里）：这一帧不能判 notFound，
+  // 否则点「玩一局」会先闪一下「这一页不存在」。
+  if (cardMode && cardState === "pending") {
+    return (
+      <div className="h-dvh grid place-items-center bg-paper" role="status">
+        <span className="dot" /><span className="dot" /><span className="dot" />
+      </div>
+    );
+  }
   // 未 hydration 时不判断；已 hydration 且场景确实不存在 → 走最近的 not-found 边界。
   if (hydrated && !sc) notFound();
   if (!sc) {
