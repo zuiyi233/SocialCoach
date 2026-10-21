@@ -94,6 +94,8 @@ import { LineInspector } from './LineInspector';
 import type { PluginFocus, PluginSection } from '../components/PluginsDrawer';
 import { VNMenu, type MenuPage } from './VNMenu';
 import { VNSettingsPage, type SettingsTab } from './VNSettingsPage';
+import { PlayerVoiceSheet } from './PlayerVoiceSheet';
+import { voiceSettingsTarget } from './playerVoice';
 import { VoiceQuick } from './VoiceQuick';
 import { useVNAccent } from './accent';
 import { FALLBACK_BACKGROUND } from './fallbacks';
@@ -1097,6 +1099,8 @@ export function VNScreen({
   // ---- 界面状态 ----
 
   const [menu, setMenu] = useState<MenuPage | null>(null);
+  // 玩家模式的语音设置面板(PlayerVoiceSheet):开着时盖在菜单上面
+  const [playerVoiceOpen, setPlayerVoiceOpen] = useState(false);
   // 菜单上次停在哪一页,Esc 再打开时回到那儿
   const [lastPage, setLastPage] = useState<MenuPage>('log');
   // 设置页这次打开停在哪一栏(语音面板点「完整语音设置」= 声音);菜单关了就忘掉
@@ -1140,7 +1144,21 @@ export function VNScreen({
   // 表情认法 = 认词记录时按配对表念:这句显示的表情 → 包里那张立绘 → 配给主声音的那一行语气。
   // 旧算法、表还没读到、主声音没有表时不传,后端照旧按名字挑
   const voicePairs = usePairings('voice', listRef, engine === 'records');
-  const mainVoiceId = voiceCast.main?.id ?? null;
+  // 玩家面板(PlayerVoiceSheet)在面板里把声音绑到这张卡:插件那份 cast 还没重读,
+  // 先在这里本地覆盖,让游戏立刻换声音。插件的 cast 一变(切到创作者模式在插件页重绑、
+  // 换了卡重读绑定)覆盖自动作废,回到插件那份
+  const [playerCastOverride, setPlayerCastOverride] = useState<{
+    base: VoiceCast;
+    override: VoiceCast;
+  } | null>(null);
+  const [playerCastCard, setPlayerCastCard] = useState<string | null>(null);
+  if (playerCastCard !== currentCardId) {
+    setPlayerCastCard(currentCardId);
+    setPlayerCastOverride(null);
+  }
+  const effectiveCast =
+    playerCastOverride && playerCastOverride.base === voiceCast ? playerCastOverride.override : voiceCast;
+  const mainVoiceId = effectiveCast.main?.id ?? null;
   const pickRow = useMemo(() => {
     const table = engine === 'records' && mainVoiceId ? voicePairs?.get(mainVoiceId) : undefined;
     return table ? voiceRowFromPairs(table, sprites) : undefined;
@@ -1176,7 +1194,7 @@ export function VNScreen({
         hits: beatParsed?.hits ?? [],
         emotionBefore,
         ctx: emotionCtx,
-        cast: voiceCast,
+        cast: effectiveCast,
         streaming,
         fixedEmotion: voiceConfig.fixedEmotion,
         jevPendingFrom,
@@ -1187,7 +1205,7 @@ export function VNScreen({
         waitRows,
         manual: beatManual,
       }),
-    [beatParsed, emotionBefore, emotionCtx, voiceCast, streaming, voiceConfig.fixedEmotion, jevPendingFrom, inForm, beatId, sfxEnabled, beatTones, pickRow, waitRows, beatManual],
+    [beatParsed, emotionBefore, emotionCtx, effectiveCast, streaming, voiceConfig.fixedEmotion, jevPendingFrom, inForm, beatId, sfxEnabled, beatTones, pickRow, waitRows, beatManual],
   );
   const voice = useVoiceLine({
     config: voiceConfig,
@@ -1195,13 +1213,13 @@ export function VNScreen({
     line,
     lineKey: typeKey,
     silent: skipping || title,
-    warmupId: voiceCast.main?.id ?? null,
-    probeConnectionId: voiceCast.main?.connection_id ?? null,
+    warmupId: effectiveCast.main?.id ?? null,
+    probeConnectionId: effectiveCast.main?.connection_id ?? null,
     interrupt: settings.voiceInterrupt,
   });
   // 右上角的语音标签:这张卡绑了声音才有
   const showVoiceChip =
-    settings.showVoice && currentCardId !== null && (voiceCast.main !== null || voiceCast.extras.length > 0);
+    settings.showVoice && currentCardId !== null && (effectiveCast.main !== null || effectiveCast.extras.length > 0);
 
   // 念台词时 BGM 压到多少,跟着设置走(压低由音频总线做)
   useEffect(() => {
@@ -1309,7 +1327,7 @@ export function VNScreen({
             hits: p.hits,
             emotionBefore: before,
             ctx: emotionCtx,
-            cast: voiceCast,
+            cast: effectiveCast,
             streaming,
             fixedEmotion: voiceConfig.fixedEmotion,
             jevPendingFrom: voiceWaitsForJev(jevKindsOf(b.entry)) ? (b.entry.jevVoicePending ?? b.entry.jevPending) : undefined,
@@ -1324,7 +1342,7 @@ export function VNScreen({
       out.set(b.entry.id, { lines: p.lines, plans, streaming, index: i });
     });
     return out;
-  }, [logOpen, beats, timeline, emotionCtx, voiceCast, voiceConfig.enabled, voiceConfig.fixedEmotion, inForm, sfxEnabled, pickRow, waitRows, sprites]);
+  }, [logOpen, beats, timeline, emotionCtx, effectiveCast, voiceConfig.enabled, voiceConfig.fixedEmotion, inForm, sfxEnabled, pickRow, waitRows, sprites]);
 
   // ---- 句检查器(LineInspector.tsx):历史页每句的「详情」和对话框上右键 / 长按打开的浮层用同一个 ----
 
@@ -1340,7 +1358,7 @@ export function VNScreen({
     const ln = p?.lines[i];
     if (!b || !p || !ln) return null;
     const entry = b.entry;
-    const profile = ln.player ? null : voiceForSpeaker(ln.speaker, charName, voiceCast);
+    const profile = ln.player ? null : voiceForSpeaker(ln.speaker, charName, effectiveCast);
     // 主声音、情绪跟着表情走:按配对表挑那一行(表情认法是认词记录时)
     const main = profile !== null && profile.id === mainVoiceId && !voiceConfig.fixedEmotion;
     const mainTable = engine === 'records' && mainVoiceId ? (voicePairs?.get(mainVoiceId) ?? null) : null;
@@ -1495,7 +1513,8 @@ export function VNScreen({
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
 
-  const busyOverlay = title || menu !== null;
+  // 玩家模式的语音设置面板开着时也算「盖着」:自动播放、跳过、空格翻句都不动底下的故事
+  const busyOverlay = title || menu !== null || playerVoiceOpen;
   // 对话框上的检查器开着(在眼下这一句上打开的;光标挪走了就不算)
   const inspecting = inspect !== null && inspect.key === typeKey && current !== null;
 
@@ -1955,17 +1974,25 @@ export function VNScreen({
         <div className="vn-topbar" inert={covered}>
           {showVoiceChip && (
             <VoiceQuick
-              cast={voiceCast}
+              cast={effectiveCast}
               config={voiceConfig}
               onChangeConfig={onChangeVoiceConfig}
               paused={voice.paused}
               synthesizing={voice.synthesizing}
               onRetry={voice.retry}
               onOpenSettings={() => {
-                openMenu('config');
-                setSettingsTab('sound');
+                // 玩家模式进语音设置面板;创作者模式照旧去设置页「声音」一栏
+                if (voiceSettingsTarget(creator) === 'sheet') setPlayerVoiceOpen(true);
+                else {
+                  openMenu('config');
+                  setSettingsTab('sound');
+                }
               }}
-              onOpenPlugin={() => openPlugin('voice')}
+              onOpenPlugin={() => {
+                // 玩家模式进语音设置面板,不再被弹回设置页
+                if (voiceSettingsTarget(creator) === 'sheet') setPlayerVoiceOpen(true);
+                else openPlugin('voice');
+              }}
             />
           )}
           {/* 语音标签关着时,断了还是要提示 */}
@@ -2177,9 +2204,13 @@ export function VNScreen({
               voiceConfig={voiceConfig}
               onChangeVoiceConfig={onChangeVoiceConfig}
               voiceCastName={
-                currentCardId ? (voiceCast.main?.name ?? voiceCast.extras[0]?.name ?? null) : undefined
+                currentCardId ? (effectiveCast.main?.name ?? effectiveCast.extras[0]?.name ?? null) : undefined
               }
-              onOpenVoice={() => openPlugin('voice')}
+              onOpenVoice={() => {
+                // 玩家模式进语音设置面板;创作者模式照旧去插件抽屉的完整语音页
+                if (voiceSettingsTarget(creator) === 'sheet') setPlayerVoiceOpen(true);
+                else openPlugin('voice');
+              }}
               showJa={showJa}
               onChangeShowJa={onChangeShowJa}
               initialTab={settingsTab}
@@ -2225,7 +2256,7 @@ export function VNScreen({
                 voice={{
                   enabled: voiceConfig.enabled,
                   fixedEmotion: voiceConfig.fixedEmotion,
-                  cast: voiceCast,
+                  cast: effectiveCast,
                   plans: voicePlans,
                   clips: voice.clips,
                   paused: voice.paused,
@@ -2239,6 +2270,17 @@ export function VNScreen({
             hostPage(menu)
           )}
         </VNMenu>
+      )}
+
+      {/* 玩家模式的语音设置面板:盖在菜单上面(Esc / 点遮罩关),创作者模式不渲染 */}
+      {playerVoiceOpen && !creator && (
+        <PlayerVoiceSheet
+          cardId={currentCardId}
+          voiceConfig={voiceConfig}
+          onChangeVoiceConfig={onChangeVoiceConfig}
+          onCastChange={(cast) => setPlayerCastOverride({ base: voiceCast, override: cast })}
+          onClose={() => setPlayerVoiceOpen(false)}
+        />
       )}
 
       {title && !firstLoad && (

@@ -181,6 +181,9 @@ def import_refs(req: VoiceImportIn, db: Session = Depends(get_db)):
     conn = db.get(TtsConnection, req.connection_id)
     if conn is None:
         raise HTTPException(400, "语音服务不存在")
+    if conn.api_type == "openai_audio":
+        # 这类端点的音色是 voice id,没有参考音频可导
+        raise HTTPException(400, "OpenAI 兼容端点没有参考音频:音色在声音的 voice 里填")
     # IndexTTS 不需要参考音频的原文;音色参考单独给(没给就用第一条)
     is_index = conn.api_type == "indextts"
     data = req.refs
@@ -439,7 +442,7 @@ def emotions_from_sprites(profile_id: str, req: VoiceFromSpritesIn, db: Session 
     profile = _load_profile(profile_id, db)
     conn = db.get(TtsConnection, profile.connection_id)
     if conn is None or conn.api_type != "indextts":
-        raise HTTPException(400, "GSV 的情绪行要配参考音频,不能自动生成")
+        raise HTTPException(400, "只有 IndexTTS 的情绪行能自动生成(GSV 要配参考音频,OpenAI 兼容端点按 voice id 念)")
     _load_card(req.card_id, db)
     sprites = [s for s in current_sprites(req.card_id, db) if s.enabled]
     existing = list_emotions(profile_id, db)

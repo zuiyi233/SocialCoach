@@ -7,7 +7,11 @@
 
 import type { CardVoices, TtsApiType, TtsConnection, VoiceProfile } from '../../lib/api';
 
-export const ENGINE_NAME: Record<TtsApiType, string> = { gpt_sovits: 'GPT-SoVITS', indextts: 'IndexTTS-2.5' };
+export const ENGINE_NAME: Record<TtsApiType, string> = {
+  gpt_sovits: 'GPT-SoVITS',
+  indextts: 'IndexTTS-2.5',
+  openai_audio: 'OpenAI 兼容',
+};
 
 /** 声音列表还没读到时页签上先写这个 */
 const PENDING = '…';

@@ -89,6 +89,7 @@ def _profile_count(conn_id: str, db: Session) -> int:
 
 
 def _conn_out(conn: TtsConnection, db: Session) -> TtsConnectionOut:
+    opts = conn.options or {}
     return TtsConnectionOut(
         id=conn.id,
         name=conn.name,
@@ -97,7 +98,21 @@ def _conn_out(conn: TtsConnection, db: Session) -> TtsConnectionOut:
         sample_steps=conn.sample_steps,
         emo_alpha=emo_alpha_of(conn),
         profile_count=_profile_count(conn.id, db),
+        model=str(opts.get("model") or ""),
+        voice=str(opts.get("voice") or ""),
+        format=opts.get("format") or "wav",
+        # key 只回「有没有」:明文进了 options,但任何读接口都不带出去
+        has_key=bool(opts.get("api_key")),
     )
+
+
+def _openai_check(api_type: str, model: str, voice: str) -> None:
+    """OpenAI 兼容端点没有 model / voice 就发不出请求:存的时候就拦住,别等合成时再报。"""
+    if api_type != "openai_audio":
+        return
+    missing = [name for name, value in (("model", model), ("voice", voice)) if not value.strip()]
+    if missing:
+        raise HTTPException(400, f"OpenAI 兼容端点要填 {' 和 '.join(missing)}")
 
 
 @router.get("/connections", response_model=list[TtsConnectionOut])
@@ -108,12 +123,18 @@ def list_connections(db: Session = Depends(get_db)):
 
 @router.post("/connections", response_model=TtsConnectionOut)
 def create_connection(req: TtsConnectionIn, db: Session = Depends(get_db)):
+    _openai_check(req.api_type, req.model, req.voice)
+    options: dict = {"emo_alpha": req.emo_alpha}
+    if req.api_type == "openai_audio":
+        options.update(model=req.model.strip(), voice=req.voice.strip(), format=req.format)
+        if req.api_key.strip():
+            options["api_key"] = req.api_key.strip()
     conn = TtsConnection(
         name=_clean_name(req.name),
         api_type=req.api_type,
         base_url=_clean_url(req.base_url),
         sample_steps=req.sample_steps,
-        options={"emo_alpha": req.emo_alpha},
+        options=options,
     )
     db.add(conn)
     db.commit()
@@ -130,9 +151,24 @@ def update_connection(conn_id: str, req: TtsConnectionUpdate, db: Session = Depe
         conn.base_url = _clean_url(req.base_url)
     if req.sample_steps is not None:
         conn.sample_steps = req.sample_steps
+    # JSON 列要整个换掉,原地改 SQLAlchemy 看不出变化:先在副本上算完再一次写回
+    options = {**(conn.options or {})}
     if req.emo_alpha is not None:
-        # JSON 列要整个换掉,原地改 SQLAlchemy 看不出变化
-        conn.options = {**(conn.options or {}), "emo_alpha": req.emo_alpha}
+        options["emo_alpha"] = req.emo_alpha
+    if req.model is not None:
+        options["model"] = req.model.strip()
+    if req.voice is not None:
+        options["voice"] = req.voice.strip()
+    if req.format is not None:
+        options["format"] = req.format
+    if req.api_key is not None:
+        # 空串 = 清掉 key
+        if req.api_key.strip():
+            options["api_key"] = req.api_key.strip()
+        else:
+            options.pop("api_key", None)
+    _openai_check(conn.api_type, str(options.get("model") or ""), str(options.get("voice") or ""))
+    conn.options = options
     db.commit()
     db.refresh(conn)
     return _conn_out(conn, db)
@@ -288,6 +324,23 @@ def _indextts_spec(profile: VoiceProfile, row: VoiceEmotion | None) -> tuple[Voi
     return spec, row.label if row else "", emo_mode(spec)
 
 
+def _openai_spec(profile: VoiceProfile, row: VoiceEmotion | None) -> tuple[VoiceSpec, str, str]:
+    """OpenAI 兼容端点:没有权重、没有参考音频,音色是 params.voice(不填用连接默认)。
+
+    情绪行照样记下来(试音台、检查器、缓存各存一份),但这一句不拿它控制音色:mood 是 none。
+    """
+    spec = VoiceSpec(
+        gpt_weights="",
+        sovits_weights="",
+        ref_path="",
+        prompt_text="",
+        text_lang=profile.text_lang or "zh",
+        speed=profile.speed,
+        params=dict(profile.params or {}),
+    )
+    return spec, row.label if row else "", "none"
+
+
 @dataclasses.dataclass(frozen=True)
 class VoiceChoice:
     """一句要用的声音和语音服务、合成配置、实际用的情绪名、情绪方式(ref / vector / none)、怎么挑的情绪"""
@@ -320,7 +373,10 @@ def _voice_for(
     emotions = list_emotions(profile.id, db)
     paired = next((e for e in emotions if e.id == emotion_id), None)
     pick = EmotionPick(paired, "pairing") if paired else pick_emotion(emotions, emotion, nearest_emotion)
-    build = _indextts_spec if conn.api_type == "indextts" else _gsv_spec
+    build = {
+        "indextts": _indextts_spec,
+        "openai_audio": _openai_spec,
+    }.get(conn.api_type, _gsv_spec)
     spec, label, mode = build(profile, pick.row)
     if tuning is not None:
         params = tuning.params.model_dump(exclude_none=True)

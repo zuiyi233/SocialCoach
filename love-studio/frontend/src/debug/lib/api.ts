@@ -1720,7 +1720,10 @@ export function sceneThumbUrl(a: SceneAsset, w: number): string | null {
 
 // ---- 语音插件 ----
 
-export type TtsApiType = 'gpt_sovits' | 'indextts';
+export type TtsApiType = 'gpt_sovits' | 'indextts' | 'openai_audio';
+
+/** OpenAI 兼容端点的 response_format */
+export type TtsAudioFormat = 'wav' | 'mp3' | 'opus' | 'aac' | 'flac' | 'pcm';
 
 export interface TtsConnection {
   id: string;
@@ -1733,9 +1736,22 @@ export interface TtsConnection {
   emo_alpha: number;
   /** 用这个服务的声音有几个 */
   profile_count: number;
+  /** OpenAI 兼容端点:模型名;其它引擎是空串 */
+  model: string;
+  /** OpenAI 兼容端点:默认音色;其它引擎是空串 */
+  voice: string;
+  /** OpenAI 兼容端点:音频格式 */
+  format: TtsAudioFormat;
+  /** OpenAI 兼容端点:key 只回「有没有」,不回明文 */
+  has_key: boolean;
 }
 
-export type TtsConnectionPatch = Partial<Pick<TtsConnection, 'name' | 'base_url' | 'sample_steps' | 'emo_alpha'>>;
+export type TtsConnectionPatch = Partial<
+  Pick<TtsConnection, 'name' | 'base_url' | 'sample_steps' | 'emo_alpha' | 'model' | 'voice' | 'format'>
+> & {
+  /** 只写不读:None/不传 = 不改,空串 = 清掉 */
+  api_key?: string;
+};
 
 /**
  * 一种情绪,名字和立绘表情名对上时用它,排第一的是默认。
@@ -1773,6 +1789,8 @@ export interface VoiceParams {
   parallel_infer?: boolean;
   /** IndexTTS */
   emo_alpha?: number;
+  /** OpenAI 兼容端点:这个声音的 voice id,不填用连接默认 */
+  voice?: string;
 }
 
 /** 试音台:这一句整组换掉声音存着的语速、语言和参数 */

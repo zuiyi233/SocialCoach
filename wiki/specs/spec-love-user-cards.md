@@ -84,7 +84,7 @@ export interface LoveCardWorldEntry {
 
 ## 3. Studio 玩家模式
 
-- `creator=false` 时露出：**导入卡（PNG/JSON/zip）**、**导出卡（JSON + PNG）**、**删除卡**、**素材库（只读）**。
+- `creator=false` 时露出：**导入卡（PNG/JSON/zip）**、**导出卡（JSON + PNG）**、**删除卡**、**素材库（只读）**、**语音设置**（服务地址/类型/模型/音色/密钥、测试、把已有声音绑到当前卡、开关与音量；见 §4）。
 - 仍然隐藏：调试台、提示词检查器、插件配置、立绘位置编辑器、素材上传编辑、角色生成向导。
 - 导出补 **PNG**：把卡写回原 PNG 的 `tEXt` 块（`chara`，V2 JSON，base64），保留原图像素；没有原 PNG 时用占位图并标注。当前上游只导出 V2 JSON，这是新增能力。
 - 导入/导出的 PNG 契约必须与主站 `love-card.ts` 的解析器对齐：同一张卡在主站与 Studio 之间往返，字段不丢、`name/first_mes` 不变。
@@ -94,10 +94,11 @@ export interface LoveCardWorldEntry {
 现状：`AnimaBackend/app/tts/` 已有 GPT-SoVITS / IndexTTS 两个客户端（`base_url` 指外部服务）、逐句情绪参考、缓存、ducking；缺的是配置与验收，不是从零开发。
 
 要求：
-- 连接配置（设置 → 语音）：`api_type`（gpt_sovits / indextts）、`base_url`、可选 key、采样步数/情绪强度；只回 `has_key`，不回显。
+- 连接配置（设置 → 语音）：`api_type`（gpt_sovits / indextts / openai_audio）、`base_url`、可选 key、采样步数/情绪强度；只回 `has_key`，不回显。
 - 角色 → 音色绑定：每个角色可绑一组参考音频（按情绪），没有绑定时退回浏览器 TTS（现有行为）。
 - 逐句朗读：与打字机、自动播放、限时选择互斥（现有逻辑不动）；失败不阻塞对话，只记一条 UI 提示。
-- **待补（阻塞验收，不阻塞开发）**：外部 TTS 服务的协议形状（是否是 GPT-SoVITS `/tts` 或 IndexTTS 形状）、base URL、是否需要 key、可用音色/参考音频怎么给。若形状不同，加一个 `openai_audio` 适配器（`POST /audio/speech`）而不是改现有两个。
+- **已落地（2026-10-21）**：`openai_audio` 适配器（`POST {base_url}/audio/speech`，base_url 填到 `/v1`；连接级 `model`/`voice`/`format`/`api_key`，key 存 `options` 且任何读接口只回 `has_key`；`/models` 探活，404/405 也算通）；声音档案不需要参考音频，`params.voice` 可覆盖连接默认音色；玩家模式（`creator=false`）新增语音设置面板，可新增/修改/测试/删除连接、把已有声音绑到当前卡、调开关与音量。
+- **仍待确认（不阻塞上线）**：用户自部署那套外部 TTS 的真实协议与地址。若它不是 GPT-SoVITS / IndexTTS 形状，按 `openai_audio` 填；若是第三种形状，再加适配器，不改现有三个。
 
 ## 5. 交付清单
 
@@ -108,7 +109,9 @@ export interface LoveCardWorldEntry {
 | **G3** | 主站 `/love/cards` 页面 + 卡驱动游玩 | `app/src/app/love/cards/`、`app/src/components/love/`、`tasks/love-play.ts`、`task-input.ts` | 导入卡 → 玩一局 → 档案有记录；提示词无 goal/hidden；terminal 恒 null |
 | **G4** | 外部 TTS 接入与验收 | `AnimaBackend/app/tts/`、Studio 设置页 | 配好连接后逐句朗读；失败不阻塞；缓存命中 |
 
-依赖：G3 依赖 G1；G2 与 G1 无交集可并行；G4 待 §4 的端点信息。
+状态（2026-10-21）：G1–G3 已落地（`d05ddb8`、`cfec408`、`47b5dee`）；G4 的适配器与玩家模式配置面板已落地，**未用真实外部端点验收**——本机只用假服务端跑通了 HTTP 全链路（`/audio/speech` 请求形状、Bearer、401 不回显 key、缓存命中），真实地址待用户提供后补一次真机验收。
+
+依赖：G3 依赖 G1；G2 与 G1 无交集可并行；G4 的端点协议已用 `openai_audio` 覆盖通用形状，剩下的是配置。
 
 ## 6. 不做
 

@@ -5,10 +5,13 @@
 两个连接指向同一台服务时,一次只合成一句,也不会把对方刚换上的权重当成自己的。
 """
 
+import hashlib
+
 from app.models import TtsConnection
 from app.tts.base import ServerState, TTSEngine, TTSError
 from app.tts.gpt_sovits import GptSovitsEngine
 from app.tts.indextts import IndexTtsEngine
+from app.tts.openai_audio import DEFAULT_FORMAT, OpenAIAudioEngine
 
 # 用户试听(2026-09-25):情绪强度高的好。服务端会先把向量归一化(合计压到 0.8 以内),
 # 所以 1.0 并不会太过头
@@ -32,8 +35,22 @@ def emo_alpha_of(conn: TtsConnection) -> float:
     return float(v) if isinstance(v, (int, float)) else DEFAULT_EMO_ALPHA
 
 
+def openai_options(conn: TtsConnection) -> tuple[str, str, str, str]:
+    """OpenAI 兼容端点的 (api_key, model, voice, format),都存在连接的 options 里。"""
+    opts = conn.options or {}
+    return (
+        str(opts.get("api_key") or ""),
+        str(opts.get("model") or ""),
+        str(opts.get("voice") or ""),
+        str(opts.get("format") or DEFAULT_FORMAT),
+    )
+
+
 def engine_for(conn: TtsConnection) -> TTSEngine:
-    sig = (conn.api_type, conn.base_url, conn.sample_steps, emo_alpha_of(conn))
+    key, model, voice, fmt = openai_options(conn)
+    # key 换成摘要进签名:改了 key 要换新实例(旧实例还记着老 key),但签名不该带着明文到处走
+    digest = hashlib.sha256(key.encode()).hexdigest()[:12] if key else ""
+    sig = (conn.api_type, conn.base_url, conn.sample_steps, emo_alpha_of(conn), model, voice, fmt, digest)
     hit = _engines.get(conn.id)
     if hit is not None and hit[0] == sig:
         return hit[1]
@@ -42,6 +59,8 @@ def engine_for(conn: TtsConnection) -> TTSEngine:
         engine: TTSEngine = GptSovitsEngine(conn.base_url, conn.sample_steps, state)
     elif conn.api_type == "indextts":
         engine = IndexTtsEngine(conn.base_url, emo_alpha_of(conn), state)
+    elif conn.api_type == "openai_audio":
+        engine = OpenAIAudioEngine(conn.base_url, api_key=key, model=model, voice=voice, fmt=fmt)
     else:
         raise TTSError(400, f"不支持的语音引擎:{conn.api_type}")
     _engines[conn.id] = (sig, engine)

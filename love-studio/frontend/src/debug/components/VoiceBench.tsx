@@ -267,7 +267,13 @@ export function VoiceBench({ voice, card, sample, onSample, notify }: Props) {
   const samples = VOICE_SAMPLES[sampleLang];
   const langName = (lang: string) => VOICE_LANGS[engine].find((l) => l.value === lang)?.name ?? lang;
   const langChanged = saved !== null && draft.text_lang !== saved.text_lang;
-  const missingRef = engine === 'indextts' ? !profile.ref_path : profile.emotions.length === 0;
+  // OpenAI 兼容端点不需要参考音频 / 权重:声音档案建好就能念
+  const missingRef =
+    engine === 'openai_audio'
+      ? false
+      : engine === 'indextts'
+        ? !profile.ref_path
+        : profile.emotions.length === 0;
   const summary = draftSummary(draft, engine);
 
   return (
@@ -579,30 +585,47 @@ function ParamsEditor({
     onChange({ ...draft, params });
   };
   const langs = VOICE_LANGS[engine];
-  const numParams = engine === 'indextts' ? INDEX_NUM_PARAMS : GSV_NUM_PARAMS;
+  const numParams = engine === 'indextts' ? INDEX_NUM_PARAMS : engine === 'openai_audio' ? [] : GSV_NUM_PARAMS;
 
   return (
     <>
-      <ParamRow
-        name="语言"
-        note="要念的文字是什么语言;参考音频的语言按它的原文自动判断"
-        isDefault={draft.text_lang === 'zh'}
-      >
-        <select
-          className="text-input"
-          value={draft.text_lang}
-          onChange={(e) => onChange({ ...draft, text_lang: e.target.value })}
+      {/* OpenAI 兼容端点没有语言参数:念什么语言由文本自己决定 */}
+      {langs.length > 0 && (
+        <ParamRow
+          name="语言"
+          note="要念的文字是什么语言;参考音频的语言按它的原文自动判断"
+          isDefault={draft.text_lang === 'zh'}
         >
-          {langs.map((l) => (
-            <option key={l.value} value={l.value}>
-              {l.name}
-            </option>
-          ))}
-          {!langs.some((l) => l.value === draft.text_lang) && (
-            <option value={draft.text_lang}>{draft.text_lang}</option>
-          )}
-        </select>
-      </ParamRow>
+          <select
+            className="text-input"
+            value={draft.text_lang}
+            onChange={(e) => onChange({ ...draft, text_lang: e.target.value })}
+          >
+            {langs.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.name}
+              </option>
+            ))}
+            {!langs.some((l) => l.value === draft.text_lang) && (
+              <option value={draft.text_lang}>{draft.text_lang}</option>
+            )}
+          </select>
+        </ParamRow>
+      )}
+      {engine === 'openai_audio' && (
+        <ParamRow
+          name="音色"
+          note="这个声音在服务端用的 voice id(比如 alloy、nova,或自建克隆音色的 id);空着用连接上的默认音色"
+          isDefault={!draft.params.voice}
+        >
+          <input
+            className="text-input"
+            value={draft.params.voice ?? ''}
+            placeholder="留空 = 用连接的默认"
+            onChange={(e) => setParam('voice', e.target.value.trim() || undefined)}
+          />
+        </ParamRow>
+      )}
       <NumRow
         name="语速"
         note="大于 1 念得快"

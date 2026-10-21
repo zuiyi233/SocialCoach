@@ -433,6 +433,8 @@ export const VOICE_LANGS: Record<TtsApiType, { value: string; name: string }[]> 
     { value: 'ja', name: '日语' },
     { value: 'en', name: '英语' },
   ],
+  // OpenAI 兼容端点没有语言参数:念什么语言由文本自己决定,界面上不摆这一栏
+  openai_audio: [],
 };
 
 /** 试音台里正在调的那一组:整组保存到声音上 */
@@ -460,6 +462,12 @@ const trimNum = (n: number) => String(Number(n.toFixed(2)));
 /** 这组和默认不一样的地方,一句话:语速 1.1 · 温度 0.7 · 不切。全是默认返回空串 */
 export function draftSummary(d: VoiceDraft, engine: TtsApiType): string {
   const parts: string[] = [];
+  if (engine === 'openai_audio') {
+    // 这类端点只认 voice id 和语速,别的参数都不发
+    if (d.params.voice) parts.push(`音色 ${d.params.voice}`);
+    if (d.speed !== 1) parts.push(`语速 ${trimNum(d.speed)}`);
+    return parts.join(' · ');
+  }
   if (d.speed !== 1) parts.push(`语速 ${trimNum(d.speed)}`);
   if (d.text_lang !== 'zh') {
     parts.push(VOICE_LANGS[engine].find((l) => l.value === d.text_lang)?.name ?? d.text_lang);

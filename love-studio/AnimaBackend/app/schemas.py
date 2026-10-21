@@ -580,7 +580,9 @@ class CardPrefOut(BaseModel):
 
 # ── 语音插件 ──────────────────────────────────────────────
 
-TtsApiType = Literal["gpt_sovits", "indextts"]
+TtsApiType = Literal["gpt_sovits", "indextts", "openai_audio"]
+# OpenAI 兼容端点能回的音频格式(/audio/speech 的 response_format)
+TtsAudioFormat = Literal["wav", "mp3", "opus", "aac", "flac", "pcm"]
 
 
 class TtsConnectionIn(BaseModel):
@@ -590,6 +592,12 @@ class TtsConnectionIn(BaseModel):
     sample_steps: int = Field(default=64, ge=4, le=128)
     # IndexTTS 的情绪强度;GSV 不用。用户试听:强度高的好,默认 1.0
     emo_alpha: float = Field(default=1.0, ge=0, le=1)
+    # 下面四个只对 openai_audio 有意义;其它引擎忽略
+    model: str = ""
+    voice: str = ""
+    format: TtsAudioFormat = "wav"
+    # 只写不读:出参只有 has_key
+    api_key: str = ""
 
 
 class TtsConnectionUpdate(BaseModel):
@@ -597,6 +605,11 @@ class TtsConnectionUpdate(BaseModel):
     base_url: str | None = None
     sample_steps: int | None = Field(default=None, ge=4, le=128)
     emo_alpha: float | None = Field(default=None, ge=0, le=1)
+    model: str | None = None
+    voice: str | None = None
+    format: TtsAudioFormat | None = None
+    # None = 不改;"" = 清掉;其它 = 换成这个
+    api_key: str | None = None
 
 
 class TtsConnectionOut(BaseModel):
@@ -608,6 +621,11 @@ class TtsConnectionOut(BaseModel):
     emo_alpha: float
     # 用这个服务的声音有几个 —— 删之前心里有数
     profile_count: int
+    model: str = ""
+    voice: str = ""
+    format: TtsAudioFormat = "wav"
+    # key 只回「有没有」,不回明文
+    has_key: bool = False
 
 
 class TtsTimingOut(BaseModel):
@@ -671,6 +689,8 @@ class VoiceParams(BaseModel):
     parallel_infer: bool | None = None
     # IndexTTS
     emo_alpha: float | None = Field(default=None, ge=0, le=1)
+    # OpenAI 兼容端点:这个声音用的 voice id,不填就用连接上的默认音色
+    voice: str | None = None
 
 
 class VoiceProfileIn(BaseModel):

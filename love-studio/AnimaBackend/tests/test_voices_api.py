@@ -304,7 +304,10 @@ def test_emotions_from_sprites_rejects_gsv_voices_and_unknown_cards(client: Test
     v = make_voice(client, make_conn(client)["id"])
     card = make_card()
     r = client.post(f"/api/voices/{v['id']}/emotions/from-sprites", json={"card_id": card["id"]})
-    assert (r.status_code, r.json()["detail"]) == (400, "GSV 的情绪行要配参考音频,不能自动生成")
+    assert (r.status_code, r.json()["detail"]) == (
+        400,
+        "只有 IndexTTS 的情绪行能自动生成(GSV 要配参考音频,OpenAI 兼容端点按 voice id 念)",
+    )
     conn = client.post(
         "/api/tts/connections",
         json={"name": "IndexTTS", "api_type": "indextts", "base_url": "http://127.0.0.1:9890"},

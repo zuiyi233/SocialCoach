@@ -2143,6 +2143,262 @@
   flex: 1;
   font-size: 12px;
 }
+
+/* 玩家模式的语音设置面板(PlayerVoiceSheet):全屏遮罩 + 居中卡片;窄屏变底部抽屉 */
+.vn-pvs-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);
+  background: rgba(8, 9, 17, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: vn-fade-in 0.18s ease both;
+}
+.vn-pvs-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: min(640px, 100%);
+  overflow: hidden;
+  border-radius: var(--vn-radius);
+  border: 1px solid var(--vn-border);
+  background: var(--vn-glass-strong);
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.5);
+  color: var(--vn-text);
+  font-size: 13px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.vn-pvs-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.vn-pvs-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.vn-pvs-close {
+  margin-left: auto;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--vn-text-dim);
+  font: 400 18px / 1 var(--vn-font);
+  cursor: pointer;
+}
+.vn-pvs-close:hover {
+  color: var(--vn-text);
+  background: rgba(255, 255, 255, 0.14);
+}
+.vn-pvs-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 16px calc(env(safe-area-inset-bottom) + 16px);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.vn-pvs-body .vn-set-group {
+  padding-top: 16px;
+}
+.vn-pvs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.vn-pvs-label {
+  flex: none;
+  font-size: 13px;
+  color: var(--vn-text-dim);
+}
+
+/* 语音服务列表 */
+.vn-pvs-conn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.vn-pvs-conn-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.vn-pvs-conn-name {
+  font-weight: 700;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vn-pvs-dim {
+  font-size: 12px;
+  color: var(--vn-text-dim);
+}
+.vn-pvs-url {
+  display: block;
+  margin-left: 8px;
+  font-family: var(--vn-mono);
+  font-size: 11px;
+  color: var(--vn-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vn-pvs-conn-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.vn-pvs-test {
+  font-size: 12px;
+  color: var(--vn-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.vn-pvs-test.fail {
+  color: var(--vn-miss);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vn-pvs-test-btn {
+  font-size: 12px;
+  padding: 4px 11px;
+}
+
+/* 新增语音服务的表单 */
+.vn-pvs-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.vn-pvs-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vn-pvs-field > span {
+  flex: none;
+  width: 36px;
+  font-size: 12px;
+  color: var(--vn-text-dim);
+}
+.vn-pvs-field input,
+.vn-pvs-field select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--vn-text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--vn-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.vn-pvs-field input::placeholder {
+  color: var(--vn-text-faint);
+}
+.vn-pvs-field select option {
+  background: #17181f;
+}
+.vn-pvs-add-acts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.vn-pvs-add-error {
+  font-size: 12px;
+  color: var(--vn-miss);
+}
+
+/* 音色列表 */
+.vn-pvs-voice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.vn-pvs-voice-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.vn-pvs-voice-name {
+  font-weight: 700;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vn-pvs-badge {
+  flex: none;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--vn-border);
+  color: var(--vn-text-dim);
+}
+.vn-pvs-badge.main {
+  color: var(--vn-ok);
+  border-color: rgba(155, 227, 181, 0.4);
+}
+
+/* 音量 */
+.vn-pvs-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+.vn-pvs-volume input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  max-width: 180px;
+  accent-color: var(--vn-accent);
+}
+.vn-pvs-mute {
+  min-width: 52px;
+  font-size: 12px;
+  padding: 4px 10px;
+  font-variant-numeric: tabular-nums;
+}
+.vn-pvs-mute.on {
+  color: #ffd7a8;
+  border-color: rgba(255, 170, 90, 0.55);
+}
+.vn-pvs-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--vn-text-dim);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .vn-vq-chip .vn-vq-dot {
     animation: none !important;
@@ -2457,4 +2713,28 @@
   font-size: 18px;
   letter-spacing: 0.04em;
   color: var(--vn-text);
+}
+
+/* 窄屏:语音设置面板贴底变成抽屉,高度让给列表 */
+@media (max-width: 640px) {
+  .vn-pvs-layer {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .vn-pvs-sheet {
+    width: 100%;
+    max-height: min(78dvh, 100%);
+    border-radius: var(--vn-radius) var(--vn-radius) 0 0;
+    border-bottom: none;
+  }
+  .vn-pvs-head {
+    padding: 12px 14px 10px;
+  }
+  .vn-pvs-body {
+    padding: 4px 14px calc(env(safe-area-inset-bottom) + 14px);
+  }
+  .vn-pvs-conn-acts {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
 }

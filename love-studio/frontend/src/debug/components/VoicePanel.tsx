@@ -12,6 +12,7 @@ import {
   debugApi,
   type PackSprite,
   type TtsApiType,
+  type TtsAudioFormat,
   type TtsConnection,
   type TtsConnectionPatch,
   type VoiceEmotion,
@@ -59,9 +60,60 @@ function uniqueName(base: string, taken: Set<string>): string {
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)} 秒`;
 
-const ENGINE_NAME: Record<TtsApiType, string> = { gpt_sovits: 'GPT-SoVITS', indextts: 'IndexTTS-2.5' };
+const ENGINE_NAME: Record<TtsApiType, string> = {
+  gpt_sovits: 'GPT-SoVITS',
+  indextts: 'IndexTTS-2.5',
+  openai_audio: 'OpenAI 兼容',
+};
 
 type CardRef = { id: string; name: string } | null;
+
+const AUDIO_FORMATS: TtsAudioFormat[] = ['wav', 'mp3', 'opus', 'aac', 'flac', 'pcm'];
+
+/**
+ * 只写不读的 key:输入框永远是空的(读接口只回 has_key),一提交就换掉后端的 key。
+ * 已经设过时给一个「清除」,清掉之后合成会收到 401,界面上能看出来。
+ */
+function SecretField({
+  hasKey,
+  onCommit,
+  onClear,
+}: {
+  hasKey: boolean;
+  onCommit: (v: string) => Promise<boolean>;
+  onClear: () => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState('');
+  const commit = async () => {
+    const v = draft.trim();
+    if (!v) return;
+    if (await onCommit(v)) setDraft('');
+  };
+  return (
+    <label className="pl-field">
+      <span className="conn-label">API key</span>
+      <span className="pl-row">
+        <input
+          className="text-input"
+          type="password"
+          autoComplete="off"
+          value={draft}
+          placeholder={hasKey ? '已设置(输入新的可替换)' : '没设 key'}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void commit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur();
+          }}
+        />
+        {hasKey && (
+          <button className="btn small" onClick={() => void onClear()}>
+            清除
+          </button>
+        )}
+      </span>
+    </label>
+  );
+}
 
 interface Props {
   voice: VoicePluginState;
@@ -191,7 +243,17 @@ function ConnectionsGroup({ voice, notify }: { voice: VoicePluginState; notify: 
       await debugApi.createTtsConnection(
         api_type === 'indextts'
           ? { name: 'IndexTTS', api_type, base_url: 'http://127.0.0.1:9890', emo_alpha: 1 }
-          : { name: 'GPT-SoVITS', api_type, base_url: 'http://127.0.0.1:9880', sample_steps: 64 },
+          : api_type === 'openai_audio'
+            ? {
+                // 这类端点必须有 model / voice 才存得下:先给一组能改的默认值
+                name: 'OpenAI 兼容',
+                api_type,
+                base_url: 'https://api.openai.com/v1',
+                model: 'tts-1',
+                voice: 'alloy',
+                format: 'wav',
+              }
+            : { name: 'GPT-SoVITS', api_type, base_url: 'http://127.0.0.1:9880', sample_steps: 64 },
       );
     });
 
@@ -228,12 +290,20 @@ function ConnectionsGroup({ voice, notify }: { voice: VoicePluginState; notify: 
     return save(c, { emo_alpha: n });
   };
 
+  const setFormat = (c: TtsConnection, v: string) => {
+    if (!AUDIO_FORMATS.includes(v as TtsAudioFormat)) {
+      notify('error', `格式只能是 ${AUDIO_FORMATS.join(' / ')}`);
+      return Promise.resolve(false);
+    }
+    return save(c, { format: v as TtsAudioFormat });
+  };
+
   return (
     <div className="sp-group">
       <div className="sp-group-head">
         <span className="sp-group-title">语音服务</span>
         <span className="sp-group-note">
-          跑语音合成的机器:GPT-SoVITS api_v2(默认 9880),或者 IndexTTS 小服务(默认 9890)。在这台电脑上就填 http://127.0.0.1:端口;在别的电脑上填它的 Tailscale / 局域网地址,或者用 SSH 隧道转到本机。
+          跑语音合成的机器:GPT-SoVITS api_v2(默认 9880)、IndexTTS 小服务(默认 9890),或者任何 OpenAI 兼容的 /audio/speech(地址填到 /v1 那一级)。在本机就填 http://127.0.0.1:端口;在别的电脑上填它的 Tailscale / 局域网地址,或者用 SSH 隧道转到本机。
         </span>
       </div>
       <div className="pl-row">
@@ -242,6 +312,9 @@ function ConnectionsGroup({ voice, notify }: { voice: VoicePluginState; notify: 
         </button>
         <button className="btn small" disabled={!!busy} onClick={() => void add('indextts')}>
           + IndexTTS-2.5
+        </button>
+        <button className="btn small" disabled={!!busy} onClick={() => void add('openai_audio')}>
+          + OpenAI 兼容
         </button>
         {busy && (
           <span className="sp-group-note">
@@ -260,7 +333,13 @@ function ConnectionsGroup({ voice, notify }: { voice: VoicePluginState; notify: 
                 <CommitField
                   label="地址"
                   value={c.base_url}
-                  placeholder={c.api_type === 'indextts' ? 'http://127.0.0.1:9890' : 'http://127.0.0.1:9880'}
+                  placeholder={
+                    c.api_type === 'indextts'
+                      ? 'http://127.0.0.1:9890'
+                      : c.api_type === 'openai_audio'
+                        ? 'https://host/v1'
+                        : 'http://127.0.0.1:9880'
+                  }
                   onCommit={(v) => save(c, { base_url: v })}
                 />
                 {c.api_type === 'indextts' ? (
@@ -270,6 +349,32 @@ function ConnectionsGroup({ voice, notify }: { voice: VoicePluginState; notify: 
                     placeholder="0.6"
                     onCommit={(v) => setAlpha(c, v)}
                   />
+                ) : c.api_type === 'openai_audio' ? (
+                  <>
+                    <CommitField
+                      label="模型"
+                      value={c.model}
+                      placeholder="tts-1"
+                      onCommit={(v) => save(c, { model: v })}
+                    />
+                    <CommitField
+                      label="默认音色"
+                      value={c.voice}
+                      placeholder="alloy"
+                      onCommit={(v) => save(c, { voice: v })}
+                    />
+                    <CommitField
+                      label="格式"
+                      value={c.format}
+                      placeholder="wav"
+                      onCommit={(v) => setFormat(c, v)}
+                    />
+                    <SecretField
+                      hasKey={c.has_key}
+                      onCommit={(v) => save(c, { api_key: v })}
+                      onClear={() => save(c, { api_key: '' })}
+                    />
+                  </>
                 ) : (
                   <CommitField
                     label="采样步数"
@@ -282,7 +387,9 @@ function ConnectionsGroup({ voice, notify }: { voice: VoicePluginState; notify: 
                   {ENGINE_NAME[c.api_type]} · {c.profile_count} 个声音在用 ·{' '}
                   {c.api_type === 'indextts'
                     ? '情绪强度默认 1(用户试听觉得强的好);服务端会先把向量合计压到 0.8 以内。声音在试音台里单独设过的,用声音自己的'
-                    : '步数越多越慢,64 步一句约 1.2 秒。声音在试音台里单独设过的,用声音自己的'}
+                    : c.api_type === 'openai_audio'
+                      ? '请求发到 地址 + /audio/speech;key 只写不读,界面上只显示有没有设置。声音在试音台里可以单独填 voice id'
+                      : '步数越多越慢,64 步一句约 1.2 秒。声音在试音台里单独设过的,用声音自己的'}
                   {tested[c.id] && ` · ${tested[c.id]}`}
                 </div>
               </div>

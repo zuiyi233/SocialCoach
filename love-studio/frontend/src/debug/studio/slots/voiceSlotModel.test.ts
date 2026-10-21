@@ -10,6 +10,10 @@ const conn = (id: string, name: string, api_type: TtsConnection['api_type'] = 'g
   sample_steps: 64,
   emo_alpha: 1,
   profile_count: 1,
+  model: '',
+  voice: '',
+  format: 'wav',
+  has_key: false,
 });
 
 const voice = (id: string, name: string, connection_id = 'pc', emotions = 3, card_count = 0): VoiceProfile => ({

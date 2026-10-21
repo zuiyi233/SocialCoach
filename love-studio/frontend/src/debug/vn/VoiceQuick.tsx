@@ -26,6 +26,7 @@ const FRESH_MS = 10_000;
 const API_NAMES: Record<TtsConnection['api_type'], string> = {
   gpt_sovits: 'GPT-SoVITS',
   indextts: 'IndexTTS',
+  openai_audio: 'OpenAI 兼容',
 };
 
 interface Props {
