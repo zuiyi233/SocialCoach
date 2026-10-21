@@ -86,3 +86,17 @@ python3 ~/.claude/skills/project-wiki/scripts/wiki_audit.py wiki/
 - **主句四处同源**：`README.md`、`app/src/app/layout.tsx` 的 `metadata.description`、`app/public/manifest.webmanifest` 的 `description`、`site/content.mjs` 的 `hero.h1` 与 `footer.tagline`。同源指的是**主句本身逐字一致**，不是整个字符串相等——manifest 只放主句，layout 是主句加一段展开，README 是行文。改主句必须四处一起改。Love Studio 不继承主句，它有自己的入口文案。
 - **色值只在 `app/src/app/globals.css` 定义**（OKLCH）。主站与剧本模式的组件里不写死颜色；对外 SVG 用脚本换算的 hex。Love Studio 有独立样式，不并入主站 token。
 - **主站与剧本模式的结构化输出走 `jsonCall()` / `extractJSON()`**，不要用 SDK 的 `output_config.format`（当前网关不支持）。Love Studio 沿用 AnimaVN 的标签/流式协议，不强行套本契约。
+
+## Agent skills
+
+### Issue tracker
+
+Issues 用 GitHub Issues 跟踪（`gh` CLI）。See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+五角色默认标签：`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`。See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context 布局（根目录共用一份 `GLOSSARY.md`，架构决策放 `docs/adr/`）。See `docs/agents/domain.md`.
