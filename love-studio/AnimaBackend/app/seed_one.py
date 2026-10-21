@@ -33,10 +33,23 @@ def _card_name(char_dir: Path) -> str | None:
     return (d.get("name") if isinstance(d, dict) else None) or char_dir.name
 
 
-def _seed_into(db: Session, char_dir: Path, card_name: str, dry_run: bool) -> str:
+def _seed_into(db: Session, char_dir: Path, card_name: str, dry_run: bool, scene_only: bool) -> str:
     existing = db.scalars(select(TavernCard).where(TavernCard.name == card_name)).first()
-    if existing is not None:
+    if existing is not None and not scene_only:
         return f"跳过 {card_name}：同名卡已存在（id={existing.id[:8]}）"
+    if existing is not None:
+        # --scene-only：卡已经在库里，只把场景包补上/挂回去（新增背景资产走这条）
+        if not (char_dir / "scene_pack.json").is_file():
+            return f"跳过 {card_name}：目录里没有 scene_pack.json"
+        if dry_run:
+            return f"[dry-run] {card_name}：只挂场景包"
+        try:
+            _seed_scene_pack(db, existing, char_dir)
+            db.commit()
+        except Exception as e:  # noqa: BLE001
+            db.rollback()
+            return f"失败 {card_name}（场景包）：{type(e).__name__}: {e}"
+        return f"场景包已挂到 {card_name}（id={existing.id[:8]}）"
     if dry_run:
         return f"[dry-run] {card_name}：将新建卡 + 立绘包 + 场景包"
     try:
@@ -50,27 +63,37 @@ def _seed_into(db: Session, char_dir: Path, card_name: str, dry_run: bool) -> st
     return f"已种入 {card.name}（id={card.id[:8]}）"
 
 
-def seed_one(char_dir: Path, *, dry_run: bool = False, db: Session | None = None) -> str:
+def seed_one(
+    char_dir: Path, *, dry_run: bool = False, db: Session | None = None, scene_only: bool = False
+) -> str:
     """种一个角色目录，返回一句给人看的结果说明。db 传了就复用（测试用）。"""
     card_name = _card_name(char_dir)
     if card_name is None:
         return f"跳过 {char_dir.name}：没有 card.json"
     if db is not None:
-        return _seed_into(db, char_dir, card_name, dry_run)
+        return _seed_into(db, char_dir, card_name, dry_run, scene_only)
     with SessionLocal() as session:
-        return _seed_into(session, char_dir, card_name, dry_run)
+        return _seed_into(session, char_dir, card_name, dry_run, scene_only)
 
 
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
     dry = "--dry-run" in sys.argv
+    scene_only = "--scene-only" in sys.argv
     if not args:
         dirs = sorted(p.name for p in _SEED_DATA.iterdir() if (p / "card.json").is_file())
-        print("用法：python -m app.seed_one <目录名> [--dry-run]")
+        print("用法：python -m app.seed_one <目录名> [--dry-run] [--scene-only]")
+        print("  --scene-only  卡已在库里时，只补/重挂场景包（新增背景资产用）")
         print("可用的种子角色：" + ("、".join(dirs) if dirs else "（无）"))
         raise SystemExit(1)
     target = Path(args[0])
-    print(seed_one(target if target.is_absolute() else _SEED_DATA / target, dry_run=dry))
+    print(
+        seed_one(
+            target if target.is_absolute() else _SEED_DATA / target,
+            dry_run=dry,
+            scene_only=scene_only,
+        )
+    )
 
 
 if __name__ == "__main__":

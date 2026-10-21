@@ -82,3 +82,31 @@ def test_seed_one_survives_broken_sprites(db, tmp_path):
     result = seed_one(char_dir, db=db)
     assert result.startswith("失败")
     assert db.scalars(select(TavernCard)).all() == []
+
+
+def test_scene_only_attaches_scene_pack_to_existing_card(db, tmp_path):
+    """卡已经在库里时，--scene-only 只补场景包（新增背景资产走这条路）。"""
+    from app import bindings
+    from app.models import SceneAsset, ScenePack
+
+    char_dir = _make_char_dir(tmp_path)
+    assert "已种入" in seed_one(char_dir, db=db)
+    card = db.scalars(select(TavernCard).where(TavernCard.name == "测试角色")).one()
+
+    (char_dir / "scenes").mkdir()
+    (char_dir / "scenes" / "a.webp").write_bytes(b"RIFF....WEBP-a")
+    (char_dir / "scene_pack.json").write_text(
+        json.dumps({"name": "测试场景", "assets": [
+            {"file": "a.webp", "kind": "bg", "label": "街角", "aliases": ["街上"], "sort": 0}
+        ]}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    # 不带 --scene-only：同名卡已存在，什么都不做
+    assert "跳过" in seed_one(char_dir, db=db)
+
+    result = seed_one(char_dir, db=db, scene_only=True)
+    assert "场景包已挂到" in result
+    pack = db.scalars(select(ScenePack).where(ScenePack.name == "测试场景")).one()
+    assert db.scalars(select(SceneAsset).where(SceneAsset.pack_id == pack.id)).all().__len__() == 1
+    assert bindings.targets(db, card.id, bindings.SCENE) == [pack.id]

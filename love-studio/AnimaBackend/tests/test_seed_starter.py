@@ -53,11 +53,17 @@ def _source(path: str):
 
 
 STARTER_NAME = "顾星遥"
+STARTER_SCENE = "拾光书栈"
 
 
 def _starter_card(db):
     """seed_data/ 下已经不止一个起始角色，按名字取，不能再用「库里唯一那张卡」。"""
     return db.scalars(select(TavernCard).where(TavernCard.name == STARTER_NAME)).one()
+
+
+def _starter_scene_pack(db):
+    """场景包同理：seed_data/ 里每个角色各带一个，按名字取。"""
+    return db.scalars(select(ScenePack).where(ScenePack.name == STARTER_SCENE)).one()
 
 
 def test_starter_card_is_seeded_with_opening_worldbook_and_hard_limits(seeded_db):
@@ -84,12 +90,10 @@ def test_starter_card_is_seeded_with_opening_worldbook_and_hard_limits(seeded_db
 
 def test_starter_scene_pack_is_seeded_and_bound_to_card(seeded_db):
     card = _starter_card(seeded_db)
-    packs = list(seeded_db.scalars(select(ScenePack)))
-    assert len(packs) == 1
-    pack = packs[0]
+    pack = _starter_scene_pack(seeded_db)
 
     source = _source("scene_pack.json")
-    assert pack.name == source["name"] == "拾光书栈"
+    assert pack.name == source["name"] == STARTER_SCENE
     assert pack.description
     assert bindings.targets(seeded_db, card.id, bindings.SCENE) == [pack.id]
     assert bindings.primary(seeded_db, card.id, bindings.SCENE) == pack.id
@@ -105,7 +109,7 @@ def test_starter_scene_pack_is_seeded_and_bound_to_card(seeded_db):
 
 
 def test_scene_asset_files_are_readable_with_correct_mime(seeded_db):
-    pack = seeded_db.scalars(select(ScenePack)).first()
+    pack = _starter_scene_pack(seeded_db)
     source = _source("scene_pack.json")
     assets = list(
         seeded_db.scalars(select(SceneAsset).where(SceneAsset.pack_id == pack.id).order_by(SceneAsset.sort))
@@ -122,13 +126,14 @@ def test_scene_asset_files_are_readable_with_correct_mime(seeded_db):
 
 def test_seed_scene_pack_direct_call_is_idempotent(seeded_db):
     card = _starter_card(seeded_db)
-    pack = seeded_db.scalars(select(ScenePack)).first()
+    pack = _starter_scene_pack(seeded_db)
     asset_ids = set(seeded_db.scalars(select(SceneAsset.id)).all())
 
     seed._seed_scene_pack(seeded_db, card, STARTER)
     seeded_db.commit()
 
-    assert list(seeded_db.scalars(select(ScenePack))) == [pack]
+    # 别的角色的场景包不该被动到：按名字取的这一个还是同一个 id，资产总数也没变
+    assert _starter_scene_pack(seeded_db).id == pack.id
     assert set(seeded_db.scalars(select(SceneAsset.id)).all()) == asset_ids
     assert bindings.targets(seeded_db, card.id, bindings.SCENE) == [pack.id]
 
@@ -141,7 +146,7 @@ def test_reseed_after_card_delete_reuses_pack_without_duplicating_assets(seeded_
     单独补某个角色走 `app.seed_one`（见 tests/test_seed_one.py）。
     """
     card0 = _starter_card(seeded_db)
-    pack = seeded_db.scalars(select(ScenePack)).first()
+    pack = _starter_scene_pack(seeded_db)
     asset_ids = set(seeded_db.scalars(select(SceneAsset.id)).all())
 
     # 和删卡接口一样:绑定、角色位、旧表行 + 卡本身
@@ -153,7 +158,7 @@ def test_reseed_after_card_delete_reuses_pack_without_duplicating_assets(seeded_
 
     card1 = _starter_card(seeded_db)
     assert card1 is not None and card1.id != card0.id
-    assert [p.id for p in seeded_db.scalars(select(ScenePack))] == [pack.id]
+    assert _starter_scene_pack(seeded_db).id == pack.id
     assert set(seeded_db.scalars(select(SceneAsset.id)).all()) == asset_ids
     assert bindings.targets(seeded_db, card1.id, bindings.SCENE) == [pack.id]
     assert seeded_db.scalars(select(PromptPreset)).first() is not None  # 预设没被重种
