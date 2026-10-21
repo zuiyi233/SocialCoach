@@ -13,7 +13,7 @@ import time
 
 import pytest
 from fastapi.testclient import TestClient
-from PIL import Image
+from PIL import Image, ImageDraw
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -26,8 +26,23 @@ from app.storage import refs
 
 
 def png_bytes(color=(200, 120, 160)) -> bytes:
+    """白底 + 中间一块主体：立绘出图后要过抠图（matte.py），纯色图会被判成「没给白底」而重画。"""
+    im = Image.new("RGB", (64, 96), (255, 255, 255))
+    ImageDraw.Draw(im).rectangle([20, 10, 43, 85], fill=color)
     buf = io.BytesIO()
-    Image.new("RGB", (64, 32), color).save(buf, "PNG")
+    im.save(buf, "PNG")
+    return buf.getvalue()
+
+
+def busy_png_bytes() -> bytes:
+    """整幅都是实景、没有干净背景：抠图必须拒绝（旧版那种便利店照片）。"""
+    im = Image.new("RGB", (64, 96))
+    draw = ImageDraw.Draw(im)
+    for y in range(96):
+        for x in range(64):
+            draw.point((x, y), fill=((x * 7) % 256, (y * 11) % 256, (x + y) % 256))
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
     return buf.getvalue()
 
 
@@ -138,6 +153,34 @@ def test_plan_character_builds_a_plan(db_session, monkeypatch):
     assert plan.worldbook[0].keys == ["书店"]
     # 中文语言时角色文本用中文
     assert "用中文" in seen[0][1].content
+
+
+def test_plan_character_retries_once_on_broken_json(db_session, monkeypatch):
+    """模型回了解析不了的 JSON 时重问一次，别让用户点一次就失败。"""
+    add_active_connection(db_session)
+    replies = ['{"card": {"name": "林晚" 漏了逗号}', json.dumps(plan_json(), ensure_ascii=False)]
+
+    async def fake_ask(conn, messages, thinking="off"):
+        return replies.pop(0), 1
+
+    monkeypatch.setattr(writer, "ask", fake_ask)
+    plan = asyncio.run(character.plan_character(db_session, description="一家书店的店员"))
+    assert plan.card.name == "林晚"
+    assert replies == []
+
+
+def test_plan_character_gives_up_after_two_broken_json(db_session, monkeypatch):
+    add_active_connection(db_session)
+    calls = []
+
+    async def fake_ask(conn, messages, thinking="off"):
+        calls.append(1)
+        return '{"card": 坏掉了}', 1
+
+    monkeypatch.setattr(writer, "ask", fake_ask)
+    with pytest.raises(character.CharacterGenerationError, match="JSON"):
+        asyncio.run(character.plan_character(db_session, description="一家书店的店员"))
+    assert len(calls) == 2
 
 
 def test_plan_character_uses_given_name_and_english(db_session, monkeypatch):
@@ -257,7 +300,11 @@ def test_generate_character_persists_card_and_binds_packs(db_session, monkeypatc
     ).all()
     assert [s.label for s in sprites] == ["平静", "微笑", "惊讶", "难过"]
     assert db_session.get(PackSprite, sprites[0].id) is not None
-    assert refs.read_bytes(refs.SPRITE, sprites[0], db_session) == png_bytes()
+    # 立绘必须是抠好的透明底（舞台上才不会被衬成一张照片）
+    stored = Image.open(io.BytesIO(refs.read_bytes(refs.SPRITE, sprites[0], db_session)))
+    assert stored.mode == "RGBA"
+    assert stored.getpixel((2, 2))[3] == 0
+    assert stored.getpixel((32, 48))[3] == 255
     assert bindings.targets(db_session, card.id, bindings.SPRITE) == [sprite_pack.id]
     assert bindings.primary(db_session, card.id, bindings.SPRITE) == sprite_pack.id
 
@@ -270,11 +317,34 @@ def test_generate_character_persists_card_and_binds_packs(db_session, monkeypatc
     assert all(a.kind == "bg" for a in assets)
     assert bindings.targets(db_session, card.id, bindings.SCENE) == [scene_pack.id]
 
-    # 提示词按契约拼：立绘带外观 + 全身 + 无文字，场景带背景尾巴
+    # 提示词按契约拼：白底要求在最前（抠图靠它），场景尾巴给背景
     sizes = [size for _, size in calls]
     assert sizes[:4] == ["832x1248"] * 4 and sizes[4:] == ["1280x720"] * 3
-    assert "full body, neutral background, no text" in calls[0][0]
+    assert calls[0][0].startswith("isolated single character on a seamless pure white studio backdrop")
     assert "visual novel background, no people, no text" in calls[5][0]
+
+
+def test_portrait_prompt_drops_scene_words_from_appearance():
+    """外观标签里混进地点 / 光线词时剔掉，否则模型会把便利店画进立绘。"""
+    prompt = character._portrait_prompt(
+        "photo style",
+        "1girl, black hair, blue uniform, white apron, convenience store, night, indoor, warm fluorescent lighting",
+        "gentle smile, looking at viewer",
+    )
+    assert "convenience store" not in prompt and "fluorescent" not in prompt and "night" not in prompt
+    assert "black hair" in prompt and "white apron" in prompt and "gentle smile" in prompt
+    assert prompt.startswith(character.PORTRAIT_LEAD)
+
+
+def test_portrait_prompt_drops_gestures_from_expression():
+    """表情里带手势会让每张立绘姿势都不一样，换表情时整个人跳一下。"""
+    prompt = character._portrait_prompt(
+        None,
+        "1girl, black hair, blue uniform",
+        "faint blush on cheeks, eyes looking away, pushing glasses up with one finger, small awkward smile",
+    )
+    assert "pushing glasses" not in prompt and "finger" not in prompt
+    assert "faint blush on cheeks" in prompt and "small awkward smile" in prompt
 
 
 def test_generate_character_single_image_failure_still_succeeds(db_session, monkeypatch):
@@ -311,6 +381,37 @@ def test_generate_character_single_image_failure_still_succeeds(db_session, monk
 
     assert any("微笑" in w and "失败" in w for w in result.warnings)
     assert any("书店门口" in w and "失败" in w for w in result.warnings)
+
+
+def test_generate_character_retries_when_background_cannot_be_removed(db_session, monkeypatch):
+    """生图没按白底出（比如画了实景）时重画一次；两次都抠不下来就保留原图并明确警告。"""
+    plan = make_plan(
+        expressions=[character.ExpressionItem(label="平静", prompt="calm expression")],
+        scenes=[],
+    )
+
+    async def stub_plan(db, **kwargs):
+        return plan
+
+    monkeypatch.setattr(character, "plan_character", stub_plan)
+    set_image_config(db_session)
+    calls = []
+
+    async def fake_generate_one(*, base_url, api_key, model, prompt, size):
+        calls.append(size)
+        return busy_png_bytes()
+
+    monkeypatch.setattr(openai_images, "generate_one", fake_generate_one)
+
+    result = asyncio.run(character.generate_character(db_session, description="书店店员"))
+    assert len(calls) == 2  # 第一次 + 重画一次
+    assert result.images_ok == 1
+    assert any("平静" in w and "背景" in w for w in result.warnings)
+
+    sprites = db_session.scalars(select(PackSprite)).all()
+    stored = Image.open(io.BytesIO(refs.read_bytes(refs.SPRITE, sprites[0], db_session)))
+    # 抠不下来就原样保存，不假装成功
+    assert stored.mode == "RGB"
 
 
 def test_generate_character_needs_image_key(db_session, monkeypatch):

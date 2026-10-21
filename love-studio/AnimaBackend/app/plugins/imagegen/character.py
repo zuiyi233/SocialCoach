@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app import bindings
 from app.assets.common import sniff_image_mime, unique_pack_name
@@ -28,13 +29,42 @@ from app.llm.errors import LLMError
 from app.llm.registry import active_connection
 from app.models import PackSprite, SceneAsset, ScenePack, SpritePack, TavernCard
 from app.plugins.imagegen import openai_images, writer
+from app.plugins.imagegen.matte import cut_out_portrait
 from app.storage import refs
 
 # 立绘 / 场景的出图尺寸（前端向导之后也沿用这两个）
 SPRITE_SIZE = "832x1248"
 SCENE_SIZE = "1280x720"
-# 拼提示词时固定追加的尾巴（不让模型控制，避免画出文字 / 路人 / 背景人物）
-PORTRAIT_TAIL = "full body, neutral background, no text"
+# 拼提示词时固定追加的尾巴（不让模型控制，避免画出文字 / 路人 / 背景人物）。
+# 立绘必须是纯白无缝底：这台网关的 /images/generations 不支持 background=transparent
+# （实测 400），透明底只能靠「画成白底 + 本地抠」（见 matte.py）。背景要是画了实景，
+# 立绘就成了一块浮在舞台上的照片 —— 2026-10-21 用户反馈的就是这个。
+# 这句放在最前面：实测放最后时模型常被外观标签里的地点词带跑，照样画出便利店。
+PORTRAIT_LEAD = (
+    "isolated single character on a seamless pure white studio backdrop, nothing else in frame, "
+    "full body from head to feet, standing straight, front view, arms relaxed at sides, "
+    "same character design in every image, no scenery, no props, no shadow, no other people, no text"
+)
+# 外观标签里混进地点 / 光线 / 时间词时剔掉：它们是场景包该管的事，留在立绘提示词里
+# 会让模型画出便利店、夜景（实测 4 张里 3 张因此抠不出来）
+_SCENE_TAG_WORDS = frozenset({
+    "night", "nighttime", "daytime", "indoor", "indoors", "outdoor", "outdoors",
+    "store", "shop", "cafe", "restaurant", "classroom", "school", "street", "city",
+    "room", "bedroom", "kitchen", "office", "park", "beach", "forest", "station",
+    "train", "car", "bus", "window", "door", "wall", "floor", "ceiling", "shelf",
+    "shelves", "counter", "table", "desk", "chair", "bed", "lamp", "neon",
+    "fluorescent", "lighting", "shadow", "background", "scenery", "sky", "rain",
+    "snow", "sunset", "sunrise", "interior", "exterior", "furniture",
+})
+# 表情标签里只该留脸。模型常顺手写手势（扶眼镜、手放胸口），那会让每张立绘的姿势和
+# 构图都不一样，换表情时人整个跳一下。带这些词的短句直接丢掉。
+_GESTURE_TAG_WORDS = frozenset({
+    "hand", "hands", "finger", "fingers", "arm", "arms", "shoulder", "shoulders",
+    "chest", "waist", "hip", "hips", "leg", "legs", "feet", "foot", "body", "posture",
+    "nod", "nods", "nodding", "pushing", "touching", "resting", "covering", "holding",
+    "raising", "adjusting", "tilt", "tilted", "head", "view", "angle", "close-up",
+    "portrait", "cowboy", "shot", "profile",
+})
 SCENE_TAIL = "visual novel background, no people, no text"
 
 # 生成的资产授权与来源标记（UGC manifest 契约：source + license 同时记录）
@@ -121,8 +151,8 @@ _SYSTEM_PROMPT = """你是视觉小说角色卡设计师。根据用户的一句
     "tags": ["标签"]
   },
   "worldbook": [{"keys": ["触发词"], "content": "这一条世界书的内容", "enabled": true, "insertion_order": 100}],
-  "appearance": "英文 danbooru 外观标签，逗号分隔，给图片模型用（年龄感、发色、发型、瞳色、服装）",
-  "expressions": [{"label": "表情名", "prompt": "英文标签：这个表情的样子"}],
+  "appearance": "英文 danbooru 外观标签，逗号分隔，给图片模型用（年龄感、发色、发型、瞳色、服装、配饰）。只写角色本身，不写地点、时间、天气、光线、镜头、动作、表情",
+  "expressions": [{"label": "表情名", "prompt": "英文标签：只写脸部表情（眼睛、眉毛、嘴、脸颊、耳朵，如 gentle smile, looking at viewer）；不写手势、姿势、镜头、地点"}],
   "scenes": [{"label": "场景名", "prompt": "英文标签：这个场景的样子"}]
 }"""
 
@@ -259,19 +289,74 @@ async def plan_character(
     if conn is None:
         raise CharacterGenerationError("没有可用的聊天连接：请先在设置里配置并激活一个文本模型连接")
     messages = _plan_messages(description, name, language, style, expression_count, scene_count)
-    try:
-        text, _ = await writer.ask(conn, messages, "off")
-    except LLMError as e:
-        raise CharacterGenerationError(f"设计角色时模型出错（{conn.name}）：{e.message}") from e
-    try:
-        data = writer.parse_json(text)
-    except writer.WriterError as e:
-        raise CharacterGenerationError(f"角色生成结果不是合法 JSON：{e.message}") from e
-    return _parse_plan(data, expression_count, scene_count)
+    # 模型偶尔会回一段解析不了的 JSON（漏逗号、字符串里混进英文引号）。这一步只花一次文本调用，
+    # 重问一次比把失败直接甩给用户划算；第二次还不行就报原来的错。
+    for attempt in range(2):
+        try:
+            text, _ = await writer.ask(conn, messages, "off")
+        except LLMError as e:
+            raise CharacterGenerationError(f"设计角色时模型出错（{conn.name}）：{e.message}") from e
+        try:
+            data = writer.parse_json(text)
+        except writer.WriterError as e:
+            if attempt == 0:
+                continue
+            raise CharacterGenerationError(f"角色生成结果不是合法 JSON：{e.message}") from e
+        return _parse_plan(data, expression_count, scene_count)
+    raise CharacterGenerationError("角色生成结果不是合法 JSON：重问一次仍然解析不了")  # pragma: no cover
 
 
 def _build_prompt(style: str | None, tags: str, tail: str) -> str:
     return ", ".join(x for x in (style or "", tags, tail) if x and x.strip())
+
+
+def _clean_tags(tags: str, deny: frozenset[str] = _SCENE_TAG_WORDS) -> str:
+    """剔掉夹在标签里的地点 / 光线词（或手势词）。生图模型会照着这些词把场景、姿势画进立绘。"""
+    out: list[str] = []
+    for tag in tags.split(","):
+        tag = tag.strip()
+        if not tag:
+            continue
+        words = {w.strip("()[]{},.").lower() for w in tag.split()}
+        if words & deny:
+            continue
+        out.append(tag)
+    return ", ".join(out)
+
+
+def _portrait_prompt(style: str | None, appearance: str, expression: str) -> str:
+    """立绘提示词：白底要求放最前面，人物标签跟在后面（顺序实测有影响）。
+
+    表情只保留脸的部分：手势会让每张立绘的姿势、构图都不一样，换表情时整个人跳一下。
+    """
+    face = _clean_tags(expression, _GESTURE_TAG_WORDS)
+    tags = ", ".join(
+        x for x in (style or "", _clean_tags(appearance), face) if x and x.strip()
+    )
+    return f"{PORTRAIT_LEAD}; character: {tags}"
+
+
+async def _draw_portrait(prompt: str, *, cfg: openai_images.Config, api_key: str) -> bytes:
+    return await openai_images.generate_one(
+        base_url=cfg.base_url, api_key=api_key, model=cfg.model, prompt=prompt, size=SPRITE_SIZE
+    )
+
+
+async def _portrait_with_cutout(
+    prompt: str, *, cfg: openai_images.Config, api_key: str
+) -> tuple[bytes, bool]:
+    """画一张立绘并抠成透明底，返回 (png, 是否透明底)。
+
+    抠不下来就重画一次：背景没去掉的立绘在舞台上就是一张浮着的照片，不值得省这一次生图。
+    两次都不行就交回原图，由调用方记一条明确的警告 —— 不假装成功。
+    """
+    png = await _draw_portrait(prompt, cfg=cfg, api_key=api_key)
+    cut = await run_in_threadpool(cut_out_portrait, png)
+    if cut is not None:
+        return cut.png, True
+    png = await _draw_portrait(prompt, cfg=cfg, api_key=api_key)
+    cut = await run_in_threadpool(cut_out_portrait, png)
+    return (cut.png, True) if cut is not None else (png, False)
 
 
 async def generate_character(
@@ -343,16 +428,18 @@ async def generate_character(
     failed = 0
     portrait_results: list[tuple[ExpressionItem, bytes]] = []
     for i, exp in enumerate(plan.expressions, start=2):
-        prompt = _build_prompt(style, f"{plan.appearance}, {exp.prompt}", PORTRAIT_TAIL)
+        prompt = _portrait_prompt(style, plan.appearance, exp.prompt)
         report(i, total, f"正在画表情「{exp.label}」…")
         try:
-            png = await openai_images.generate_one(
-                base_url=cfg.base_url, api_key=api_key, model=cfg.model, prompt=prompt, size=SPRITE_SIZE
-            )
+            png, cut_out = await _portrait_with_cutout(prompt, cfg=cfg, api_key=api_key)
         except openai_images.OpenAIImageError as e:
             failed += 1
             warnings.append(f"表情「{exp.label}」生成失败：{e.message}")
             continue
+        if not cut_out:
+            warnings.append(
+                f"表情「{exp.label}」两次都没能去掉背景，已按整幅照片保存；舞台上会显示成一张照片"
+            )
         portrait_results.append((exp, png))
 
     scene_results: list[tuple[SceneItem, bytes]] = []

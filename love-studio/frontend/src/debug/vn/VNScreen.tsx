@@ -275,6 +275,8 @@ interface BgView {
   src: string;
   /** 竖屏时对准横图的哪儿(object-position 的横向百分比) */
   focus: number;
+  /** 不是场景图,是拿立绘自己糊出来的环境底(这张卡没配背景时用) */
+  backdrop?: boolean;
 }
 
 interface CgView {
@@ -514,7 +516,7 @@ function BackgroundLayer({ view: next }: { view: BgView }) {
   const render = (v: BgView, cls: string) => (
     <img
       key={v.key}
-      className={`vn-bg ${cls}`}
+      className={`vn-bg ${cls}${v.backdrop ? ' vn-bg-backdrop' : ''}`}
       src={v.src}
       alt=""
       draggable={false}
@@ -884,13 +886,17 @@ export function VNScreen({
   // 同上:只在换了背景时才是新对象
   const bgKey = scene.bg ? `${scene.bg.id}:${scene.bg.file_version}` : null;
   const bgFocus = scene.bg?.focus_x ?? 50;
-  const bgView: BgView = useMemo(
-    () =>
-      bgKey && bgUrl
-        ? { key: bgKey, src: bgUrl, focus: bgFocus }
-        : { key: 'fallback', src: FALLBACK_BACKGROUND, focus: 50 },
-    [bgKey, bgUrl, bgFocus],
-  );
+  // 这张卡没配场景背景时,拿立绘自己糊一层当环境底。固定第一张,不跟表情换 ——
+  // 否则每换一个表情整块背景都跟着重绘。白底兜底图会把不透明立绘衬成一张浮着的照片,
+  // 换成同色调的模糊底之后,人物和背景至少是一个色系。
+  const ambientSprite = useMemo(() => sprites.find((s) => s.has_image) ?? null, [sprites]);
+  const ambientKey = ambientSprite ? `${ambientSprite.id}:${ambientSprite.image_version}` : null;
+  const ambientSrc = ambientSprite ? spriteImageUrl(ambientSprite) : null;
+  const bgView: BgView = useMemo(() => {
+    if (bgKey && bgUrl) return { key: bgKey, src: bgUrl, focus: bgFocus };
+    if (ambientKey && ambientSrc) return { key: `ambient:${ambientKey}`, src: ambientSrc, focus: 50, backdrop: true };
+    return { key: 'fallback', src: FALLBACK_BACKGROUND, focus: 50 };
+  }, [bgKey, bgUrl, bgFocus, ambientKey, ambientSrc]);
 
   // CG:画面上那张跟着当前这句的表情换(构图下面挂的差分,名字是表情名);没有对应的用构图本身那张。
   // 同上:先算出用哪张,只在换图时才生成新的 view

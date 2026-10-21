@@ -67,6 +67,14 @@
   object-fit: cover;
 }
 
+/* 没有场景背景时的环境底:拿立绘自己放大、模糊、压暗。色调跟人物同源,
+   不会像白底兜底图那样把不透明的立绘衬成一张浮在页面上的照片(见 VNScreen 的 ambientSprite) */
+.vn-bg.vn-bg-backdrop {
+  filter: blur(26px) brightness(0.45) saturate(1.1);
+  transform: scale(1.25);
+  transform-origin: 50% 45%;
+}
+
 /* 换场景:旧图先淡出,新图稍后淡入,中间透出一点黑底 */
 .vn-bg.leaving {
   animation: vn-fade-out 0.45s ease both;
