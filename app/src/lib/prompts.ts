@@ -123,11 +123,21 @@ Return ONLY JSON: { "learnerCharacterId": "...", "briefing": "...", "objectives"
 
 /* ───────────────────────── Role-play ───────────────────────── */
 
-export function roleplaySystem(s: Scenario, learnerId: string, lang: Lang, learnerName: string) {
+/**
+ * @param scenarioOverride 用户卡模式用卡写的角色简报替换内置场景简报（spec-love-user-cards §2.3）。
+ *   只换「这个场景是什么」这一段，NPC 工艺、立场、沉默与收束规则全部照旧。
+ */
+export function roleplaySystem(
+  s: Scenario,
+  learnerId: string,
+  lang: Lang,
+  learnerName: string,
+  scenarioOverride?: string,
+) {
   const npcs = s.characters.filter((c) => c.id !== learnerId);
   return `You are the simulation engine for SocialCoach. You voice every character EXCEPT the learner in a goal-driven social practice. The learner plays "${pick(s.characters.find((c) => c.id === learnerId)!.name, lang)}" (call them ${learnerName || "by their role"} if a name is needed).
 
-${scenarioBlock(s, lang, learnerId)}
+${scenarioOverride ?? scenarioBlock(s, lang, learnerId)}
 
 ${PRACTICE_POLICY}
 

@@ -6,6 +6,7 @@ import { Button, Sheet } from "./ui";
 import { useApp, useLang } from "@/store/useApp";
 import { t, pick } from "@/lib/i18n";
 import { clearLovePlaySlots, LOVE_PLAY_PREFIX } from "@/lib/love-carry-store";
+import { clearLoveCards, LOVE_CARDS_KEY } from "@/lib/love-card-store";
 
 const resetFailed = {
   zh: "设备数据未能清除，请先导出备份再重试。",
@@ -34,11 +35,23 @@ export function StorageRecovery({ issue }: { issue: "unreadable" | "unavailable"
       return null;
     }
   };
+  /** 用户卡 slot（socialcoach.love-cards.v1）是否还在；读不了返回 null——「已删除」与「没法确认」必须分开。 */
+  const loveCardsPresent = () => {
+    try {
+      return localStorage.getItem(LOVE_CARDS_KEY) !== null;
+    } catch {
+      return null;
+    }
+  };
   /** 主档 reset() 清不掉独立 love slot（G16）；先删并复验，删不干净就不宣称成功、不关确认层。 */
   const restart = () => {
     const before = countLovePlaySlots();
+    const cardsBefore = loveCardsPresent();
     clearLovePlaySlots();
-    if (before === null || countLovePlaySlots() !== 0) {
+    // 用户卡是独立 slot（spec-love-user-cards §2.2）：重置必须显式清掉，只删自己一个 key；
+    // clearLoveCards() 内部吞异常，靠前后按 key 验证确实删掉。
+    clearLoveCards();
+    if (before === null || countLovePlaySlots() !== 0 || cardsBefore === null || loveCardsPresent() !== false) {
       setResetError(true);
       return;
     }

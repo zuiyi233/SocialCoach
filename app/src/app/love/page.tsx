@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Archive, ArrowRight, GraduationCap, Play, Trophy, UserRound } from "lucide-react";
+import { Archive, ArrowRight, FileUp, GraduationCap, Play, Trophy, UserRound } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { Chip, Empty, Page } from "@/components/ui";
 import { SkillTag } from "@/components/SkillBits";
@@ -157,6 +157,18 @@ export default function Love() {
           <span className="flex-1 min-w-0">
             <span className="block font-semibold text-[14px]">{t(lang, "love_archive_entry_title")}</span>
             <span className="block text-[12px] text-ink-3 mt-0.5">{t(lang, "love_archive_entry_sub")}</span>
+          </span>
+          <ArrowRight size={17} className="shrink-0 text-accent-deep" />
+        </Link>
+
+        {/* 用户卡入口（spec-love-user-cards §2.4）：与档案、人设同一级的入口卡。 */}
+        <Link href="/love/cards" className="press card card-link p-4 flex items-center gap-3">
+          <span className="shrink-0 w-10 h-10 rounded-full grid place-items-center bg-accent-soft text-accent-deep">
+            <FileUp size={19} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold text-[14px]">{t(lang, "love_cards_entry_title")}</span>
+            <span className="block text-[12px] text-ink-3 mt-0.5">{t(lang, "love_cards_entry_sub")}</span>
           </span>
           <ArrowRight size={17} className="shrink-0 text-accent-deep" />
         </Link>

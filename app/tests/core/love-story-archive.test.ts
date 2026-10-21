@@ -95,7 +95,7 @@ const appState = {
 test('both export paths share one envelope builder and carry every parsed archive field', async () => {
   slots.clear();
   const payload = buildBackupPayload(parseArchive(appState));
-  assert.deepEqual(Object.keys(payload).sort(), ['dinner3d', 'lovePlay', 'state', 'version']);
+  assert.deepEqual(Object.keys(payload).sort(), ['dinner3d', 'loveCards', 'lovePlay', 'state', 'version']);
   assert.equal(payload.version, 0);
   const decoded = await decodeBackup(JSON.stringify(payload));
   assert.deepEqual(decoded.archive.settings, appState.settings, 'settings must survive export → decode');

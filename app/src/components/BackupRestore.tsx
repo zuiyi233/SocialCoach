@@ -6,6 +6,7 @@ import {pick} from '@/lib/i18n';
 import {parseArchive} from '@/lib/archive';
 import {useApp,useLang} from '@/store/useApp';
 import {DINNER_SAVE_KEY} from '@/features/dinner/storage';
+import {LOVE_CARDS_KEY} from '@/lib/love-card-store';
 import type {decodeBackup} from '@/lib/backup';
 const copy={
  title:{zh:'恢复备份',en:'Restore a backup'},hint:{zh:'先预览，再选择合并或替换。',en:'Preview, then merge or replace.'},
@@ -23,12 +24,17 @@ const copy={
  damagedLove:{zh:'文字档案可恢复。备份里的恋爱进度有未通过校验的部分，原件已保留供你下载，这部分不会写入当前进度。',en:'The main archive can be restored. Part of the backup’s love-play progress could not be verified. Keep the original download; that part will not replace your current progress.'},
  downloadLove:{zh:'下载未通过校验的恋爱进度原件',en:'Download the unverified love-play original'},
  loveFailed:{zh:'恋爱进度没有写进设备：空间不足或存储被禁用。主档案已经保存，清空空间后可以再按一次。',en:'The love-play progress was not written: storage is full or disabled. Your main archive is saved. Free up space and press again.'},
+ restoreCards:{zh:'主档案已保存，恢复备份中的角色卡',en:'Main archive saved; restore its character cards'},
+ cardsFailed:{zh:'角色卡没有写进设备：空间不足或存储被禁用。主档案已经保存，清空空间后可以再按一次。',en:'The character cards were not written: storage is full or disabled. Your main archive is saved. Free up space and press again.'},
+ damagedCards:{zh:'文字档案可恢复。备份里的角色卡没有通过校验，原件已保留供你下载，不会写入卡库。',en:'The main archive can be restored. The backup’s character cards could not be verified; keep the original download, they will not be written to your library.'},
+ downloadCards:{zh:'下载未通过校验的角色卡原件',en:'Download the unverified character-cards original'},
 };
 export function BackupRestore(){
  const lang=useLang(),input=useRef<HTMLInputElement>(null),saveIssue=useApp(s=>s.saveIssue);
  const [dinner,setDinner]=useState<string|null>(null);
  const [quarantined,setQuarantined]=useState<string|null>(null);
  const [love,setLove]=useState<Record<string,string>|null>(null);
+ const [cards,setCards]=useState<string|null>(null);
  const [loveQuarantined,setLoveQuarantined]=useState<string|null>(null);
  const downloadOriginal=(text:string,name='SocialCoach-3D-original.json')=>{const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
  // 逐键写回：一条也只在按钮按下后才动，主档案此时已经保存成功，配额满不该把恢复整体判失败。
@@ -45,15 +51,18 @@ export function BackupRestore(){
   if(!saved){setError(pick({zh:'恢复结果尚未保存，设备中的原档案仍被保留。关闭预览，先处理顶部保存提示。',en:'The restored records have not been saved. The original device archive is retained. Close this preview and resolve the save notice at the top.'},lang));return;}
   setDinner(mode==='replace'?backup.dinner??null:null);setQuarantined(backup.dinnerOriginal??null);
   setLove(mode==='replace'?backup.lovePlay??null:null);setLoveQuarantined(backup.lovePlayOriginal??null);
+  setCards(mode==='replace'?backup.loveCards??null:null);
   setBackup(null);setReady(false);setError(pick(copy.done,lang));
  }catch(e){setError(pick(e instanceof Error&&e.message==='backup-conflict'?copy.conflict:copy.error,lang));}};
  return <><input ref={input} type="file" accept="application/json,.json" className="sr-only" aria-label={pick(copy.title,lang)} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void choose(file);}}/>
   <button onClick={()=>input.current?.click()} className="press w-full flex items-center gap-3 px-4 min-h-16 py-3.5 text-left text-[14px] font-medium"><Upload size={17} className="text-ink-3"/><span>{pick(copy.title,lang)}<span className="block font-normal text-[12px] text-ink-3 mt-1">{pick(copy.hint,lang)}</span></span></button>
   {dinner&&!backup&&<button disabled={!!saveIssue} className="press underline px-4 min-h-11" onClick={()=>{try{localStorage.setItem(DINNER_SAVE_KEY,dinner);setDinner(null);}catch{setError(pick(copy.error,lang));}}}>{pick({zh:'主档案已保存，恢复备份中的 3D 局',en:'Main archive saved; restore its 3D practice'},lang)}</button>}
   {love&&!backup&&<button disabled={!!saveIssue} className="press underline px-4 min-h-11" onClick={()=>restoreLove(love)}>{pick(copy.restoreLove,lang)}</button>}
+  {cards&&!backup&&<button disabled={!!saveIssue} className="press underline px-4 min-h-11" onClick={()=>{try{localStorage.setItem(LOVE_CARDS_KEY,cards);setCards(null);}catch{setError(pick(copy.cardsFailed,lang));}}}>{pick(copy.restoreCards,lang)}</button>}
   {error&&!backup&&<p role="status" className="px-4 pb-3 text-[13px] text-ink-2">{error}</p>}
   {quarantined&&!backup&&<div className="px-4 pb-3 text-[13px] text-ink-2"><p>{pick(copy.damagedDinner,lang)}</p><button className="press underline min-h-11" onClick={()=>downloadOriginal(quarantined)}>{pick(copy.downloadDinner,lang)}</button></div>}
   {loveQuarantined&&!backup&&<div className="px-4 pb-3 text-[13px] text-ink-2"><p>{pick(copy.damagedLove,lang)}</p><button className="press underline min-h-11" onClick={()=>downloadOriginal(loveQuarantined,'SocialCoach-love-play-original.json')}>{pick(copy.downloadLove,lang)}</button></div>}
+  {backup?.loveCardsIssue&&<div className="text-[13px] text-ink-2"><p>{pick(copy.damagedCards,lang)}</p><button className="press underline min-h-11" onClick={()=>downloadOriginal(backup.loveCardsOriginal!,'SocialCoach-cards-original.json')}>{pick(copy.downloadCards,lang)}</button></div>}
   <Sheet open={!!backup} onClose={()=>{selection.current++;setBackup(null);setReady(false);}} title={pick(copy.title,lang)}><div className="flex flex-col gap-4 pt-2">
    <p>{pick(copy.summary,lang).replace('{n}',String(backup?.archive.sessions.length??0)).replace('{m}',String(backup?.archive.customScenarios.length??0))}</p><p className="text-[13px] text-ink-2">{pick(copy.privacy,lang)}</p>
    <fieldset className="flex flex-col gap-2"><label><input type="radio" name="restore-mode" checked={mode==='merge'} onChange={()=>{setMode('merge');setReady(false);}}/> {pick(copy.merge,lang)}</label><label><input type="radio" name="restore-mode" checked={mode==='replace'} onChange={()=>{setMode('replace');setReady(false);}}/> {pick(copy.replace,lang)}</label></fieldset>

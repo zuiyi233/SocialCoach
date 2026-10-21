@@ -155,6 +155,7 @@ export function PlayEnding({
   recording,
   recordFailed,
   carry,
+  cardMode,
   onRecord,
   onRestart,
   onBack,
@@ -171,6 +172,8 @@ export function PlayEnding({
   recordFailed: boolean;
   /** 这一幕可以把承诺带给谁。每一场都有——跟进卡按说话人归属，与这条线连不连续无关。 */
   carry: LoveCarryTarget;
+  /** 卡驱动游玩：不显示「记入统计」（卡模式不写能力分/练习天数，spec-love-user-cards §2.3）。 */
+  cardMode?: boolean;
   onRecord: () => void;
   onRestart: () => void;
   onBack: () => void;
@@ -187,21 +190,25 @@ export function PlayEnding({
         <div>
           <p className="eyebrow">{t(lang, loveEndingTitleKey(outcome, endingKind, endingId))}</p>
           <p className="text-[15px] leading-relaxed text-ink mt-2">{endingText}</p>
-          <p className="text-[12px] text-ink-3 mt-2">{t(lang, "love_play_ending_hint")}</p>
+          <p className="text-[12px] text-ink-3 mt-2">{t(lang, cardMode ? "love_play_card_ending_hint" : "love_play_ending_hint")}</p>
         </div>
         <div className="flex flex-col gap-2.5">
-          <button
-            onClick={onRecord}
-            disabled={recorded || recording}
-            aria-busy={recording || undefined}
-            className="press min-h-12 rounded-[var(--radius-sm)] bg-ink text-paper text-[15px] font-semibold disabled:opacity-60"
-          >
-            {recorded ? t(lang, "love_play_recorded") : recording ? t(lang, "love_play_recording") : t(lang, "love_play_record")}
-          </button>
-          {recordFailed && (
-            <p role="alert" className="text-[12px] leading-relaxed text-danger">
-              {t(lang, "love_play_record_failed")}
-            </p>
+          {!cardMode && (
+            <>
+              <button
+                onClick={onRecord}
+                disabled={recorded || recording}
+                aria-busy={recording || undefined}
+                className="press min-h-12 rounded-[var(--radius-sm)] bg-ink text-paper text-[15px] font-semibold disabled:opacity-60"
+              >
+                {recorded ? t(lang, "love_play_recorded") : recording ? t(lang, "love_play_recording") : t(lang, "love_play_record")}
+              </button>
+              {recordFailed && (
+                <p role="alert" className="text-[12px] leading-relaxed text-danger">
+                  {t(lang, "love_play_record_failed")}
+                </p>
+              )}
+            </>
           )}
           <div className="grid grid-cols-2 gap-2.5">
             <button onClick={onRestart} className="press min-h-11 rounded-[var(--radius-sm)] border border-line-strong bg-card text-[14px] text-ink">

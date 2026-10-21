@@ -7,6 +7,7 @@ import { Shell } from "@/components/Shell";
 import { GitHubLink } from "@/components/GitHubLink";
 import { DINNER_SAVE_KEY, DINNER_LAUNCH_KEY } from "@/features/dinner/storage";
 import { clearLovePlaySlots, LOVE_PLAY_PREFIX } from "@/lib/love-carry-store";
+import { clearLoveCards, LOVE_CARDS_KEY } from "@/lib/love-card-store";
 import { parseArchive } from "@/lib/archive";
 import { Button, Chip, Page, SectionTitle, Sheet, Switch, useToast } from "@/components/ui";
 import { useModelAccess } from "@/lib/model-access";
@@ -83,6 +84,15 @@ export default function Settings() {
   };
   const clearFailed = () =>
     toast(pick({ zh: "设备数据未能清除，请保留备份并重试。", en: "Device data could not be cleared. Keep your backup and retry." }, lang));
+
+  /** 用户卡 slot（socialcoach.love-cards.v1）是否还在；读不了返回 null——「已删除」与「没法确认」必须分开。 */
+  const loveCardsPresent = () => {
+    try {
+      return localStorage.getItem(LOVE_CARDS_KEY) !== null;
+    } catch {
+      return null;
+    }
+  };
 
   const toggleGoal = (id: SkillId) => {
     const has = profile.goals.includes(id);
@@ -424,6 +434,7 @@ export default function Settings() {
             variant="danger"
             onClick={() => {
               const before = countLovePlaySlots();
+              const cardsBefore = loveCardsPresent();
               try {
                 byok.clear();
                 localStorage.removeItem(DINNER_SAVE_KEY);
@@ -432,11 +443,15 @@ export default function Settings() {
                 // 承诺里存的是用户亲手打的一句话，所以「删除所有数据」必须显式覆盖这一半。
                 // clearLovePlaySlots() 内部吞异常，删除是否真的生效只能靠前后扫描前缀验证。
                 clearLovePlaySlots();
+                // 用户卡是独立 slot（spec-love-user-cards §2.2）：同样不在 persist archive 下，
+                // 重置必须显式清掉，且只删自己一个 key；clearLoveCards() 内部吞异常，靠前后按 key
+                // 验证确实删掉（照 clearLovePlaySlots 的口径）。
+                clearLoveCards();
               } catch {
                 clearFailed();
                 return;
               }
-              if (before === null || countLovePlaySlots() !== 0) {
+              if (before === null || countLovePlaySlots() !== 0 || cardsBefore === null || loveCardsPresent() !== false) {
                 clearFailed();
                 return;
               }

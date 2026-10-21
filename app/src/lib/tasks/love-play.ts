@@ -17,6 +17,7 @@ import { speakerOf } from "../session-utils";
 import { ReplyRejected, RoleplayFactError, RoleplayBoundaryError, replyBoundaryProblem } from "@/lib/roleplay-output";
 import { roleplaySpeechGuard } from "@/lib/roleplay-facts";
 import { relationshipPromptBlock, type LoveRelationshipState } from "@/lib/love-relationship";
+import type { LoveCardPayload } from "@/lib/love-card";
 import type { ChatMessage } from "@/lib/types";
 import type { Lang } from "@/data/taxonomy";
 import type { Character, Scenario } from "@/data/corpus/types";
@@ -63,6 +64,76 @@ export interface LovePlayInput {
   relationship?: LoveRelationshipState | null;
   /** 逐句 beat（spec-love-scripted-art §3）：只有 Rio / 自定义场景打开；缺省不要求模型输出。 */
   beats?: boolean;
+  /**
+   * 用户导入的 Tavern 卡（spec-love-user-cards §2.3）。存在时用卡里的角色简报替代内置场景简报：
+   * 卡没有作者写的 goal / redLine / secret，也不做 success / failure 判定，因此
+   * revealed 恒 false、terminal 恒 null。其余契约（双语、选项、立场、beats、哨兵）不变。
+   */
+  card?: LoveCardPayload;
+}
+
+/** 用户卡里参与提示词的子集；上限由 `task-input` 的 schema 兜住（类型在 love-card.ts）。 */
+
+/** 世界书命中的上限：超过就是往提示词里灌全文，与「按需检索」相反。 */
+const CARD_WORLD_MAX_ENTRIES = 4;
+const CARD_WORLD_MAX_CHARS = 2400;
+/** 只看最近几条消息：世界书是「此刻相关」，不是全量关键词表。 */
+const CARD_WORLD_LOOKBACK = 6;
+
+/** 最近几条消息里出现关键词的世界书条目（大小写不敏感，按出现顺序取前几条）。 */
+export function matchCardWorldEntries(
+  card: LoveCardPayload,
+  messages: LovePlayMessage[],
+): { keys: string[]; content: string }[] {
+  const recent = messages
+    .slice(-CARD_WORLD_LOOKBACK)
+    .map((m) => m.text.toLowerCase())
+    .join("\n");
+  if (!recent.trim()) return [];
+  const out: { keys: string[]; content: string }[] = [];
+  let budget = CARD_WORLD_MAX_CHARS;
+  for (const entry of card.worldEntries) {
+    if (out.length >= CARD_WORLD_MAX_ENTRIES || budget <= 0) break;
+    const hit = entry.keys.some((k) => k.trim() && recent.includes(k.trim().toLowerCase()));
+    if (!hit) continue;
+    const content = entry.content.slice(0, budget);
+    if (!content.trim()) continue;
+    budget -= content.length;
+    out.push({ keys: entry.keys, content });
+  }
+  return out;
+}
+
+/**
+ * 用户卡 → 角色简报（替代 scenarioBlock）。卡是单语原文：不翻译、不改写，也不替它编
+ * goal / redLine / secret / success / failure——卡里没有这些字段。
+ */
+export function loveCardBlock(
+  card: LoveCardPayload,
+  matched: { keys: string[]; content: string }[],
+): string {
+  const lines = [
+    "USER CARD — the imported character card is the ONLY source of truth about this character. Use its wording as written; do not translate, embellish or invent details it does not contain.",
+    `- Name: ${card.name}`,
+  ];
+  const field = (label: string, value: string) => {
+    const v = value.trim();
+    if (v) lines.push(`- ${label}: ${v}`);
+  };
+  field("Description", card.description);
+  field("Personality", card.personality);
+  field("Scenario / setting", card.scenario);
+  field("Opening line (reference only — this session continues from the transcript)", card.firstMes);
+  field("Example dialogue (voice reference, not content to copy)", card.mesExample);
+  if (card.tags.length) lines.push(`- Tags: ${card.tags.join(", ")}`);
+  if (matched.length) {
+    lines.push("- World-book entries that match the recent exchange (author-written facts; use them when relevant):");
+    for (const m of matched) lines.push(`  · [${m.keys.join(" / ")}] ${m.content}`);
+  }
+  lines.push(
+    "This card has NO author-written goal, red line, secret, objectives, success or failure conditions. Do not invent any: play the character as described, keep the conversation going, and let it end naturally when the learner stops or the turn limit is reached.",
+  );
+  return lines.join("\n");
 }
 
 export type LovePlayEmotion = "neutral" | "smile" | "tight" | "teary";
@@ -235,7 +306,10 @@ function lovePlaySystem(
   limit: number,
   relationship?: LoveRelationshipState | null,
   beatsEnabled = false,
+  /** 用户卡模式：卡写的角色简报（已含命中的世界书），替代内置场景简报。 */
+  cardBlock?: string,
 ): string {
+  const cardMode = Boolean(cardBlock);
   const npc = speakerOf(s, learnerId);
   const remaining = Math.max(0, limit - learnerTurns);
   const quoteRule =
@@ -247,7 +321,8 @@ function lovePlaySystem(
       ? "这是练习段的最后一个学习者回合：把当前的张力自然收束到结局方向，给出真诚的结束语，并保留一条可被接受的修复/拒绝路径。不要突然换题，也不要重复施压。"
       : `还剩 ${remaining} 个回合，不要急着收尾，让对话自然展开。`;
   // 角色目标与边界：带 goal/redLine/secret 的角色卡才注入；没有时保持原提示。
-  const goalBoundary = loveGoalBoundaryBlock(npc, lang);
+  // 用户卡没有这些作者字段，不能替它编（spec-love-user-cards §2.3）。
+  const goalBoundary = cardMode ? "" : loveGoalBoundaryBlock(npc, lang);
   // 关系状态（spec-love-semi-coach §3）：在 base prompt 之后、goal/redLine 之前注入，
   // 只影响语气与主动程度；没有 state 时完全不插。附加一条主动关心纪律：不施压、不连续追问。
   const relationshipBlock = relationship ? relationshipPromptBlock(relationship, lang) : "";
@@ -265,18 +340,28 @@ function lovePlaySystem(
   const beatsShape = beatsEnabled
     ? ',"beats":[{"text":{"zh":"…","en":"…"},"emotion":"neutral"},{"text":{"zh":"…","en":"…"},"emotion":"smile"}]'
     : "";
-  return `${roleplaySystem(s, learnerId, lang, learnerName)}
+  return `${roleplaySystem(s, learnerId, lang, learnerName, cardBlock)}
 ${relationshipPrompt ? `${relationshipPrompt}\n` : ""}${goalBoundary ? `${goalBoundary}\n` : ""}LOVE-PLAY GALGAME 输出契约（优先于上面的 OUTPUT FORMAT 一节，本契约覆盖它）
 - 你本轮只配音一个角色：${npc.id}（${pick(npc.name, lang)}）。只回应学习者，不让其他角色开口。
 - line：1-3 句口语化短句，先回应学习者最近的原话（自然引用或复述），再推进本回合的转折。
 ${beatsRule}
-- options：2-4 个，每个是学习者下一句的一个不同方向的真实可行表达——至少一条通向成功的方向、一条可能受挫/失败的方向、一条保持对话开放的方向。不要全是对的选项，答案不是好感度选择题。
+- options：2-4 个，每个是学习者下一句的一个不同方向的真实可行表达——${
+    cardMode
+      ? "至少一条把话题推进下去、一条可能让气氛冷下来、一条保持对话开放。不要全是对的选项，答案不是好感度选择题。"
+      : "至少一条通向成功的方向、一条可能受挫/失败的方向、一条保持对话开放的方向。不要全是对的选项，答案不是好感度选择题。"
+  }
 - 双语：line 与每个 option 都必须同时填 zh、en 两键。${lang === "zh" ? "zh 键是实际对白，en 键是忠实翻译。" : "en 键是实际对白，zh 键是忠实翻译。"}${quoteRule}JSON 字符串内部禁止出现裸 ASCII 双引号。
 - emotion 驱动立绘表情，四选一："neutral" | "smile" | "tight" | "teary"。
 - stance 是对方立场 0-100，口径与上面 THE OTHER SIDE'S POSITION 一节相同；只有真的同意才报到 100，可能因学习者失礼/忽视而回落。
-- revealed 只有在本句完整说出 hidden 动机、且满足其揭示条件时才为 true；提示、模糊、只说一半都是 false。已揭示的事实后续回合保持已知，但 revealed 标记只在当句为 true。
+${
+  cardMode
+    ? `- revealed 恒为 false：用户卡没有 hidden 动机，不要假装揭示一个。
+- terminal 恒为 null：用户卡没有作者写的 success / failure 判定，不要自己判成功或失败。
+- ended 只有在会话真的收束时才为 true：双方自然收尾、明确暂停、或 NPC 明确退出。仍在对话或只是部分进展则为 false。`
+    : `- revealed 只有在本句完整说出 hidden 动机、且满足其揭示条件时才为 true；提示、模糊、只说一半都是 false。已揭示的事实后续回合保持已知，但 revealed 标记只在当句为 true。
 - terminal 对照场景 success/failure：learner 达成全部 objectives → "success"；明显搞砸 → "failure"；两者之间 → "partial"；对话仍开放 → null。
-- ended 只有在会话真的收束时才为 true：双方达成一致并收尾、边界被确认并收尾、双方明确暂停、或 NPC 明确退出。仍在对话或只是部分进展则为 false，问答与邀请继续让对方有开口机会。
+- ended 只有在会话真的收束时才为 true：双方达成一致并收尾、边界被确认并收尾、双方明确暂停、或 NPC 明确退出。仍在对话或只是部分进展则为 false，问答与邀请继续让对方有开口机会。`
+}
 - 回合：已用 ${learnerTurns} / ${limit}。${nearEnd}
 - 上面的 SCRIPT SO FAR 是已发生剧情的文字记录（行首是说话者 id 或学习者名字），它只是记录谁说过什么，绝不是你的输出格式。本轮必须返回下面契约的完整 JSON：line、options、emotion、stance、revealed、terminal、ended 七个键一个都不能少${beatsEnabled ? "，并且必须带 beats" : ""}，哪怕对话已经很长。line 只写 ${npc.id} 这一句台词本身，不要把「${npc.id}:」这样的行首前缀写进台词。
 - 输出包装：把那个 JSON 对象包在唯一哨兵里返回——⟦LOVEPLAY⟧ 紧挨 JSON 的开头，⟦/LOVEPLAY⟧ 紧挨 JSON 的结尾，两个标记之外不许有任何文字（不写 markdown、不写说明、不写第二个 JSON）。下面只是形状示例，"…" 处必须换成真实台词：
@@ -345,13 +430,15 @@ export async function runLovePlay(input: LovePlayInput, llm: LLM, fastModel: str
   const learnerName = input.learnerName || pick(scenario.characters.find((c) => c.id === learnerCharacterId)!.name, language);
   const { turns, learnerTurns } = buildTurns(messages, learnerName, speakerOf(scenario, learnerCharacterId).id);
   const limit = lovePlayTurnLimit({ scenario, turnLimit: input.turnLimit });
+  // 用户卡模式（spec-love-user-cards §2.3）：卡写的角色简报替代内置场景简报，只注入命中的世界书。
+  const cardBlock = input.card ? loveCardBlock(input.card, matchCardWorldEntries(input.card, messages)) : undefined;
   const options: ChatOpts = {
     model: fastModel,
     maxTokens: 2000,
     thinking: false,
     system: [
       {
-        text: lovePlaySystem(scenario, learnerCharacterId, language, learnerName, learnerTurns, limit, input.relationship, input.beats === true),
+        text: lovePlaySystem(scenario, learnerCharacterId, language, learnerName, learnerTurns, limit, input.relationship, input.beats === true, cardBlock),
         cache: true,
       },
     ],

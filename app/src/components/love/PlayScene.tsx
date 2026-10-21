@@ -17,6 +17,9 @@ import { uid } from "@/lib/format";
 import { canListen, pauseSpeaking, speak, stopSpeaking, unlockSpeech } from "@/lib/speech";
 import { useLoveVoice, withInterim, useLoveSpeechActivity } from "@/lib/love-play-voice";
 import { lovePlayTurn, type LovePlayEmotion, type LovePlayLineBeat, type LovePlayOutcome } from "@/lib/love-play-client";
+import { loveCardPayload, type LoveCard } from "@/lib/love-card";
+import { readLoveCards } from "@/lib/love-card-store";
+import { scenarioFromCard } from "@/lib/love-card-scenario";
 import { loveCgFor, loveSceneFor } from "@/lib/love-scenes";
 import { readLoveSeriesProgress, writeLoveSeriesProgress } from "@/lib/love-series-progress";
 import { loveSeriesById } from "@/data/corpus/love-series";
@@ -168,18 +171,33 @@ function rioRouteActOf(scenario: Scenario | null | undefined): RioAct | null {
   return scenario && scenario.series?.id === RIO_SERIES_ID ? rioRouteSceneAct(scenario.id) : null;
 }
 
-export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null; scenarioId: string }) {
+export function PlayScene({
+  scenario,
+  scenarioId,
+  cardId,
+}: {
+  scenario: Scenario | null;
+  scenarioId: string;
+  /** 卡驱动游玩（spec-love-user-cards §2.3）：hydration 后从设备端读卡合成场景。 */
+  cardId?: string;
+}) {
   const lang = useLang();
   const router = useRouter();
   const hydrated = useApp((s) => s.hydrated);
-  const custom = useApp((s) => (scenario ? undefined : s.customScenarios.find((x) => x.id === scenarioId)));
+  const cardMode = Boolean(cardId);
+  // 卡驱动游玩时 scenarioId 就是 cardId，不拿去撞自定义场景的 id。
+  const custom = useApp((s) => (scenario || cardMode ? undefined : s.customScenarios.find((x) => x.id === scenarioId)));
   const profile = useApp((s) => s.profile);
   const completeLovePlay = useApp((s) => s.completeLovePlay);
   const tts = useApp((s) => s.settings.tts);
   const voiceNoticeSeen = useApp((s) => s.settings.voiceNoticeSeen);
   const setSettings = useApp((s) => s.setSettings);
-  // 内置场景由服务端传入；自定义场景在 hydration 后从 store 解析。
-  const sc = scenario ?? custom ?? null;
+  /** 卡驱动游玩：hydration 后从设备端读卡合成的场景；找不到 → missing（不 notFound）。 */
+  const [cardScene, setCardScene] = useState<Scenario | null>(null);
+  const [cardState, setCardState] = useState<"pending" | "ready" | "missing">("pending");
+  const cardRef = useRef<LoveCard | null>(null);
+  // 内置场景由服务端传入；自定义场景在 hydration 后从 store 解析；卡场景在 hydration 后读设备端。
+  const sc = scenario ?? custom ?? cardScene ?? null;
 
   const [npcLine, setNpcLine] = useState<{
     key: string;
@@ -718,6 +736,9 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
             }),
             turnLimit: s.maxTurns,
             relationship: relationshipRef.current,
+            // 卡驱动游玩：卡模式带上 loveCardPayload(card)，后端用它替代场景角色简报、
+            // 禁用 goal/redLine/secret 与 success/failure 判定（spec-love-user-cards §2.3）。
+            card: cardRef.current ? loveCardPayload(cardRef.current) : undefined,
             // 逐句 beat：先对 Rio 六幕（有舞台 manifest 的场景）/ 自定义场景打开，避免 66 场全部涨价。
             // 不能只看 `s.series`：系列里有一半场景对象本身没挂 series 字段（系列只按 id 引用它们），
             // 那样 Rio 首幕会被静默漏掉。
@@ -1057,6 +1078,29 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     },
     [skipNow, lang, finishBeats],
   );
+
+  // 卡驱动游玩：hydration 后从设备端读卡合成场景；卡片不在设备上 → 用户可读状态。
+  // 不能在这里 notFound：服务端首帧读不到 localStorage（spec-love-user-cards §2.4）。
+  // 读盘结果在微任务里落地，避免 effect 体内同步级联渲染（与挂载恢复存档同口径）。
+  useEffect(() => {
+    if (!cardMode || !hydrated) return;
+    let alive = true;
+    queueMicrotask(() => {
+      if (!alive) return;
+      const read = readLoveCards();
+      const found = read.cards.find((c) => c.id === cardId);
+      if (!found) {
+        setCardState("missing");
+        return;
+      }
+      cardRef.current = found;
+      setCardScene(scenarioFromCard(found, { learnerName: profile?.name }));
+      setCardState("ready");
+    });
+    return () => {
+      alive = false;
+    };
+  }, [cardMode, cardId, hydrated, profile?.name]);
 
   // 挂载先读本幕存档：有效则原地恢复（不请求模型、不重读历史语音）；坏档保留原件并停写。
   useEffect(() => {
@@ -1431,6 +1475,21 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     voice.start(input);
   };
 
+  // 卡驱动游玩：卡片不在设备上 → 用户可读状态（服务端首帧读不到 localStorage，不能用 notFound）。
+  if (cardMode && hydrated && cardState === "missing") {
+    return (
+      <div className="h-dvh grid place-items-center bg-paper px-6">
+        <div className="flex flex-col items-center gap-3 text-center max-w-[var(--measure)]">
+          <h1 className="display text-[24px]">{t(lang, "love_card_missing_title")}</h1>
+          <p className="text-[14px] text-ink-3 leading-relaxed">{t(lang, "love_card_missing_body")}</p>
+          <div className="mt-1 flex flex-wrap justify-center gap-2">
+            <Button onClick={() => router.push("/love/cards")}>{t(lang, "love_card_missing_back")}</Button>
+            <Button variant="ghost" onClick={() => router.push("/love")}>{t(lang, "love_play_back_love")}</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   // 未 hydration 时不判断；已 hydration 且场景确实不存在 → 走最近的 not-found 边界。
   if (hydrated && !sc) notFound();
   if (!sc) {
@@ -1450,8 +1509,8 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const draftValue = voice.active ? withInterim(input, voice.interim, lang) : input;
   const voiceStatus = voice.active ? t(lang, "love_play_voice_listening") : voice.notice ? t(lang, speechCopy[voice.notice]) : null;
 
-  // 场景属于剧情线时，返回键和收束按钮都回到该线入口页；否则回恋爱首页。
-  const backTo = sc.series ? `/love/play/series/${sc.series.id}` : "/love";
+  // 场景属于剧情线时，返回键和收束按钮都回到该线入口页；卡驱动游玩回卡库；否则回恋爱首页。
+  const backTo = cardMode ? "/love/cards" : sc.series ? `/love/play/series/${sc.series.id}` : "/love";
 
   const leave = () => {
     stopSpeaking();
@@ -2089,6 +2148,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
             recording={recording}
             recordFailed={recordError}
             carry={carryTarget}
+            cardMode={cardMode}
             onRecord={record}
             onRestart={restart}
             onBack={leave}

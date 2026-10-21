@@ -1,6 +1,7 @@
 import {dinnerBackup} from '@/features/dinner/storage';
 import {LovePlaySchema,parseArchive,parseLovePlaySlot} from './archive';
 import {LOVE_PLAY_PREFIX} from './love-carry-store';
+import {loveCardBackup,parseLoveCardsBackup} from './love-card-store';
 import {validAvatarImage} from './avatar-image';
 import {estimateProficiency} from './proficiency';
 import type {Session} from './types';
@@ -75,7 +76,17 @@ export async function decodeBackup(text:string){
    dinnerIssue=unreadable?'unreadable':'invalid';
   }
  }
- return {archive,dinner,dinnerOriginal,dinnerIssue,...decodeLovePlay(raw.lovePlay)};
+ return {archive,dinner,dinnerOriginal,dinnerIssue,...decodeLovePlay(raw.lovePlay),...decodeLoveCards(raw.loveCards)};
+}
+/**
+ * 用户卡槽（spec-love-user-cards §2.2）：备份里带着就还原成可写回 localStorage 的 JSON。
+ * 形状不对时保留原文供导出，不让一份坏卡槽把整个备份判失败——与 lovePlay 同口径。
+ */
+function decodeLoveCards(value:unknown){
+ if(value===undefined||value===null)return {};
+ const json=parseLoveCardsBackup(value);
+ if(json)return {loveCards:json};
+ return {loveCardsOriginal:JSON.stringify(value),loveCardsIssue:'invalid' as const};
 }
 /** Different records sharing an ID are ambiguous. Preserve both input files
  * and require explicit replacement rather than silently choosing a branch. */
@@ -92,7 +103,7 @@ export function mergeArchives(current:Archive,incoming:Archive):Archive{
  * 都跟着 `parseArchive` 的结果走，页面不得再手拼一份（G03）。
  */
 export function buildBackupPayload(archive:Archive){
- return {state:archive,version:0 as const,dinner3d:dinnerBackup(),lovePlay:lovePlayBackup()};
+ return {state:archive,version:0 as const,dinner3d:dinnerBackup(),lovePlay:lovePlayBackup(),loveCards:loveCardBackup()};
 }
 export function downloadArchive(archive:Archive){
  const url=URL.createObjectURL(new Blob([JSON.stringify(buildBackupPayload(archive),null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`socialcoach-before-restore-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);

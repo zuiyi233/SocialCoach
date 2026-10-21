@@ -3,6 +3,7 @@ import type { L, Lang } from "@/data/taxonomy";
 import type { Scenario } from "@/data/corpus/types";
 import type { ChatMessage } from "./types";
 import type { LoveRelationshipState } from "./love-relationship";
+import type { LoveCardPayload } from "./love-card";
 import { readModelFailure, type ModelIssue } from "./model-status";
 import { ApiError } from "./client-api";
 
@@ -42,6 +43,8 @@ export interface LovePlayTurnInput {
   relationship?: LoveRelationshipState | null;
   /** 逐句拍点开关（Rio / 自定义场景）；缺省不要求模型输出 beats。 */
   beats?: boolean;
+  /** 用户卡模式（spec-love-user-cards §2.3）：卡写的角色简报替代内置场景简报。 */
+  card?: LoveCardPayload;
 }
 
 /** 与 client-api 同口径的断网提示（用户可读、双语）。 */
