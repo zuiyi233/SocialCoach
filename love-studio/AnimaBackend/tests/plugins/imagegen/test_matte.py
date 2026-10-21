@@ -81,3 +81,23 @@ def test_already_transparent_input_passes_through():
     cut = cut_out_portrait(_png(im))
     assert cut is not None and cut.metrics["already_transparent"] is True
     assert Image.open(io.BytesIO(cut.png)).mode == "RGBA"
+
+
+def test_opaque_rgba_with_antialiased_edges_is_still_cut():
+    """回归（2026-10-21）：Qwen-Image 2.1 出的是 RGBA，边缘有万分之几的 alpha<250。
+
+    以前用 `alpha.min() < 250` 判断「已经是透明底」，这种图会被直接放行，白底就这么
+    进了舞台。判定要按成片的透明面积算。
+    """
+    im = _figure().convert("RGBA")
+    px = im.load()
+    # 只把边缘几个像素改成半透明，模拟抗锯齿噪点
+    for x in range(20, 44):
+        px[x, 10] = (px[x, 10][0], px[x, 10][1], px[x, 10][2], 242)
+    cut = cut_out_portrait(_png(im))
+    assert cut is not None
+    assert "already_transparent" not in cut.metrics
+    out = Image.open(io.BytesIO(cut.png))
+    # 白底被抠掉：四角透明，人物还在
+    assert out.getpixel((0, 0))[3] == 0
+    assert out.getpixel((32, 48))[3] > 200

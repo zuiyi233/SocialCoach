@@ -31,6 +31,10 @@ MAX_CLEAR_FRAC = 0.90
 MIN_OPAQUE_FRAC = 0.08
 # 边缘羽化（像素）；再用已知背景色做反预乘，去掉白边
 FEATHER_SIGMA = 0.8
+# 「已经是透明底」的判定门槛：按**成片**的透明面积算，不能只看最小值。
+# 教训（2026-10-21）：Qwen-Image 2.1 出的是 RGBA，边缘抗锯齿有万分之几的像素 alpha<250，
+# 用 `min < 250` 判定会把整张白底当成「已经抠过了」直接放行，白底就这么进了舞台。
+MIN_TRANSPARENT_SHARE = 0.05
 
 
 @dataclass(frozen=True)
@@ -107,11 +111,14 @@ def cut_out_portrait(raw: bytes, *, tolerance: int = DEFAULT_TOLERANCE) -> Cutou
         im.load()
     except Exception:
         return None
-    if im.mode in ("RGBA", "LA") and im.getchannel("A").getextrema()[0] < 250:
-        # 已经是透明底（别家后端认 background=transparent 时），原样交回去
-        out = io.BytesIO()
-        im.convert("RGBA").save(out, format="PNG")
-        return Cutout(png=out.getvalue(), metrics={"already_transparent": True})
+    if im.mode in ("RGBA", "LA"):
+        alpha = np.asarray(im.getchannel("A"))
+        if float((alpha < 250).mean()) >= MIN_TRANSPARENT_SHARE:
+            # 已经是透明底（别家后端认 background=transparent 时），原样交回去。
+            # 只看透明面积占比：边缘抗锯齿造成的零星半透明不算。
+            out = io.BytesIO()
+            im.convert("RGBA").save(out, format="PNG")
+            return Cutout(png=out.getvalue(), metrics={"already_transparent": True})
 
     rgb = np.asarray(im.convert("RGB"))
     bg, border_share = _background_stats(rgb)
