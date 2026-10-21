@@ -195,6 +195,7 @@ Love Studio 是独立于主站的 AnimaVN fork 本地运行时（React + Vite �
 | POST | `/api/story/import` | multipart `file`（故事包 JSON）；只校验与预览，不写库。返回 `{pack, warnings, hash, can_create_card}`；失败 `detail.code ∈ {story/bad-json, story/bad-shape, story/bad-version, story/too-large}` |
 | POST | `/api/story/import/apply` | body `{pack, card_id?, language=zh}` → 建卡（包里带 `character.name` 且没给 `card_id` 时）+ 新建一局带「【前情】」的对话，返回 `{card_id, chat_id, created_card, recap}`；没有可用角色回 400 `story/no-card`。关系状态**不**在这里写（关系归主站） |
 | – | `/api/story/*` 契约 | Python 侧 `AnimaBackend/app/story_pack.py` 与主站 `app/src/lib/love-story-pack.ts` 共用字段契约（双语 `title`/`summary`/`choice` 必须 `{zh,en}` 非空、`quote` 只随 `quoteSource` 保留、私有字段名同一批）；规范化 JSON 复用 `app.scpersona.canonical_json`，所以两边哈希一致。契约测试 `AnimaBackend/tests/test_story_pack.py` |
+| POST | `/api/tavern/cards/{card_id}/export/png` | 把角色卡写回 PNG：body `{card_json}`（V2 JSON 字符串）；返回 `image/png` + `Content-Disposition`。`tEXt` 块 keyword 固定 `chara`、正文 = base64(UTF-8 JSON `{"spec":"chara_card_v2","data":{…}}`)，与主站 `app/src/lib/love-card.ts` 的 `parseLoveCardPng` 同一契约；有原头像时保留像素只换卡数据块，没有则生成 768×1024 占位图。空/坏 JSON 或非 v2 形状回 400，卡不存在回 404。实现 `AnimaBackend/app/importer/png_card.py`，测试 `tests/test_png_card.py` |
 
 **健康检查现状（2026-10-21）**：AnimaVN 后端 health 在 `:8000`，`:5180` 是 vite dev/preview（`strictPort`）；已用 vite 反代 `/api → :8000`，所以主站只需探测 `http://127.0.0.1:5180/api/health`。主站侧不新增 API route；故事 / 人设交接走 `.scpersona` pack 或 Studio 本地桥。
 

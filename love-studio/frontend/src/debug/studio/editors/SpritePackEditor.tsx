@@ -59,6 +59,8 @@ export interface SpritePackEditorProps {
   onIncomingTaken?: () => void;
   /** 列表变了(张数、第一张):包页签的张数、小头像跟着换 */
   onSprites?: (packId: string, list: PackSprite[]) => void;
+  /** 玩家模式(素材库只读):不加 / 不改 / 不删 —— 上传、位置编辑器都收掉,字段禁用 */
+  readOnly?: boolean;
 }
 
 export function SpritePackEditor({
@@ -74,6 +76,7 @@ export function SpritePackEditor({
   incoming,
   onIncomingTaken,
   onSprites,
+  readOnly = false,
 }: SpritePackEditorProps) {
   const [sprites, setSprites] = useState<PackSprite[] | null>(null);
   const [layout, setLayout] = useState<SpriteLayout>(DEFAULT_SPRITE_LAYOUT);
@@ -286,11 +289,11 @@ export function SpritePackEditor({
   });
   const loaded = sprites !== null;
   useEffect(() => {
-    if (!incoming || !loaded || handled.current === incoming.nonce) return;
+    if (readOnly || !incoming || !loaded || handled.current === incoming.nonce) return;
     handled.current = incoming.nonce;
     takenRef.current?.();
     void addFiles(incoming.files);
-  }, [incoming, loaded, addFiles]);
+  }, [readOnly, incoming, loaded, addFiles]);
 
   const replaceImage = (id: string, file: File) =>
     void run(async () => replaceRow(await debugApi.uploadSpriteImage(packId, id, file)));
@@ -328,7 +331,7 @@ export function SpritePackEditor({
               : null
           }
           line={line}
-          editable="sprite"
+          editable={readOnly ? null : 'sprite'}
           onLayout={(next) => changeLayout(next)}
           badges={previewBadges}
         />
@@ -339,7 +342,7 @@ export function SpritePackEditor({
               ? '读取中…'
               : list.length === 0
                 ? '还没有 · 文件名就是差分名,比如 微笑.png'
-                : `${list.length} 张 · 点击编辑 · 拖动排序${anyFx ? ' · ✦ = 设了入场动效' : ''}`}
+                : `${list.length} 张 · 点击${readOnly ? '' : '编辑'}${!readOnly && anyFx ? ' · ✦ = 设了入场动效' : ''}`}
           </span>
         </div>
         {sprites !== null && (
@@ -348,10 +351,10 @@ export function SpritePackEditor({
             faces={faces}
             selectedId={selected?.id ?? null}
             onSelect={setSelectedId}
-            onReorder={reorder}
+            onReorder={readOnly ? undefined : reorder}
             uploads={uploads}
-            onAdd={() => addInput.current?.click()}
-            locked={reordering || uploads.length > 0}
+            onAdd={readOnly ? undefined : () => addInput.current?.click()}
+            locked={reordering || uploads.length > 0 || readOnly}
           />
         )}
         <input
@@ -389,6 +392,7 @@ export function SpritePackEditor({
           layout={layout}
           noFaces={noFaces}
           cardCount={cardCount}
+          readOnly={readOnly}
           onRename={(label) => rename(selected.id, label)}
           onPatch={(body) => void patch(selected.id, body)}
           onEffect={(fx) => void setEffect(selected.id, fx)}

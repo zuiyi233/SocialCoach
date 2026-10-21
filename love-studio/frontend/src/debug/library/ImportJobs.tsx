@@ -21,13 +21,15 @@ export interface ImportJobsProps {
   error: string | null;
   /** 从包的「来自导入」点过来的那条:标出来、滚进来 */
   highlight: string | null;
+  /** 玩家模式(素材库只读):不露「撤销这次导入」(撤销会删卡删包) */
+  readOnly?: boolean;
   /** 撤销完了:外面重读记录、素材列表、卡列表 */
   onUndone: (result: ImportUndoPreview) => void;
   onReload: () => void;
   notify: (kind: 'ok' | 'error', message: string) => void;
 }
 
-export function ImportJobs({ jobs, error, highlight, onUndone, onReload, notify }: ImportJobsProps) {
+export function ImportJobs({ jobs, error, highlight, onUndone, onReload, notify, readOnly = false }: ImportJobsProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ImportUndoPreview | null>(null);
   const [undoing, setUndoing] = useState(false);
@@ -91,7 +93,7 @@ export function ImportJobs({ jobs, error, highlight, onUndone, onReload, notify 
                 </span>
                 <span className="lib-job-sub">{jobSummary(job.counts)}</span>
               </span>
-              {!undone && (
+              {!undone && !readOnly && (
                 <Btn small disabled={loadingId !== null} onClick={() => void ask(job)}>
                   {loadingId === job.id ? '读取中…' : '撤销这次导入'}
                 </Btn>

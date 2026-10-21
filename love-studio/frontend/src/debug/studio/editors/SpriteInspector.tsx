@@ -55,6 +55,8 @@ export interface SpriteInspectorProps {
   noFaces: boolean;
   /** 绑着这套立绘的卡有几张;两张以上才在位置那里提一句 */
   cardCount?: number;
+  /** 玩家模式(素材库只读):改名的按钮、替换 / 删除、字段编辑全部收掉 */
+  readOnly?: boolean;
   onRename: (label: string) => Promise<boolean>;
   onPatch: (patch: SpritePayload) => void;
   /** 改了入场动效(存完在舞台上放一次) */
@@ -68,6 +70,7 @@ export interface SpriteInspectorProps {
 
 export function SpriteInspector(props: SpriteInspectorProps) {
   const { sprite: s, layout, total, cardCount = 0 } = props;
+  const readOnly = props.readOnly ?? false;
   const fx = normalizeEffect(s.effect) ?? EMPTY_FX;
   const hasFx = Boolean(fx.motion || fx.bubble || fx.sound);
   const shared = `整组 ${total} 张差分共用${cardCount >= 2 ? ` · 绑定此立绘的 ${cardCount} 张卡同步生效` : ''}`;
@@ -78,7 +81,7 @@ export function SpriteInspector(props: SpriteInspectorProps) {
       head={
         <InspectorHead
           media={<FaceThumb sprite={s} face={props.face} className="st-ihead-media" />}
-          title={<TitleEdit key={s.id} value={s.label} label="差分名" onCommit={props.onRename} />}
+          title={<TitleEdit key={s.id} value={s.label} label="差分名" onCommit={props.onRename} disabled={readOnly} />}
           badge={
             props.isDefault ? (
               <>
@@ -94,28 +97,32 @@ export function SpriteInspector(props: SpriteInspectorProps) {
                 <span>
                   第 {props.index} 张 · 共 {total} 张
                 </span>
-                <button
-                  type="button"
-                  className="st-link small"
-                  disabled={!s.enabled}
-                  title={s.enabled ? '挪到第一张:AI 没写表情、或写的对不上时用它' : '先启用这张差分'}
-                  onClick={props.onMakeDefault}
-                >
-                  设为默认差分
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="st-link small"
+                    disabled={!s.enabled}
+                    title={s.enabled ? '挪到第一张:AI 没写表情、或写的对不上时用它' : '先启用这张差分'}
+                    onClick={props.onMakeDefault}
+                  >
+                    设为默认差分
+                  </button>
+                )}
               </>
             )
           }
         />
       }
       footer={
-        <>
-          <Btn small icon="image" onClick={props.onReplace}>
-            替换图片
-          </Btn>
-          <span className="st-flex" />
-          <DeleteBtn small label="删除差分" onConfirm={props.onDelete} />
-        </>
+        readOnly ? undefined : (
+          <>
+            <Btn small icon="image" onClick={props.onReplace}>
+              替换图片
+            </Btn>
+            <span className="st-flex" />
+            <DeleteBtn small label="删除差分" onConfirm={props.onDelete} />
+          </>
+        )
       }
     >
       <Section title="描述" help={TERMS.desc} first />
@@ -123,16 +130,18 @@ export function SpriteInspector(props: SpriteInspectorProps) {
         key={`desc:${s.id}`}
         value={s.description}
         rows={3}
+        disabled={readOnly}
         placeholder="什么时候用这张,比如:闭着嘴微笑,平常说话时用"
         onCommit={(description) => props.onPatch({ description })}
       />
       <div className="st-gap" />
       <FieldLabel text="别名" help={TERMS.alias} />
-      <TagsField values={s.aliases} onChange={(aliases) => props.onPatch({ aliases })} placeholder="比如 smile,回车加" />
+      <TagsField values={s.aliases} onChange={(aliases) => props.onPatch({ aliases })} disabled={readOnly} placeholder="比如 smile,回车加" />
       <div className="st-gap" />
       <SwitchRow
         label="启用这张差分"
         checked={s.enabled}
+        disabled={readOnly}
         note={s.enabled ? undefined : '停用后游戏里当它不存在,图和设置都留着'}
         onChange={(enabled) => props.onPatch({ enabled })}
       />
@@ -142,9 +151,11 @@ export function SpriteInspector(props: SpriteInspectorProps) {
         title="入场动效"
         help={TERMS.fx}
         right={
-          <Btn small icon="play" disabled={!hasFx} onClick={props.onPreview}>
-            预览
-          </Btn>
+          !readOnly && (
+            <Btn small icon="play" disabled={!hasFx} onClick={props.onPreview}>
+              预览
+            </Btn>
+          )
         }
       />
       <SelectRow
@@ -152,6 +163,7 @@ export function SpriteInspector(props: SpriteInspectorProps) {
         help={TERMS.motion}
         value={fx.motion ?? ''}
         options={MOTION_OPTIONS}
+        disabled={readOnly}
         onChange={(v) => props.onEffect(nextEffect(s.effect, { motion: v || null }))}
       />
       <SelectRow
@@ -159,6 +171,7 @@ export function SpriteInspector(props: SpriteInspectorProps) {
         help={TERMS.manpu}
         value={fx.bubble ?? ''}
         options={BUBBLE_OPTIONS}
+        disabled={readOnly}
         onChange={(v) => props.onEffect(nextEffect(s.effect, { bubble: v || null }))}
       />
       <SelectRow
@@ -166,6 +179,7 @@ export function SpriteInspector(props: SpriteInspectorProps) {
         help={TERMS.sound}
         value={fx.sound ?? ''}
         options={SOUND_OPTIONS}
+        disabled={readOnly}
         onChange={(v) => props.onEffect(nextEffect(s.effect, { sound: v || null }))}
       />
       <div className="st-gap small" />
@@ -175,19 +189,22 @@ export function SpriteInspector(props: SpriteInspectorProps) {
         help={TERMS.pos}
         note={shared}
         right={
-          <button
-            type="button"
-            className="st-link small"
-            disabled={isDefaultLayout(layout)}
-            onClick={() => props.onLayout({ ...layout, zoom: 1, dx: 0, dy: 0 })}
-          >
-            恢复默认
-          </button>
+          !readOnly && (
+            <button
+              type="button"
+              className="st-link small"
+              disabled={isDefaultLayout(layout)}
+              onClick={() => props.onLayout({ ...layout, zoom: 1, dx: 0, dy: 0 })}
+            >
+              恢复默认
+            </button>
+          )
         }
       />
       <SwitchRow
         label="按面部自动对齐"
         checked={layout.auto}
+        disabled={readOnly}
         note={layout.auto && props.noFaces ? '这套图还没认出脸,先按撑满高度摆' : undefined}
         onChange={(auto) => props.onLayout({ ...layout, auto })}
       />
@@ -197,6 +214,7 @@ export function SpriteInspector(props: SpriteInspectorProps) {
         max={ZOOM_RANGE.max}
         step={0.01}
         value={layout.zoom}
+        disabled={readOnly}
         format={(v) => `${Math.round(v * 100)}%`}
         onChange={(zoom) => props.onLayout({ ...layout, zoom })}
         onCommit={(zoom) => props.onLayout({ ...layout, zoom })}
@@ -208,6 +226,7 @@ export function SpriteInspector(props: SpriteInspectorProps) {
         min={-200}
         max={200}
         digits={1}
+        disabled={readOnly}
         hint="单位是舞台高度的 %;也可以在预览里直接拖动"
         onCommit={(x, y) => props.onLayout({ ...layout, dx: round(x / 100), dy: round(y / 100) })}
       />

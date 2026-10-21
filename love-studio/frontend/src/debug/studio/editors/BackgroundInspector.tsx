@@ -47,6 +47,8 @@ export interface BackgroundInspectorProps {
   bgmNote?: ReactNode;
   /** 包被几张卡用时删之前的提醒;null = 点两下直接删 */
   deleteNote: string | null;
+  /** 玩家模式(素材库只读):改名、替换 / 删除、字段编辑全部收掉 */
+  readOnly?: boolean;
   onToggleBgm: () => void;
   onRename: (label: string) => Promise<boolean>;
   onPatch: (patch: SceneAssetPatch) => void;
@@ -60,6 +62,7 @@ const focusText = (v: number) => `${Math.round(v)}%`;
 
 export function BackgroundInspector(props: BackgroundInspectorProps) {
   const { asset: a, tag } = props;
+  const readOnly = props.readOnly ?? false;
   const [confirming, setConfirming] = useState(false);
   const thumb = sceneThumbUrl(a, 240);
 
@@ -84,7 +87,7 @@ export function BackgroundInspector(props: BackgroundInspectorProps) {
               </span>
             )
           }
-          title={<TitleEdit value={a.label} label="背景名" onCommit={props.onRename} />}
+          title={<TitleEdit value={a.label} label="背景名" onCommit={props.onRename} disabled={readOnly} />}
           badge={
             props.isDefault ? (
               <>
@@ -100,52 +103,56 @@ export function BackgroundInspector(props: BackgroundInspectorProps) {
                 <span>
                   第 {props.index} 张 · 共 {props.total} 张
                 </span>
-                <button
-                  type="button"
-                  className="st-link small"
-                  disabled={!a.enabled || props.busy}
-                  title={a.enabled ? '挪到第一张:对话开头、AI 还没写场景时用它' : '先启用这张背景'}
-                  onClick={props.onMakeDefault}
-                >
-                  设为默认背景
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="st-link small"
+                    disabled={!a.enabled || props.busy}
+                    title={a.enabled ? '挪到第一张:对话开头、AI 还没写场景时用它' : '先启用这张背景'}
+                    onClick={props.onMakeDefault}
+                  >
+                    设为默认背景
+                  </button>
+                )}
               </>
             )
           }
         />
       }
       footer={
-        <>
-          <Btn small icon="image" onClick={props.onReplace}>
-            替换图片
-          </Btn>
-          <span className="st-flex" />
-          {props.deleteNote ? (
-            <Btn small kind="danger" onClick={() => setConfirming(true)}>
-              删除背景
+        readOnly ? undefined : (
+          <>
+            <Btn small icon="image" onClick={props.onReplace}>
+              替换图片
             </Btn>
-          ) : (
-            <DeleteBtn small label="删除背景" onConfirm={props.onDelete} />
-          )}
-          {confirming && (
-            <ConfirmDialog
-              title={`删掉背景「${a.label}」?`}
-              body={
-                <>
-                  <p className="st-dialog-p">{props.deleteNote}。</p>
-                  <p className="st-dialog-p">图会一起删掉,删了就找不回来。</p>
-                </>
-              }
-              confirmLabel="删除"
-              danger
-              onConfirm={() => {
-                setConfirming(false);
-                props.onDelete();
-              }}
-              onCancel={() => setConfirming(false)}
-            />
-          )}
-        </>
+            <span className="st-flex" />
+            {props.deleteNote ? (
+              <Btn small kind="danger" onClick={() => setConfirming(true)}>
+                删除背景
+              </Btn>
+            ) : (
+              <DeleteBtn small label="删除背景" onConfirm={props.onDelete} />
+            )}
+            {confirming && (
+              <ConfirmDialog
+                title={`删掉背景「${a.label}」?`}
+                body={
+                  <>
+                    <p className="st-dialog-p">{props.deleteNote}。</p>
+                    <p className="st-dialog-p">图会一起删掉,删了就找不回来。</p>
+                  </>
+                }
+                confirmLabel="删除"
+                danger
+                onConfirm={() => {
+                  setConfirming(false);
+                  props.onDelete();
+                }}
+                onCancel={() => setConfirming(false)}
+              />
+            )}
+          </>
+        )
       }
     >
       <Section title="描述" help={TERMS.bgDesc} first />
@@ -153,16 +160,18 @@ export function BackgroundInspector(props: BackgroundInspectorProps) {
         key={`desc:${a.id}`}
         value={a.description}
         rows={2}
+        disabled={readOnly}
         placeholder="什么地方、什么时候用,比如:海灯节夜里挂满灯笼的会场入口;过节、逛灯会时用"
         onCommit={(description) => props.onPatch({ description })}
       />
       <div className="st-gap" />
       <FieldLabel text="别名" help={TERMS.bgAlias} />
-      <TagsField values={a.aliases} onChange={(aliases) => props.onPatch({ aliases })} placeholder="比如 灯会,回车加" />
+      <TagsField values={a.aliases} onChange={(aliases) => props.onPatch({ aliases })} disabled={readOnly} placeholder="比如 灯会,回车加" />
       <div className="st-gap" />
       <SwitchRow
         label="启用这张背景"
         checked={a.enabled}
+        disabled={readOnly}
         note={a.enabled ? undefined : '停用后游戏里当它不存在,图和设置都留着'}
         onChange={(enabled) => props.onPatch({ enabled })}
       />
@@ -180,6 +189,7 @@ export function BackgroundInspector(props: BackgroundInspectorProps) {
           label="默认 BGM"
           value={a.bgm_id ?? ''}
           options={props.bgmOptions}
+          disabled={readOnly}
           onChange={(v) => props.onPatch({ bgm_id: v || null })}
         />
       </div>
@@ -194,6 +204,7 @@ export function BackgroundInspector(props: BackgroundInspectorProps) {
         max={100}
         step={1}
         value={props.focus}
+        disabled={readOnly}
         format={focusText}
         note="也可以在预览里打开「手机竖屏」,左右拖动虚线框"
         onChange={(v) => props.onFocus(v, false)}

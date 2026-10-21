@@ -53,6 +53,8 @@ export interface LibraryAsideProps {
   query: string;
   storage: StorageSummary;
   cleaning: boolean;
+  /** 玩家模式(素材库只读):不露「清理」(清理会挪走没人用的文件) */
+  readOnly?: boolean;
   onClean: () => void;
   /** 收起左栏(sidePanels.tsx);不给就没有收起按钮 */
   onCollapse?: () => void;
@@ -75,6 +77,7 @@ export function LibraryAside({
   cleaning,
   onClean,
   onCollapse,
+  readOnly = false,
 }: LibraryAsideProps) {
   const info = KIND_INFO[kind];
   // 中文里夹的英文前后空一格:「立绘约 210 MB」「BGM 约 40 MB」
@@ -192,15 +195,17 @@ export function LibraryAside({
             </button>
           )}
           <span className="st-flex" />
-          <button
-            type="button"
-            className="st-link lib-foot-link"
-            disabled={cleaning}
-            title="把没有任何包、卡和备份用到的文件挪进回收区(30 天后才真删)"
-            onClick={onClean}
-          >
-            {cleaning ? '清理中…' : '清理'}
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              className="st-link lib-foot-link"
+              disabled={cleaning}
+              title="把没有任何包、卡和备份用到的文件挪进回收区(30 天后才真删)"
+              onClick={onClean}
+            >
+              {cleaning ? '清理中…' : '清理'}
+            </button>
+          )}
         </div>
       </div>
     </aside>

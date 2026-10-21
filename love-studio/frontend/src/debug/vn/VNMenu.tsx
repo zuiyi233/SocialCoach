@@ -32,9 +32,9 @@ const PAGE_NAME: Record<MenuPage, string> = {
   dev: '开发者',
 };
 
-/** 玩家界面(创作者模式关)只留这三页:看历史、读存档、调设置。
- *  角色 / 插件 / 预设 / 模型都是创作工具,调试台里才有。 */
-const PLAYER_PAGES = new Set<MenuPage>(['log', 'save', 'config']);
+/** 玩家界面(创作者模式关)只留这几页:看历史、读存档、管理角色卡(导入/导出/删除)、调设置。
+ *  插件 / 预设 / 模型都是创作工具,调试台里才有。 */
+const PLAYER_PAGES = new Set<MenuPage>(['log', 'save', 'card', 'config']);
 
 interface Props {
   page: MenuPage;
@@ -83,13 +83,19 @@ export function VNMenu({ page, onPage, charName, chatName, headExtra, children, 
             >
               {p.name}
             </button>
-            {p.key === 'plugin' && creator && onLibrary && (
-              <button className="vn-nav" title="素材管理:库里所有的立绘、声音、背景、BGM、CG(全屏打开)" onClick={onLibrary}>
-                素材
-              </button>
-            )}
           </Fragment>
         ))}
+        {/* 「素材」:素材管理页(全屏打开)。创作者模式跟在插件页后面;玩家模式也会给 —— 玩家能打开,
+            但那边是只读的(编辑动作由 AssetLibrary 的 readOnly 禁用) */}
+        {onLibrary && (
+          <button
+            className="vn-nav"
+            title="素材管理:库里所有的立绘、声音、背景、BGM、CG(全屏打开)"
+            onClick={onLibrary}
+          >
+            素材
+          </button>
+        )}
         <div className="vn-nav-gap" />
         {creator && (
           <button

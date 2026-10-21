@@ -44,6 +44,8 @@ export interface BgmPackEditorProps {
   onAssets?: (packId: string, list: SceneAsset[]) => void;
   /** 删了一首:别的包里把它当默认 BGM 的背景后端也清掉了,外面照着改手上的列表 */
   onRemoved?: (assetId: string) => void;
+  /** 玩家模式(素材库只读):上传 / 替换 / 删除收掉,字段禁用 */
+  readOnly?: boolean;
 }
 
 const NO_USERS: readonly BgmUser[] = [];
@@ -62,6 +64,7 @@ export function BgmPackEditor({
   onIncomingTaken,
   onAssets,
   onRemoved,
+  readOnly = false,
 }: BgmPackEditorProps) {
   const ops = useSceneAssets({ packId, kind: 'bgm', sync, notify, incoming, onIncomingTaken, onAssets, onRemoved });
   const { list, items, selected } = ops;
@@ -96,12 +99,14 @@ export function BgmPackEditor({
           <div className="st-grid-head with-action st-tracks-head">
             <span className="st-grid-title">曲子</span>
             <span className="st-grid-note">
-              {list === null ? '读取中…' : items.length === 0 ? '还没有' : `${items.length} 首 · 点击编辑 · ▶ 试听`}
+              {list === null ? '读取中…' : items.length === 0 ? '还没有' : `${items.length} 首 · 点击${readOnly ? '' : '编辑'} · ▶ 试听`}
             </span>
             <span className="st-flex" />
-            <Btn small icon="plus" onClick={pickFiles}>
-              添加曲子
-            </Btn>
+            {!readOnly && (
+              <Btn small icon="plus" onClick={pickFiles}>
+                添加曲子
+              </Btn>
+            )}
           </div>
           {items.map((a, i) => {
             const url = sceneFileUrl(a);
@@ -171,10 +176,12 @@ export function BgmPackEditor({
           ))}
           {list !== null && items.length === 0 && !uploading && (
             <div className="st-tracks-empty">
-              <span>这套还没有曲子 · 一次选几首上传,文件名就是曲名</span>
-              <Btn small icon="upload" onClick={pickFiles}>
-                上传曲子
-              </Btn>
+              <span>{readOnly ? '这套还没有曲子' : '这套还没有曲子 · 一次选几首上传,文件名就是曲名'}</span>
+              {!readOnly && (
+                <Btn small icon="upload" onClick={pickFiles}>
+                  上传曲子
+                </Btn>
+              )}
             </div>
           )}
         </section>
@@ -223,6 +230,7 @@ export function BgmPackEditor({
               error={on ? bgm.error : null}
               duration={url ? formatDuration(bgm.durations[url]) : ''}
               users={users.get(selected.id) ?? NO_USERS}
+              readOnly={readOnly}
               deleteNote={sharedDeleteNote(cardCount, '首')}
               onToggle={() => url && toggle(url)}
               onRename={(label) => ops.patch(selected.id, { label })}

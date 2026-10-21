@@ -37,11 +37,11 @@ export function SpriteFaceGrid({
   faces: ReadonlyMap<string, FaceBox>;
   selectedId: string | null;
   onSelect: (id: string) => void;
-  /** 拖完的新顺序(全部 id) */
-  onReorder: (ids: string[]) => void;
+  /** 拖完的新顺序(全部 id);不给 = 不能拖(只读) */
+  onReorder?: (ids: string[]) => void;
   uploads: readonly UploadTile[];
-  /** 「添加差分」:选图上传 */
-  onAdd: () => void;
+  /** 「添加差分」:选图上传;不给 = 不画这一格(只读) */
+  onAdd?: () => void;
   /** 正在排序 / 上传时不让拖 */
   locked?: boolean;
 }) {
@@ -68,7 +68,7 @@ export function SpriteFaceGrid({
     e.preventDefault();
     const next = drop ? moveId(ids, drag, drop.id, drop.place) : null;
     clear();
-    if (next) onReorder(next);
+    if (next && onReorder) onReorder(next);
   };
 
   return (
@@ -92,7 +92,7 @@ export function SpriteFaceGrid({
             aria-pressed={selected}
             className={`st-face-tile${selected ? ' selected' : ''}${s.enabled ? '' : ' off'}${drag === s.id ? ' dragging' : ''}${mark}`}
             title={s.description || s.label}
-            draggable={!locked}
+            draggable={!locked && onReorder !== undefined}
             onClick={() => onSelect(s.id)}
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = 'move';
@@ -128,10 +128,12 @@ export function SpriteFaceGrid({
           <span className="st-face-label">{u.name}</span>
         </div>
       ))}
-      <button type="button" className="st-face-add" onClick={onAdd}>
-        <Icon name="plus" size={20} />
-        <span>添加差分</span>
-      </button>
+      {onAdd && (
+        <button type="button" className="st-face-add" onClick={onAdd}>
+          <Icon name="plus" size={20} />
+          <span>添加差分</span>
+        </button>
+      )}
     </div>
   );
 }

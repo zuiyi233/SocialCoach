@@ -3,13 +3,24 @@
 调试台（prompt console）用这组端点持久化它导入或编辑的卡和预设。
 PNG 解析留在前端 —— 前端解析完把 JSON 和头像一起 POST 过来，
 后端只负责存取，不重复实现 PNG chunk 解析。
+
+「导出为 PNG」是唯一的例外(spec-love-user-cards §3):前端把 V2 JSON 送来,
+后端用存储在卡上的原始头像(PNG 字节)写回 tEXt `chara` 块,没有原图时画占位图。
 """
 
+import base64
+import binascii
 import hashlib
+import json
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from pydantic import BaseModel
 from sqlalchemy import and_, select, update
 from sqlalchemy.orm import Session, defer
+
+from app.api.scpersona import _disposition
+from app.importer import png_card
 
 from app import bindings, states
 from app.api.card_prefs import copy_card_prefs, delete_card_prefs
@@ -26,6 +37,29 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/api/tavern", tags=["tavern"])
+
+
+class CardPngExportIn(BaseModel):
+    """导出为 PNG 的载荷:由前端 cardToFileJson 生成的 V2 JSON 字符串。
+    传 JSON 而不是让后端从库里重建,是为了和「导出 JSON」那份逐字一致 ——
+    PNG 里装的和 JSON 导出的是同一张卡。"""
+
+    card_json: str
+
+
+def _avatar_png(avatar: str | None) -> bytes | None:
+    """卡上的头像是 data URL(data:image/png;base64,…);解成原始 PNG 字节拿来保留像素。
+    解不出(不是 base64 / 不是 PNG)就当没有原图。"""
+    if not avatar:
+        return None
+    kind, _, rest = avatar.partition(",")
+    if "base64" not in kind:
+        return None
+    try:
+        data = base64.b64decode(rest, validate=False)
+    except (ValueError, binascii.Error):
+        return None
+    return data if data.startswith(png_card.PNG_SIGNATURE) else None
 
 
 def _card_out(card: TavernCard, has_avatar: bool | None = None, state_of: str | None = None) -> TavernCardOut:
@@ -212,6 +246,30 @@ def get_card_avatar(card_id: str, request: Request, db: Session = Depends(get_db
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
     return Response(content=card.avatar, media_type="text/plain", headers=headers)
+
+
+@router.post("/cards/{card_id}/export/png")
+def export_card_png(card_id: str, req: CardPngExportIn, db: Session = Depends(get_db)):
+    """把一张卡导出成 PNG(spec-love-user-cards §3):V2 JSON 写回原图 tEXt 块
+    (keyword `chara`,base64),保留原图像素;没有原图时生成纯色 + 角色名的占位图。
+    PNG 契约与主站 love-card.ts 解析器对齐:`{"spec":"chara_card_v2","data":{...}}`。"""
+    card = _load_card(card_id, db)
+    if not req.card_json.strip():
+        raise HTTPException(400, "导出的卡不能是空的")
+    try:
+        raw = json.loads(req.card_json)
+    except ValueError as e:
+        raise HTTPException(400, "导出的卡不是合法的 JSON") from e
+    if not isinstance(raw, dict) or not isinstance(raw.get("data"), dict):
+        raise HTTPException(400, "导出的卡不是 chara_card_v2 的形状({\"spec\":...,\"data\":{...}})")
+    data = png_card.write_card_into_png(_avatar_png(card.avatar), req.card_json, raw["data"].get("name") or card.name)
+    name = (card.name or "character").strip() or "character"
+    safe = re.sub(r"[^\w.\-\u4e00-\u9fff]", "_", name) or "character"
+    return Response(
+        content=data,
+        media_type="image/png",
+        headers={"Content-Disposition": _disposition(f"{name}.png", f"{safe}.png")},
+    )
 
 
 # ══════════════ 预设 ══════════════

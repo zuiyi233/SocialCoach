@@ -72,6 +72,8 @@ export interface CgPackEditorProps {
   onIncomingTaken?: () => void;
   /** 列表变了(构图张数、第一张):包页签的张数、缩略图跟着换 */
   onAssets?: (packId: string, list: SceneAsset[]) => void;
+  /** 玩家模式(素材库只读):上传 / 排序 / 删除收掉,字段禁用 */
+  readOnly?: boolean;
 }
 
 export function CgPackEditor({
@@ -84,6 +86,7 @@ export function CgPackEditor({
   incoming,
   onIncomingTaken,
   onAssets,
+  readOnly = false,
 }: CgPackEditorProps) {
   const [list, setList] = useState<SceneAsset[] | null>(null);
   const [pick, setPick] = useState<CgPick | null>(null);
@@ -346,11 +349,11 @@ export function CgPackEditor({
   });
   const loaded = list !== null;
   useEffect(() => {
-    if (!incoming || !loaded || handled.current === incoming.nonce) return;
+    if (readOnly || !incoming || !loaded || handled.current === incoming.nonce) return;
     handled.current = incoming.nonce;
     takenRef.current?.();
     void addFiles(incoming.files);
-  }, [incoming, loaded, addFiles]);
+  }, [readOnly, incoming, loaded, addFiles]);
 
   // ---- 算出来的 ----
   const rows = list ?? [];
@@ -406,7 +409,7 @@ export function CgPackEditor({
           background={null}
           cg={shown && src ? { src, focus: shown.cg.focus_x, mode: 'cover' } : null}
           line={shown ? { speaker: '旁白', text: cgNarration(shown.cg), narration: true } : null}
-          editable={src && (phone || focusing) ? 'focus' : null}
+          editable={readOnly ? null : src && (phone || focusing) ? 'focus' : null}
           onFocus={(v, done) => shown && setFocus(shown.cg.id, v, done)}
           badges={badges}
           overlays={stageEmpty ? <div className="cg-stage-empty">{stageEmpty}</div> : null}
@@ -417,8 +420,10 @@ export function CgPackEditor({
             {list === null
               ? '读取中…'
               : groups.length === 0
-                ? '还没有 · 文件名就是构图名,横图(16:9)效果最好'
-                : `${groups.length} 张 · 点击编辑 · 拖动排序`}
+                ? readOnly
+                  ? '还没有可看的构图'
+                  : '还没有 · 文件名就是构图名,横图(16:9)效果最好'
+                : `${groups.length} 张 · 点击${readOnly ? '' : '编辑 · 拖动排序'}`}
           </span>
         </div>
         {list !== null && (
@@ -426,10 +431,10 @@ export function CgPackEditor({
             groups={groups}
             selectedId={shown?.cg.id ?? null}
             onSelect={(id) => setPick({ cgId: id, variantId: null })}
-            onReorder={reorder}
+            onReorder={readOnly ? undefined : reorder}
             uploads={uploads}
-            onAdd={() => addInput.current?.click()}
-            locked={reordering || uploads.length > 0}
+            onAdd={readOnly ? undefined : () => addInput.current?.click()}
+            locked={reordering || uploads.length > 0 || readOnly}
           />
         )}
         <input
@@ -485,6 +490,7 @@ export function CgPackEditor({
           variantId={shown.variant?.id ?? null}
           emotions={emotions}
           focus={shown.cg.focus_x}
+          readOnly={readOnly}
           FormsEditor={showForms ? formsExt.Editor : null}
           variantUploads={variantUploads.filter((u) => u.cgId === shown.cg.id)}
           confirmDelete={cardCount >= 2}

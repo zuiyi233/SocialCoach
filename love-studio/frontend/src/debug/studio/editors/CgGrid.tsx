@@ -27,11 +27,11 @@ export function CgGrid({
   groups: readonly CgGroup[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  /** 拖完的新顺序(全部构图的 id) */
-  onReorder: (ids: string[]) => void;
+  /** 拖完的新顺序(全部构图的 id);不给 = 不能拖(只读) */
+  onReorder?: (ids: string[]) => void;
   uploads: readonly UploadTile[];
-  /** 「添加构图」:选图上传 */
-  onAdd: () => void;
+  /** 「添加构图」:选图上传;不给 = 不画这一格(只读) */
+  onAdd?: () => void;
   /** 正在排序 / 上传时不让拖 */
   locked?: boolean;
 }) {
@@ -57,7 +57,7 @@ export function CgGrid({
     e.preventDefault();
     const next = drop ? moveId(ids, drag, drop.id, drop.place) : null;
     clear();
-    if (next) onReorder(next);
+    if (next && onReorder) onReorder(next);
   };
 
   return (
@@ -83,7 +83,7 @@ export function CgGrid({
             aria-pressed={selected}
             className={`cg-tile${selected ? ' selected' : ''}${cg.enabled ? '' : ' off'}${drag === cg.id ? ' dragging' : ''}${mark}`}
             title={cg.description || cg.label}
-            draggable={!locked}
+            draggable={!locked && onReorder !== undefined}
             onClick={() => onSelect(cg.id)}
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = 'move';
@@ -126,10 +126,12 @@ export function CgGrid({
           <span className="cg-tile-sub">&nbsp;</span>
         </div>
       ))}
-      <button type="button" className="cg-add" onClick={onAdd}>
-        <Icon name="plus" size={20} />
-        <span>添加构图</span>
-      </button>
+      {onAdd && (
+        <button type="button" className="cg-add" onClick={onAdd}>
+          <Icon name="plus" size={20} />
+          <span>添加构图</span>
+        </button>
+      )}
     </div>
   );
 }

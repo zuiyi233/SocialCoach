@@ -1152,6 +1152,22 @@ export const debugApi = {
   exportScPersonaUrl: (cardId: string, publicOnly: boolean) =>
     `${BASE_URL}/api/scpersona/export/${encodeURIComponent(cardId)}${publicOnly ? '?public_only=1' : ''}`,
 
+  /** 导出为 PNG(spec-love-user-cards §3):把 cardToFileJson 那份 V2 JSON 发过去,
+   *  后端写回原头像的 tEXt `chara` 块(没有原头像画占位图),保留原图像素。
+   *  传 JSON 而不是卡 id,是为了和「导出 JSON」那份逐字一致。 */
+  exportCardPng: async (cardId: string, cardJson: string): Promise<{ blob: Blob; filename: string }> => {
+    const res = await fetch(`${BASE_URL}/api/tavern/cards/${encodeURIComponent(cardId)}/export/png`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_json: cardJson }),
+    });
+    if (!res.ok) throw await failure(res);
+    const blob = await res.blob();
+    const filename =
+      filenameFromDisposition(res.headers.get('Content-Disposition') ?? '') ?? 'character.png';
+    return { blob, filename };
+  },
+
   // ---- 故事包 `socialcoach.love-story.v1`（「把这段关系带回半教练」；spec-love-bridge §5）----
 
   /** 一局对话 → 故事包；`json` 就是要下载的那份字节，`file_name` 由后端按同一规则生成 */

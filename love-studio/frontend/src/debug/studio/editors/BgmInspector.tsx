@@ -42,6 +42,8 @@ export interface BgmInspectorProps {
   users: readonly BgmUser[];
   /** 包被几张卡用时删之前的提醒;null = 点两下直接删 */
   deleteNote: string | null;
+  /** 玩家模式(素材库只读):改名、上传 / 替换 / 删除、字段编辑全部收掉 */
+  readOnly?: boolean;
   onToggle: () => void;
   onRename: (label: string) => Promise<boolean>;
   onPatch: (patch: SceneAssetPatch) => void;
@@ -52,6 +54,7 @@ export interface BgmInspectorProps {
 
 export function BgmInspector(props: BgmInspectorProps) {
   const { asset: a, cover, users } = props;
+  const readOnly = props.readOnly ?? false;
   const [confirming, setConfirming] = useState(false);
   const isCover = cover?.explicit === true;
 
@@ -83,7 +86,7 @@ export function BgmInspector(props: BgmInspectorProps) {
               onClick={props.onToggle}
             />
           }
-          title={<TitleEdit value={a.label} label="曲名" onCommit={props.onRename} />}
+          title={<TitleEdit value={a.label} label="曲名" onCommit={props.onRename} disabled={readOnly} />}
           badge={
             <>
               {isCover && <Chip strong>封面曲</Chip>}
@@ -96,42 +99,44 @@ export function BgmInspector(props: BgmInspectorProps) {
         />
       }
       footer={
-        <>
-          <Btn small icon="upload" onClick={props.onReplace}>
-            {a.has_file ? '替换文件' : '上传文件'}
-          </Btn>
-          <span className="st-flex" />
-          {props.deleteNote ? (
-            <Btn small kind="danger" onClick={() => setConfirming(true)}>
-              删除曲子
+        readOnly ? undefined : (
+          <>
+            <Btn small icon="upload" onClick={props.onReplace}>
+              {a.has_file ? '替换文件' : '上传文件'}
             </Btn>
-          ) : (
-            <DeleteBtn small label="删除曲子" onConfirm={props.onDelete} />
-          )}
-          {confirming && (
-            <ConfirmDialog
-              title={`删掉曲子「${a.label}」?`}
-              body={
-                <>
-                  <p className="st-dialog-p">{props.deleteNote}。</p>
-                  {users.length > 0 && (
-                    <p className="st-dialog-p">
-                      {users.map((u) => `「${u.label}」`).join('')}切过来时就不换曲子了。
-                    </p>
-                  )}
-                  <p className="st-dialog-p">文件会一起删掉,删了就找不回来。</p>
-                </>
-              }
-              confirmLabel="删除"
-              danger
-              onConfirm={() => {
-                setConfirming(false);
-                props.onDelete();
-              }}
-              onCancel={() => setConfirming(false)}
-            />
-          )}
-        </>
+            <span className="st-flex" />
+            {props.deleteNote ? (
+              <Btn small kind="danger" onClick={() => setConfirming(true)}>
+                删除曲子
+              </Btn>
+            ) : (
+              <DeleteBtn small label="删除曲子" onConfirm={props.onDelete} />
+            )}
+            {confirming && (
+              <ConfirmDialog
+                title={`删掉曲子「${a.label}」?`}
+                body={
+                  <>
+                    <p className="st-dialog-p">{props.deleteNote}。</p>
+                    {users.length > 0 && (
+                      <p className="st-dialog-p">
+                        {users.map((u) => `「${u.label}」`).join('')}切过来时就不换曲子了。
+                      </p>
+                    )}
+                    <p className="st-dialog-p">文件会一起删掉,删了就找不回来。</p>
+                  </>
+                }
+                confirmLabel="删除"
+                danger
+                onConfirm={() => {
+                  setConfirming(false);
+                  props.onDelete();
+                }}
+                onCancel={() => setConfirming(false)}
+              />
+            )}
+          </>
+        )
       }
     >
       {props.error && <div className="st-bgm-note warn first">{props.error}</div>}
@@ -140,23 +145,25 @@ export function BgmInspector(props: BgmInspectorProps) {
         key={`desc:${a.id}`}
         value={a.description}
         rows={2}
+        disabled={readOnly}
         placeholder="什么气氛用它,比如:轻快的日常曲,平常聊天、逛街时放"
         onCommit={(description) => props.onPatch({ description })}
       />
       <div className="st-gap" />
       <FieldLabel text="别名" help={TERMS.bgmAlias} />
-      <TagsField values={a.aliases} onChange={(aliases) => props.onPatch({ aliases })} placeholder="比如 轻松,回车加" />
+      <TagsField values={a.aliases} onChange={(aliases) => props.onPatch({ aliases })} disabled={readOnly} placeholder="比如 轻松,回车加" />
       <div className="st-gap" />
       <SwitchRow
         label="启用这首曲子"
         checked={a.enabled}
+        disabled={readOnly}
         note={a.enabled ? undefined : '停用后游戏里当它不存在,文件和设置都留着'}
         onChange={(enabled) => props.onPatch({ enabled })}
       />
       <div className="st-gap small" />
 
       <Section title="封面曲" help={TERMS.cover} />
-      <SwitchRow label="设为封面曲" checked={isCover} note={coverNote} onChange={props.onCover} />
+      <SwitchRow label="设为封面曲" checked={isCover} disabled={readOnly} note={coverNote} onChange={props.onCover} />
       <div className="st-gap small" />
 
       <Section title="这些背景切过来时放它" note="只读 · 在「背景」那一栏的「默认 BGM」里改" />

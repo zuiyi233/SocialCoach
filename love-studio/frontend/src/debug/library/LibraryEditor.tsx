@@ -33,6 +33,8 @@ export interface LibraryEditorProps {
   item: LibraryItem;
   /** 主区顶上那一行(LibraryHeader) */
   header: ReactNode;
+  /** 玩家模式(素材库只读):编辑控件禁用,上传 / 删除 / 排序都不露 */
+  readOnly?: boolean;
   /** 绑着它的第一张卡的名字(立绘预览的说话人);没有是 null */
   firstCardName: string | null;
   stage: SpriteStage;
@@ -61,6 +63,7 @@ export function LibraryEditor(props: LibraryEditorProps) {
         packId={item.id}
         header={header}
         cardCount={cardCount}
+        readOnly={props.readOnly}
         sync={sync}
         notify={notify}
         onAssets={onEdited}
@@ -72,6 +75,7 @@ export function LibraryEditor(props: LibraryEditorProps) {
       voiceId={item.id}
       header={header}
       spriteLabels={null}
+      readOnly={props.readOnly}
       onChanged={() => {
         // 游戏里这个声音已经合成好的句子作废重念(useVoicePlugin 比较前后的设置)
         sync.packs('voice');
@@ -84,7 +88,7 @@ export function LibraryEditor(props: LibraryEditorProps) {
 
 // ---------------------------------------------------------------- 立绘
 
-function SpriteEditor({ item, header, firstCardName, stage, sync, notify, onEdited }: LibraryEditorProps) {
+function SpriteEditor({ item, header, firstCardName, stage, sync, notify, onEdited, readOnly }: LibraryEditorProps) {
   const firstCard = item.card_ids[0] ?? null;
   const [backgrounds, setBackgrounds] = useState<{ cardId: string; list: SceneAsset[] } | null>(null);
   useEffect(() => {
@@ -107,6 +111,7 @@ function SpriteEditor({ item, header, firstCardName, stage, sync, notify, onEdit
       packId={item.id}
       header={header}
       stage={stage}
+      readOnly={readOnly}
       previewBackground={bg && src ? { src, focus: bg.focus_x } : { src: POSITION_EDITOR_BACKGROUND, focus: 50 }}
       previewBadges={bg ? <BackgroundChip backgrounds={usable} value={bg} onChange={setBgId} /> : null}
       previewLine={{ speaker: firstCardName ?? item.name, text: '' }}
@@ -123,7 +128,7 @@ function SpriteEditor({ item, header, firstCardName, stage, sync, notify, onEdit
 const BG_NOTE = '能选这个包自己的曲子。游戏里只放卡「BGM」那一栏绑了的曲子:那张卡没绑这首,切到这张背景时不换曲子';
 const BG_NOTE_EMPTY = '这个包里没有曲子,只能选「不换」;要用别的包里的曲子,到卡编辑器的背景栏里选';
 
-function BackgroundEditor({ item, header, sync, notify, onEdited }: LibraryEditorProps) {
+function BackgroundEditor({ item, header, sync, notify, onEdited, readOnly }: LibraryEditorProps) {
   // 默认 BGM 能选的 = 这个包自己的曲子:编辑器自己也读一遍包,但一开始不报出来,这里另读一次,之后跟着它报的改
   const [list, setList] = useState<SceneAsset[] | null>(null);
   useEffect(() => {
@@ -147,6 +152,7 @@ function BackgroundEditor({ item, header, sync, notify, onEdited }: LibraryEdito
       bgmChoices={choices}
       bgmNote={choices.length === 0 ? BG_NOTE_EMPTY : BG_NOTE}
       cardCount={item.card_ids.length}
+      readOnly={readOnly}
       sync={sync}
       notify={notify}
       onAssets={(_pid, next) => {
@@ -159,7 +165,7 @@ function BackgroundEditor({ item, header, sync, notify, onEdited }: LibraryEdito
 
 // ---------------------------------------------------------------- BGM
 
-function BgmEditor({ item, header, sync, notify, onEdited }: LibraryEditorProps) {
+function BgmEditor({ item, header, sync, notify, onEdited, readOnly }: LibraryEditorProps) {
   const [titleBgmId, setTitleBgmId] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -192,6 +198,7 @@ function BgmEditor({ item, header, sync, notify, onEdited }: LibraryEditorProps)
       packName={item.name}
       header={header}
       titleBgmId={titleBgmId}
+      readOnly={readOnly}
       onTitleBgm={(id) => void changeTitle(id)}
       cardCount={item.card_ids.length}
       sync={sync}

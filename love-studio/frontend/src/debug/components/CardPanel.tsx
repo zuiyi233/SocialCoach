@@ -48,6 +48,9 @@ interface Props {
   onPickAvatar: () => void;
   /** 头像下面的「绑定」一栏(CardBindings),由 DebugApp 填好传进来 */
   bindings?: ReactNode;
+  /** 玩家模式(创作者模式关):只能导入 / 导出 / 删除,字段只读、不建新角色、不进卡编辑器。
+      开关控制的是入口可见性,不复制另一块 UI。 */
+  readOnly?: boolean;
 }
 
 const SAVE_LABEL: Record<SaveState, string> = {
@@ -79,6 +82,7 @@ export function CardPanel({
   onOpenStudio,
   onPickAvatar,
   bindings,
+  readOnly = false,
 }: Props) {
   const [showNotes, setShowNotes] = useState(false);
   const [greetingIndex, setGreetingIndex] = useState(0);
@@ -171,25 +175,32 @@ export function CardPanel({
           </span>
         )}
         <div style={{ flex: 1 }} />
-        <button className="icon-btn" onClick={onNew} disabled={busy} title="新建角色卡">
-          <AnimaIcon name="add" size={16} />
-        </button>
-        <button
-          className="icon-btn"
-          onClick={onDuplicate}
-          disabled={busy || !selectedId}
-          title="复制角色卡"
-        >
-          <AnimaIcon name="copy" size={16} />
-        </button>
-        <button
-          className="icon-btn"
-          onClick={() => onOpenStudio('profile')}
-          disabled={busy || !card || view === 'list'}
-          title="编辑资料(性格 / 情景 / 对话示例 / 提示词覆盖 / 世界书)"
-        >
-          <AnimaIcon name="sliders" size={16} />
-        </button>
+        {/* 玩家模式只留导入 / 导出 / 删除;新建、复制、卡编辑器(资料/素材)是创作工具 */}
+        {!readOnly && (
+          <button className="icon-btn" onClick={onNew} disabled={busy} title="新建角色卡">
+            <AnimaIcon name="add" size={16} />
+          </button>
+        )}
+        {!readOnly && (
+          <button
+            className="icon-btn"
+            onClick={onDuplicate}
+            disabled={busy || !selectedId}
+            title="复制角色卡"
+          >
+            <AnimaIcon name="copy" size={16} />
+          </button>
+        )}
+        {!readOnly && (
+          <button
+            className="icon-btn"
+            onClick={() => onOpenStudio('profile')}
+            disabled={busy || !card || view === 'list'}
+            title="编辑资料(性格 / 情景 / 对话示例 / 提示词覆盖 / 世界书)"
+          >
+            <AnimaIcon name="sliders" size={16} />
+          </button>
+        )}
       </div>
 
       {view === 'list' && (
@@ -219,11 +230,11 @@ export function CardPanel({
       {view === 'editor' && card && (
         <div className="panel-body card-fields">
           {/* 头像、名字这一块也是拖放落点:把文件拖到这里 = 给这张卡加素材 */}
-          <div className="card-hero" {...(selectedId ? dropTarget(selectedId, card.name || '(无名)') : {})}>
+          <div className="card-hero" {...(selectedId && !readOnly ? dropTarget(selectedId, card.name || '(无名)') : {})}>
             <button
               className="card-avatar-btn"
-              onClick={onPickAvatar}
-              title="点击更换头像"
+              onClick={readOnly ? undefined : onPickAvatar}
+              title={readOnly ? '角色头像' : '点击更换头像'}
             >
               {avatarUrl ? (
                 <img className="card-avatar" src={avatarUrl} alt={card.name} />
@@ -236,6 +247,7 @@ export function CardPanel({
                 className="card-name-input"
                 value={card.name}
                 placeholder="(无名)"
+                readOnly={readOnly}
                 onChange={(e) => onChange({ name: e.target.value })}
               />
               <div className="card-spec">
@@ -255,7 +267,7 @@ export function CardPanel({
             </div>
           </div>
 
-          {bindings}
+          {!readOnly && bindings}
 
           {/* 创作者的注释:折叠,和酒馆一样默认收起 */}
           <div className="field-row">
@@ -270,6 +282,7 @@ export function CardPanel({
                   rows={3}
                   value={card.creator_notes}
                   placeholder="（给用户看的说明，不会发给 AI）"
+                  readOnly={readOnly}
                   onChange={(e) => onChange({ creator_notes: e.target.value })}
                 />
               </div>
@@ -277,17 +290,19 @@ export function CardPanel({
           </div>
 
           {/* 卡编辑器的两个入口:资料(角色卡的全部字段)/ 素材(这张卡的立绘、声音、背景、BGM、CG)。
-              工具行右边的滑块图标也开资料页 */}
-          <div className="card-studio-links">
-            <button type="button" className="btn" onClick={() => onOpenStudio('profile')} disabled={busy}>
-              <AnimaIcon name="edit" size={15} />
-              编辑资料
-            </button>
-            <button type="button" className="btn" onClick={() => onOpenStudio('assets')} disabled={busy}>
-              <AnimaIcon name="plugin" size={15} />
-              素材
-            </button>
-          </div>
+              工具行右边的滑块图标也开资料页。玩家模式只读,不露这两个入口 */}
+          {!readOnly && (
+            <div className="card-studio-links">
+              <button type="button" className="btn" onClick={() => onOpenStudio('profile')} disabled={busy}>
+                <AnimaIcon name="edit" size={15} />
+                编辑资料
+              </button>
+              <button type="button" className="btn" onClick={() => onOpenStudio('assets')} disabled={busy}>
+                <AnimaIcon name="plugin" size={15} />
+                素材
+              </button>
+            </div>
+          )}
 
           {/* 一级正文字段之一:角色描述 —— grow 让框撑满剩余空白 */}
           <div className="card-field grow">
@@ -301,6 +316,7 @@ export function CardPanel({
               className="card-textarea tall"
               value={card.description}
               placeholder="（角色的人设主体。现代卡通常把性格、外貌、示例对话都写在这里）"
+              readOnly={readOnly}
               onChange={(e) => onChange({ description: e.target.value })}
             />
           </div>
@@ -340,21 +356,24 @@ export function CardPanel({
               className="card-textarea tall"
               value={activeGreeting}
               placeholder="（角色说的第一句话）"
+              readOnly={readOnly}
               onChange={(e) => setGreeting(e.target.value)}
             />
-            <div className="card-field-actions">
-              <span className="block-edit-hint">
-                {greetingIndex === 0 ? '主开场白' : `其他开场 ${greetingIndex}`}
-              </span>
-              <button className="btn small" onClick={addGreeting}>
-                ＋ 其他开场
-              </button>
-              {greetingIndex > 0 && (
-                <button className="btn small danger" onClick={removeGreeting}>
-                  删除这条
+            {!readOnly && (
+              <div className="card-field-actions">
+                <span className="block-edit-hint">
+                  {greetingIndex === 0 ? '主开场白' : `其他开场 ${greetingIndex}`}
+                </span>
+                <button className="btn small" onClick={addGreeting}>
+                  ＋ 其他开场
                 </button>
-              )}
-            </div>
+                {greetingIndex > 0 && (
+                  <button className="btn small danger" onClick={removeGreeting}>
+                    删除这条
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -43,6 +43,8 @@ export interface BackgroundPackEditorProps {
   onIncomingTaken?: () => void;
   /** 列表变了:包页签的张数、缩略图跟着换 */
   onAssets?: (packId: string, list: SceneAsset[]) => void;
+  /** 玩家模式(素材库只读):上传 / 焦点拖动都收掉,字段禁用 */
+  readOnly?: boolean;
 }
 
 export function BackgroundPackEditor({
@@ -57,6 +59,7 @@ export function BackgroundPackEditor({
   incoming,
   onIncomingTaken,
   onAssets,
+  readOnly = false,
 }: BackgroundPackEditorProps) {
   const ops = useSceneAssets({ packId, kind: 'bg', sync, notify, incoming, onIncomingTaken, onAssets });
   const { list, items, selected } = ops;
@@ -150,18 +153,22 @@ export function BackgroundPackEditor({
           <Icon name="scene" size={26} />
         </span>
         <span className="st-empty-title">这套还没有背景</span>
-        <span className="st-empty-note">一次选几张图上传,文件名就是背景名;横图(16:9)效果最好</span>
-        <div className="st-empty-actions">
-          <Btn icon="upload" onClick={pickFiles}>
-            上传图片
-          </Btn>
-        </div>
+        <span className="st-empty-note">
+          {readOnly ? '库里还没有可看的素材' : '一次选几张图上传,文件名就是背景名;横图(16:9)效果最好'}
+        </span>
+        {!readOnly && (
+          <div className="st-empty-actions">
+            <Btn icon="upload" onClick={pickFiles}>
+              上传图片
+            </Btn>
+          </div>
+        )}
       </div>
     ) : (
       <StagePreview
         background={src ? { src, focus } : null}
         sprite={showSprite && sprite ? sprite : null}
-        editable={phone && src ? 'focus' : null}
+        editable={readOnly ? null : phone && src ? 'focus' : null}
         onFocus={changeFocus}
         badges={
           <span className="st-stage-toggles" role="group" aria-label="预览开关">
@@ -199,12 +206,14 @@ export function BackgroundPackEditor({
               ? '读取中…'
               : items.length === 0
                 ? '还没有'
-                : `${items.length} 张 · 点击编辑${anyBgm ? ' · ♪ 后面是这张的默认 BGM' : ''}`}
+                : `${items.length} 张 · 点击${readOnly ? '' : '编辑'}${!readOnly && anyBgm ? ' · ♪ 后面是这张的默认 BGM' : ''}`}
           </span>
           <span className="st-flex" />
-          <Btn small icon="plus" onClick={pickFiles}>
-            添加背景
-          </Btn>
+          {!readOnly && (
+            <Btn small icon="plus" onClick={pickFiles}>
+              添加背景
+            </Btn>
+          )}
         </div>
         {list !== null && (items.length > 0 || uploading) && (
           <BackgroundGrid
@@ -229,6 +238,7 @@ export function BackgroundPackEditor({
           busy={ops.busy}
           focus={focus}
           tag={tagOf(selected)}
+          readOnly={readOnly}
           bgmOptions={defaultBgmOptions(bgmChoices, chosenId, foreignName)}
           bgmUrl={chosenUrl}
           bgmPlaying={chosenUrl !== null && bgm.preview === chosenUrl}

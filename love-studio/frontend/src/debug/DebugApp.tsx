@@ -1612,20 +1612,37 @@ export default function DebugApp() {
     }
   };
 
-  /** 导出成 JSON。头像一起写进去 —— 不然导出再导入回来就成了无图卡 */
+  /** 导出角色卡。两种格式:JSON(和之前一样,头像一起写进去)或 PNG(spec-love-user-cards §3:
+   *  前端把同一份 V2 JSON 送到后端,写回原头像的 tEXt 块,保留原图像素;没有原头像用占位图)。
+   *  选格式沿用导出 .scpersona 的 confirm 范式:「确定」= PNG,「取消」= JSON。 */
   const exportCard = async () => {
     if (!card) return;
+    const wantPng = window.confirm(
+      '导出角色卡\n\n确定 = PNG(写回原头像 tEXt 块,可再导入;没有原图会用占位图)\n取消 = JSON',
+    );
     setBusyLabel('正在导出角色卡……');
     try {
       const avatar = avatarUrl ?? (cardId ? await debugApi.getCardAvatar(cardId) : null);
-      const url = URL.createObjectURL(
-        new Blob([cardToFileJson(card, avatar)], { type: 'application/json' }),
-      );
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${card.name || 'character'}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const json = cardToFileJson(card, avatar);
+      if (wantPng) {
+        if (!cardId) throw new Error('这张卡还没保存,导出不了 PNG');
+        const { blob, filename } = await debugApi.exportCardPng(cardId, json);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } else {
+        const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${card.name || 'character'}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } catch (e) {
       notify('error', `导出失败: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -3305,7 +3322,12 @@ export default function DebugApp() {
       void t.scenePlugin.reloadCard();
     }
     setMobileMenu(false);
-    setStudio({ tab: 'assets', slot: slotAfterImport(plan, target.kind), notice: noticeOf(result) });
+    if (creator) {
+      setStudio({ tab: 'assets', slot: slotAfterImport(plan, target.kind), notice: noticeOf(result) });
+    } else {
+      // 玩家模式:卡编辑器是创作工具,不弹;选中新卡让玩家直接能开聊
+      notify('ok', `已导入「${row.name}」`);
+    }
   };
 
   const importer = useImporter({
@@ -4069,7 +4091,7 @@ export default function DebugApp() {
           onSetManual={(id, line, pick) => patchEntry(id, (e) => setManual(e, line, pick))}
           illustrations={illustrations.vn}
           switches={switches}
-          onOpenLibrary={creator ? openLibrary : undefined}
+          onOpenLibrary={openLibrary}
           // 创作者模式传给视觉小说:关掉时菜单只留玩家页、封面不出「调试台」入口。
           // 开关本身在视觉小说的设置页里,切了就落 localStorage(play/creator 两边一致)
           creator={creator}
@@ -4181,6 +4203,7 @@ export default function DebugApp() {
                     onOpenStudio={(tab) => openStudio({ tab, slot: 'sprite' })}
                     onPickAvatar={() => pickAvatarFor({ kind: 'card' })}
                     bindings={cardBindings}
+                    readOnly={!creator}
                   />
                 </div>
               );
@@ -4231,8 +4254,8 @@ export default function DebugApp() {
       {vnVisible && <EnvBadge floating />}
 
       {/* 素材管理页:全屏,盖在视觉小说上面;排在卡编辑器前面 —— 点卡名打开的卡编辑器盖在它上面。
-          素材管理是创作工具,只在创作者模式下挂 */}
-      {creator && library && (
+          玩家模式也能打开,但传 readOnly:导入 / 改名 / 删除 / 绑定 / 清理都没了,只能看 */}
+      {library && (
         <AssetLibrary
           route={library}
           onRoute={routeLibrary}
@@ -4242,13 +4265,14 @@ export default function DebugApp() {
           sync={packSync}
           notify={notify}
           bindings={libraryBindings}
+          readOnly={!creator}
           // 包上「被几张卡用」跟着变
           onBindingsChanged={(kind) => packSync.packs(kind === 'bg' || kind === 'bgm' ? 'scene' : kind)}
           onDeleted={forgetDeleted}
           onOpenCard={(id, slot) => openStudio({ tab: 'assets', slot }, id)}
           onUndone={(r) => void afterImportUndone(r)}
           // 「导入」:选文件交给导入器,不带目标卡;导完有卡就开那张卡的卡编辑器(盖在这一页上面)
-          onImport={() => importer.pick()}
+          onImport={creator ? () => importer.pick() : undefined}
           // 「导入 .scpersona」建好了新卡:重读卡列表,开始页马上能挑到
           onScPersonaImported={() => {
             void debugApi

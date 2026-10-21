@@ -68,6 +68,8 @@ export interface VoiceEditorProps {
   /** 改了这个声音(情绪、参考、参数)之后调:DebugApp 重新拉声音列表(voicePlugin.refresh) */
   onChanged: () => void;
   notify: Notify;
+  /** 玩家模式(素材库只读):不新增 / 不改 / 不删情绪,字段只读展示 */
+  readOnly?: boolean;
 }
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -79,7 +81,7 @@ export function VoiceEditor(props: VoiceEditorProps) {
   return <Editor key={props.voiceId} {...props} />;
 }
 
-function Editor({ voiceId, header, spriteLabels, onChanged, notify }: VoiceEditorProps) {
+function Editor({ voiceId, header, spriteLabels, onChanged, notify, readOnly = false }: VoiceEditorProps) {
   const [data, setData] = useState<{ profile: VoiceProfile | null; connections: TtsConnection[] } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
@@ -117,6 +119,7 @@ function Editor({ voiceId, header, spriteLabels, onChanged, notify }: VoiceEdito
       patch={patch}
       header={header}
       spriteLabels={spriteLabels}
+      readOnly={readOnly}
       onChanged={onChanged}
       notify={notify}
     />
@@ -290,11 +293,12 @@ interface LoadedProps {
   patch: (f: (p: VoiceProfile) => VoiceProfile) => void;
   header: ReactNode;
   spriteLabels: readonly string[] | null;
+  readOnly?: boolean;
   onChanged: () => void;
   notify: Notify;
 }
 
-function Loaded({ profile, connection, patch, header, spriteLabels, onChanged, notify }: LoadedProps) {
+function Loaded({ profile, connection, patch, header, spriteLabels, onChanged, notify, readOnly = false }: LoadedProps) {
   const isIndex = connection?.api_type === 'indextts';
   const emotions = profile.emotions;
   const [selId, setSelId] = useState<string | null>(emotions[0]?.id ?? null);
@@ -432,15 +436,19 @@ function Loaded({ profile, connection, patch, header, spriteLabels, onChanged, n
                 {badge.text}
               </span>
             )}
-            <Btn small icon="plus" onClick={() => setDialog('add')}>
-              新增情绪
-            </Btn>
+            {!readOnly && (
+              <Btn small icon="plus" onClick={() => setDialog('add')}>
+                新增情绪
+              </Btn>
+            )}
           </div>
           {emotions.length === 0 ? (
             <div className="vo-table-empty">
-              {isIndex
-                ? '还没有情绪 · 点「新增情绪」填一个情绪名,和差分名一致'
-                : '还没有情绪 · 点「新增情绪」贴一段参考音频的路径'}
+              {readOnly
+                ? '这个声音还没有情绪'
+                : isIndex
+                  ? '还没有情绪 · 点「新增情绪」填一个情绪名,和差分名一致'
+                  : '还没有情绪 · 点「新增情绪」贴一段参考音频的路径'}
             </div>
           ) : (
             <div role="list" ref={table}>
@@ -496,6 +504,7 @@ function Loaded({ profile, connection, patch, header, spriteLabels, onChanged, n
         refError={sel?.ref_path && refError?.key === refKey(profile.id, sel.ref_path) ? refError.text : null}
         preview={preview}
         refLoading={sel ? refLoading === `ref:${sel.id}` : false}
+        readOnly={readOnly}
         onPlayRef={(e) => void playRef(e)}
         onRename={() => setDialog('rename')}
         onMakeDefault={(e) => void makeDefault(e)}
@@ -505,7 +514,7 @@ function Loaded({ profile, connection, patch, header, spriteLabels, onChanged, n
         notify={notify}
       />
 
-      {dialog === 'add' && (
+      {dialog === 'add' && !readOnly && (
         <PromptDialog
           title="新增情绪"
           label={
@@ -523,7 +532,7 @@ function Loaded({ profile, connection, patch, header, spriteLabels, onChanged, n
           }}
         />
       )}
-      {dialog === 'rename' && sel && (
+      {dialog === 'rename' && sel && !readOnly && (
         <PromptDialog
           title="改情绪名"
           label="情绪名(和差分名一致时直接用这一行)"
@@ -691,10 +700,12 @@ function PathInput({
   value,
   placeholder,
   onCommit,
+  disabled = false,
 }: {
   value: string;
   placeholder: string;
   onCommit: (next: string) => void;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
   const [base, setBase] = useState(value);
@@ -708,12 +719,14 @@ function PathInput({
       value={draft}
       placeholder={placeholder}
       spellCheck={false}
+      readOnly={disabled}
       aria-label="参考音频的路径"
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
-        if (draft.trim() !== value) onCommit(draft);
+        if (!disabled && draft.trim() !== value) onCommit(draft);
       }}
       onKeyDown={(e) => {
+        if (disabled) return;
         if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur();
         else if (e.key === 'Escape') setDraft(value);
       }}
@@ -738,6 +751,7 @@ function EmotionInspector({
   saveEmotion,
   saveVoice,
   notify,
+  readOnly = false,
 }: {
   profile: VoiceProfile;
   connection: TtsConnection | null;
@@ -755,6 +769,8 @@ function EmotionInspector({
   saveEmotion: (e: VoiceEmotion, body: VoiceEmotionPatch) => Promise<boolean>;
   saveVoice: (body: VoiceProfilePatch) => Promise<boolean>;
   notify: Notify;
+  /** 玩家模式(素材库只读):不重命名 / 不删除 / 不预加载,字段只读 */
+  readOnly?: boolean;
 }) {
   const count = profile.emotions.length;
   const [warm, setWarm] = useState<{ busy: boolean; text: string } | null>(null);
@@ -784,9 +800,13 @@ function EmotionInspector({
         />
       }
       title={
-        <button type="button" className="vo-ihead-name" title="改情绪名" onClick={onRename}>
-          {e.label}
-        </button>
+        readOnly ? (
+          <span className="vo-ihead-name">{e.label}</span>
+        ) : (
+          <button type="button" className="vo-ihead-name" title="改情绪名" onClick={onRename}>
+            {e.label}
+          </button>
+        )
       }
       badge={
         index === 0 ? (
@@ -797,9 +817,11 @@ function EmotionInspector({
         ) : (
           <>
             第 {index + 1} 种 · 共 {count} 种
-            <button type="button" className="st-link" onClick={() => onMakeDefault(e)}>
-              设为默认
-            </button>
+            {!readOnly && (
+              <button type="button" className="st-link" onClick={() => onMakeDefault(e)}>
+                设为默认
+              </button>
+            )}
           </>
         )
       }
@@ -813,16 +835,18 @@ function EmotionInspector({
       label={e ? `调整「${e.label}」` : '声音的全局参数'}
       head={head}
       footer={
-        <>
-          <Btn small icon="flame" disabled={warm?.busy} onClick={() => void warmup()}>
-            预加载
-          </Btn>
-          <span className="vo-foot-note" title={warm?.text ?? '语音服务刚重启、或者那边手动切过权重之后,先让它把这个声音加载好'}>
-            {warm?.text ?? '服务重启后用'}
-          </span>
-          <span className="st-flex" />
-          {e && <ArmedBtn small label="删除此情绪" onConfirm={() => onDelete(e)} />}
-        </>
+        readOnly ? undefined : (
+          <>
+            <Btn small icon="flame" disabled={warm?.busy} onClick={() => void warmup()}>
+              预加载
+            </Btn>
+            <span className="vo-foot-note" title={warm?.text ?? '语音服务刚重启、或者那边手动切过权重之后,先让它把这个声音加载好'}>
+              {warm?.text ?? '服务重启后用'}
+            </span>
+            <span className="st-flex" />
+            {e && <ArmedBtn small label="删除此情绪" onConfirm={() => onDelete(e)} />}
+          </>
+        )
       }
     >
       {e && (
@@ -849,6 +873,7 @@ function EmotionInspector({
             <PathInput
               value={e.ref_path}
               placeholder={isIndex ? '可选。填了就照这段的语气念,向量不生效' : 'D:/AnimaVoice/refs/角色/【平静】原文.wav'}
+              disabled={readOnly}
               onCommit={(v) => void saveEmotion(e, refPatch(e, v))}
             />
             <span className={`vo-refnote${refError ? ' error' : ''}`}>
@@ -862,6 +887,7 @@ function EmotionInspector({
               <CommitTextarea
                 rows={2}
                 value={e.prompt_text}
+                disabled={readOnly}
                 placeholder="参考音频里说的原话,一字不差"
                 onCommit={(v) => void saveEmotion(e, { prompt_text: v })}
               />
@@ -870,7 +896,7 @@ function EmotionInspector({
 
           <div className="vo-field">
             <FieldLabel text="别名" help={TERMS.voiceAlias} />
-            <TagsField values={e.aliases} onChange={(v) => void saveEmotion(e, { aliases: v })} />
+            <TagsField values={e.aliases} onChange={(v) => void saveEmotion(e, { aliases: v })} disabled={readOnly} />
           </div>
 
           {/* 辅助参考只在这一行已经挂了的时候出现,能删不能加:10-15 用户试听,多挂辅助参考效果比较差 */}
@@ -885,15 +911,17 @@ function EmotionInspector({
                 {e.aux_refs.map((p) => (
                   <span key={p} className="vo-aux-item" title={p}>
                     <span className="vo-aux-name">{basename(p)}</span>
-                    <button
-                      type="button"
-                      className="st-tag-x"
-                      aria-label={`去掉辅助参考「${basename(p)}」`}
-                      title="去掉这段"
-                      onClick={() => void saveEmotion(e, { aux_refs: e.aux_refs.filter((x) => x !== p) })}
-                    >
-                      <Icon name="x" size={11} strokeWidth={2.2} />
-                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        className="st-tag-x"
+                        aria-label={`去掉辅助参考「${basename(p)}」`}
+                        title="去掉这段"
+                        onClick={() => void saveEmotion(e, { aux_refs: e.aux_refs.filter((x) => x !== p) })}
+                      >
+                        <Icon name="x" size={11} strokeWidth={2.2} />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -904,7 +932,7 @@ function EmotionInspector({
             <div className="vo-field">
               <EmotionVectorEditor
                 value={e.emo_vector}
-                disabled={!!e.ref_path}
+                disabled={readOnly || !!e.ref_path}
                 onCommit={(v) => saveEmotion(e, { emo_vector: v })}
               />
             </div>
@@ -912,7 +940,7 @@ function EmotionInspector({
         </>
       )}
 
-      <GlobalParams profile={profile} connection={connection} isIndex={isIndex} first={!e} saveVoice={saveVoice} />
+      <GlobalParams profile={profile} connection={connection} isIndex={isIndex} first={!e} saveVoice={saveVoice} readOnly={readOnly} />
     </Inspector>
   );
 }
@@ -927,12 +955,14 @@ function GlobalParams({
   isIndex,
   first,
   saveVoice,
+  readOnly = false,
 }: {
   profile: VoiceProfile;
   connection: TtsConnection | null;
   isIndex: boolean;
   first: boolean;
   saveVoice: (body: VoiceProfilePatch) => Promise<boolean>;
+  readOnly?: boolean;
 }) {
   // 拖的时候只改这里(跟手),松手才存
   const [draft, setDraft] = useState<{ speed?: number; temp?: number; alpha?: number }>({});
@@ -956,6 +986,7 @@ function GlobalParams({
         label="语速"
         {...SPEED_RANGE}
         value={speed}
+        disabled={readOnly}
         format={fmtSpeed}
         onChange={(v) => setDraft((d) => ({ ...d, speed: v }))}
         onCommit={(v) => void commit('speed', { speed: round2(v) })}
@@ -967,6 +998,7 @@ function GlobalParams({
           max={ALPHA?.max ?? 1}
           step={ALPHA?.step ?? 0.05}
           value={alpha}
+          disabled={readOnly}
           format={(v) => v.toFixed(2)}
           note={ALPHA?.note}
           onChange={(v) => setDraft((d) => ({ ...d, alpha: v }))}
@@ -981,6 +1013,7 @@ function GlobalParams({
             max={TEMP?.max ?? 1.5}
             step={TEMP?.step ?? 0.05}
             value={temp}
+            disabled={readOnly}
             format={(v) => v.toFixed(2)}
             onChange={(v) => setDraft((d) => ({ ...d, temp: v }))}
             onCommit={(v) =>
@@ -996,6 +1029,7 @@ function GlobalParams({
               label: m.name,
               sub: m.value === 'cut5' ? '默认' : undefined,
             }))}
+            disabled={readOnly}
             onChange={(v) =>
               void saveVoice({
                 params: withParam(

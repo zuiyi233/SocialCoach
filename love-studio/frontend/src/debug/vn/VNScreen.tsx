@@ -1429,9 +1429,9 @@ export function VNScreen({
 
   const openMenu = (page?: MenuPage) => {
     const p = page ?? lastPage;
-    // 创作者模式关:玩家页(历史 / 存档 / 设置)之外的页一律落到设置页,
+    // 创作者模式关:玩家页(历史 / 存档 / 角色卡 / 设置)之外一律落到设置页,
     // 免得从哪个按钮漏出调试台的创作工具
-    const safe = creator || p === 'log' || p === 'save' || p === 'config' ? p : 'config';
+    const safe = creator || p === 'log' || p === 'save' || p === 'card' || p === 'config' ? p : 'config';
     setMenu(safe);
     setLastPage(safe);
     setAuto(false);

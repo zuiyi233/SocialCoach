@@ -36,6 +36,7 @@ function NameEdit({
   className,
   inputClassName,
   onCommit,
+  disabled = false,
 }: {
   value: string;
   /** 读屏用:「构图名」「表情名」 */
@@ -43,8 +44,12 @@ function NameEdit({
   className: string;
   inputClassName: string;
   onCommit: (next: string) => Promise<boolean>;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  if (disabled) {
+    return <span className={className}>{value}</span>;
+  }
   if (draft === null) {
     return (
       <button type="button" className={className} title="点击改名" onClick={() => setDraft(value)}>
@@ -119,12 +124,15 @@ export interface CgInspectorProps {
   onDeleteVariant: (id: string) => void;
   onReplace: () => void;
   onDelete: () => void;
+  /** 玩家模式(素材库只读):改名、替换 / 删除、字段编辑全部收掉 */
+  readOnly?: boolean;
 }
 
 const UPLOAD_STATE: Record<UploadTile['state'], string> = { wait: '等待上传', up: '上传中…', fail: '没传上' };
 
 export function CgInspector(props: CgInspectorProps) {
   const { cg, variants, emotions, FormsEditor } = props;
+  const readOnly = props.readOnly ?? false;
   const media = sceneThumbUrl(props.thumb, 240);
   const free = emotions.length > 0 && variants.length > 0 ? freeEmotions(emotions, variants) : [];
   const unmatched = variants.filter((v) => !variantReachable(v, emotions)).length;
@@ -147,7 +155,17 @@ export function CgInspector(props: CgInspectorProps) {
               </span>
             )
           }
-          title={<NameEdit key={cg.id} value={cg.label} label="构图名" className="st-ihead-name" inputClassName="st-ihead-input" onCommit={props.onRename} />}
+          title={
+            <NameEdit
+              key={cg.id}
+              value={cg.label}
+              label="构图名"
+              className="st-ihead-name"
+              inputClassName="st-ihead-input"
+              onCommit={props.onRename}
+              disabled={readOnly}
+            />
+          }
           badge={
             <>
               {!cg.enabled && <Chip>已停用</Chip>}
@@ -160,24 +178,26 @@ export function CgInspector(props: CgInspectorProps) {
         />
       }
       footer={
-        <>
-          <Btn small icon="image" onClick={props.onReplace}>
-            替换图片
-          </Btn>
-          <span className="st-flex" />
-          {props.confirmDelete ? (
-            <Btn kind="danger" small onClick={props.onDelete}>
-              删除构图
+        readOnly ? undefined : (
+          <>
+            <Btn small icon="image" onClick={props.onReplace}>
+              替换图片
             </Btn>
-          ) : (
-            <DeleteBtn
-              small
-              label="删除构图"
-              armedLabel={variants.length > 0 ? `连同 ${variants.length} 张差分一起删` : '再点一下删除'}
-              onConfirm={props.onDelete}
-            />
-          )}
-        </>
+            <span className="st-flex" />
+            {props.confirmDelete ? (
+              <Btn kind="danger" small onClick={props.onDelete}>
+                删除构图
+              </Btn>
+            ) : (
+              <DeleteBtn
+                small
+                label="删除构图"
+                armedLabel={variants.length > 0 ? `连同 ${variants.length} 张差分一起删` : '再点一下删除'}
+                onConfirm={props.onDelete}
+              />
+            )}
+          </>
+        )
       }
     >
       <Section title="描述" help={TERMS.cgDesc} first />
@@ -185,6 +205,7 @@ export function CgInspector(props: CgInspectorProps) {
         key={`desc:${cg.id}`}
         value={cg.description}
         rows={3}
+        disabled={readOnly}
         placeholder={defaultText('cg.descPlaceholder', '给 AI / Jev 看的:场面|在做什么|不算|场景参考')}
         onCommit={(description) => props.onPatch({ description })}
       />
@@ -193,6 +214,7 @@ export function CgInspector(props: CgInspectorProps) {
       <TagsField
         key={`alias:${cg.id}`}
         values={cg.aliases}
+        disabled={readOnly}
         onChange={(aliases) => props.onPatch({ aliases })}
         placeholder="比如 雨夜,回车加"
       />
@@ -200,6 +222,7 @@ export function CgInspector(props: CgInspectorProps) {
       <SwitchRow
         label="启用这张 CG"
         checked={cg.enabled}
+        disabled={readOnly}
         note={cg.enabled ? undefined : '停用后游戏里当它不存在(AI、Jev 都选不到),图和差分都留着'}
         onChange={(enabled) => props.onPatch({ enabled })}
       />
@@ -212,6 +235,7 @@ export function CgInspector(props: CgInspectorProps) {
         max={100}
         step={1}
         value={props.focus}
+        disabled={readOnly}
         format={(v) => `${Math.round(v)}%`}
         note="表情差分也按这里裁 · 拖动时舞台上画出竖屏框"
         onChange={(v) => props.onFocus(v, false)}
@@ -220,7 +244,7 @@ export function CgInspector(props: CgInspectorProps) {
 
       {FormsEditor && (
         <div className="cg-forms">
-          <FormsEditor key={cg.id} forms={cg.forms ?? []} disabled={false} onChange={(forms) => props.onPatch({ forms })} />
+          <FormsEditor key={cg.id} forms={cg.forms ?? []} disabled={readOnly} onChange={(forms) => props.onPatch({ forms })} />
         </div>
       )}
       <div className="st-gap small" />
@@ -230,9 +254,11 @@ export function CgInspector(props: CgInspectorProps) {
         help={TERMS.cgVariant}
         note={variantNote}
         right={
-          <Btn small icon="plus" onClick={props.onAddVariant}>
-            添加差分
-          </Btn>
+          !readOnly && (
+            <Btn small icon="plus" onClick={props.onAddVariant}>
+              添加差分
+            </Btn>
+          )
         }
       />
       <div className="cg-vars" role="list" aria-label="表情差分">
@@ -273,6 +299,7 @@ export function CgInspector(props: CgInspectorProps) {
                     className="cg-var-rename"
                     inputClassName="cg-var-input"
                     onCommit={(label) => props.onRenameVariant(v.id, label)}
+                    disabled={readOnly}
                   />
                   <span className="cg-var-sub">舞台上正在看这张</span>
                 </span>
@@ -288,16 +315,19 @@ export function CgInspector(props: CgInspectorProps) {
               <TagsField
                 key={`valias:${v.id}`}
                 values={v.aliases}
+                disabled={readOnly}
                 onChange={(aliases) => props.onPatchVariant(v.id, { aliases })}
                 placeholder="比如 smile,回车加"
               />
-              <div className="cg-var-actions">
-                <Btn small icon="image" onClick={() => props.onReplaceVariant(v.id)}>
-                  替换图片
-                </Btn>
-                <span className="st-flex" />
-                <DeleteBtn small label="删除差分" onConfirm={() => props.onDeleteVariant(v.id)} />
-              </div>
+              {!readOnly && (
+                <div className="cg-var-actions">
+                  <Btn small icon="image" onClick={() => props.onReplaceVariant(v.id)}>
+                    替换图片
+                  </Btn>
+                  <span className="st-flex" />
+                  <DeleteBtn small label="删除差分" onConfirm={() => props.onDeleteVariant(v.id)} />
+                </div>
+              )}
             </div>
           );
         })}

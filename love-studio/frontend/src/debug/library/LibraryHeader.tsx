@@ -21,6 +21,8 @@ export interface LibraryHeaderProps {
   sameAs: readonly LibraryItem[];
   /** 来自的那次导入的标题;没有是 null */
   jobTitle: string | null;
+  /** 玩家模式(素材库只读):不露「绑定到角色卡…」和「⋯」(改名 / 创建副本 / 删除) */
+  readOnly?: boolean;
   onRename: (name: string) => Promise<boolean> | void;
   onBind: () => void;
   onOpenCard: (cardId: string) => void;
@@ -41,6 +43,7 @@ export function LibraryHeader({
   onSelect,
   onOpenJob,
   menu,
+  readOnly = false,
 }: LibraryHeaderProps) {
   const cards = item.card_ids.filter((id) => cardNames.has(id));
   const shown = cards.slice(0, MAX_CARDS);
@@ -49,13 +52,15 @@ export function LibraryHeader({
   return (
     <div className="lib-head">
       <span className="lib-head-name">
-        <TitleEdit value={item.name} label="名字" onCommit={onRename} />
+        <TitleEdit value={item.name} label="名字" onCommit={onRename} disabled={readOnly} />
         {item.generated && <Chip>AI 生成</Chip>}
       </span>
-      <Btn icon="link" onClick={onBind}>
-        绑定到角色卡…
-      </Btn>
-      <MoreMenu label={`更多:${menu.map((m) => m.label).join('、')}`} items={menu} />
+      {!readOnly && (
+        <Btn icon="link" onClick={onBind}>
+          绑定到角色卡…
+        </Btn>
+      )}
+      {!readOnly && <MoreMenu label={`更多:${menu.map((m) => m.label).join('、')}`} items={menu} />}
       <span className="lib-head-sub">
         <span>{headerSummary(kind, item)}</span>
         {cards.length === 0 ? (

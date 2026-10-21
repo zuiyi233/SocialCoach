@@ -578,18 +578,24 @@ export function Inspector({
   );
 }
 
-/** 右栏头的名字:点一下变输入框,回车 / 失焦改名,Esc 放弃;改不成(重名)由外面报错,这里退回原名 */
+/** 右栏头的名字:点一下变输入框,回车 / 失焦改名,Esc 放弃;改不成(重名)由外面报错,这里退回原名。
+ *  disabled = 只读展示(玩家模式的素材库),不响应点击。 */
 export function TitleEdit({
   value,
   label,
   onCommit,
+  disabled = false,
 }: {
   value: string;
   /** 输入框读屏用的名字:「差分名」「背景名」 */
   label: string;
   onCommit: (next: string) => Promise<boolean> | void;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  if (disabled) {
+    return <span className="st-ihead-name">{value}</span>;
+  }
   if (draft === null) {
     return (
       <button type="button" className="st-ihead-name" title="点击改名" onClick={() => setDraft(value)}>

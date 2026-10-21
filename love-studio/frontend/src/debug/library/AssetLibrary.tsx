@@ -119,6 +119,9 @@ export interface AssetLibraryProps {
   notify: Notify;
   /** 写卡的绑定;不给 = 直接写库。DebugApp 给的:当前这张卡走 hook,游戏里马上换 */
   bindings?: CardBindingWriter;
+  /** 玩家模式(创作者模式关):素材库只读 —— 导入 / 改名 / 删除 / 绑定 / 清理都没了,只能看。
+   *  开关控制入口可见性,同一套组件照样用(见 spec-love-user-cards §3) */
+  readOnly?: boolean;
   /** 「绑定到角色卡…」改了这些卡的绑定 */
   onBindingsChanged?: (kind: LibraryKind, cardIds: string[]) => void;
   /** 删了一个包 / 声音:当前卡绑着的话让它忘掉 */
@@ -144,6 +147,7 @@ export interface AssetLibraryProps {
 
 export function AssetLibrary(props: AssetLibraryProps) {
   const { route, onRoute, onClose, cards, stage, sync, notify } = props;
+  const readOnly = props.readOnly ?? false;
   const writer = props.bindings ?? directBindings;
   const kind: LibraryKind | null = route.tab === 'jobs' ? null : route.tab;
   const panels = useSidePanels('library.panels');
@@ -494,27 +498,31 @@ export function AssetLibrary(props: AssetLibraryProps) {
           />
         </label>
       )}
-      <span className="lib-import">
-        <Btn icon="upload" disabled={scBusy} onClick={pickScPersona}>
-          导入 .scpersona
-        </Btn>
-        <input
-          ref={scPersonaInput}
-          type="file"
-          accept=".scpersona"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void importScPersona(file);
-            e.target.value = '';
-          }}
-        />
-      </span>
-      <span className="lib-import" title={props.onImport ? '选文件导入(文件夹直接拖进来)' : '拖进来导入马上就能用'}>
-        <Btn kind="primary" icon="upload" disabled={!props.onImport} onClick={props.onImport}>
-          导入
-        </Btn>
-      </span>
+      {!readOnly && (
+        <span className="lib-import">
+          <Btn icon="upload" disabled={scBusy} onClick={pickScPersona}>
+            导入 .scpersona
+          </Btn>
+          <input
+            ref={scPersonaInput}
+            type="file"
+            accept=".scpersona"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void importScPersona(file);
+              e.target.value = '';
+            }}
+          />
+        </span>
+      )}
+      {!readOnly && (
+        <span className="lib-import" title={props.onImport ? '选文件导入(文件夹直接拖进来)' : '拖进来导入马上就能用'}>
+          <Btn kind="primary" icon="upload" disabled={!props.onImport} onClick={props.onImport}>
+            导入
+          </Btn>
+        </span>
+      )}
     </header>
   );
 
@@ -525,6 +533,7 @@ export function AssetLibrary(props: AssetLibraryProps) {
         jobs={jobs}
         error={jobsError}
         highlight={route.id}
+        readOnly={readOnly}
         onUndone={undone}
         onReload={() => void loadJobs()}
         notify={notify}
@@ -532,13 +541,15 @@ export function AssetLibrary(props: AssetLibraryProps) {
     );
   } else {
     const info = KIND_INFO[kind];
-    const menu = selected
-      ? [
-          { label: '重命名', onClick: () => setDialog({ kind: 'rename', item: selected }) },
-          ...(kind === 'voice' ? [] : [{ label: '创建副本', onClick: () => setDialog({ kind: 'duplicate', item: selected }) }]),
-          { label: asking ? '读取中…' : '删除', danger: true, disabled: asking, onClick: () => void askDelete(kind, selected) },
-        ]
-      : [];
+    const menu = readOnly
+      ? []
+      : selected
+        ? [
+            { label: '重命名', onClick: () => setDialog({ kind: 'rename', item: selected }) },
+            ...(kind === 'voice' ? [] : [{ label: '创建副本', onClick: () => setDialog({ kind: 'duplicate', item: selected }) }]),
+            { label: asking ? '读取中…' : '删除', danger: true, disabled: asking, onClick: () => void askDelete(kind, selected) },
+          ]
+        : [];
     const jobTitle = selected?.import_job_id ? (jobs?.find((j) => j.id === selected.import_job_id)?.title ?? null) : null;
     body = (
       <>
@@ -557,6 +568,7 @@ export function AssetLibrary(props: AssetLibraryProps) {
           query={query}
           storage={summary}
           cleaning={cleaning}
+          readOnly={readOnly}
           onClean={() => setDialog({ kind: 'clean' })}
           onCollapse={() => togglePanel('left')}
         />
@@ -569,6 +581,7 @@ export function AssetLibrary(props: AssetLibraryProps) {
                 key={`${kind}:${selected.id}`}
                 kind={kind}
                 item={selected}
+                readOnly={readOnly}
                 firstCardName={selected.card_ids.map((id) => cardNames.get(id)).find(Boolean) ?? null}
                 stage={stage}
                 sync={sync}
@@ -581,6 +594,7 @@ export function AssetLibrary(props: AssetLibraryProps) {
                     cardNames={cardNames}
                     sameAs={sameAs}
                     jobTitle={jobTitle}
+                    readOnly={readOnly}
                     onRename={(name) => rename(kind, selected, name)}
                     onBind={() => setDialog({ kind: 'bind', item: selected })}
                     onOpenCard={(cardId) => props.onOpenCard(cardId, selected.generated ? 'ai' : info.slot)}
@@ -607,7 +621,7 @@ export function AssetLibrary(props: AssetLibraryProps) {
                     ) : all.length === 0 ? (
                       <>
                         <span className="st-empty-title">还没有{info.pack}</span>
-                        <span className="st-empty-note">把文件拖进来导入,或者在卡编辑器的素材页上传</span>
+                        <span className="st-empty-note">{readOnly ? '库里还没有可看的素材' : '把文件拖进来导入,或者在卡编辑器的素材页上传'}</span>
                       </>
                     ) : (
                       <>
@@ -619,7 +633,9 @@ export function AssetLibrary(props: AssetLibraryProps) {
                 </main>
                 <Inspector label={info.pack}>
                   <p className="st-inspector-hint">
-                    这里按包列出库里所有的{info.pack},不管绑在哪张卡上。选一个直接在中间改;「绑定到角色卡…」决定哪些卡用它。
+                    {readOnly
+                      ? `这里按包列出库里所有的${info.pack}。选中一个直接看;「绑定到角色卡…」之类的编辑只有创作者模式能用。`
+                      : `这里按包列出库里所有的${info.pack},不管绑在哪张卡上。选一个直接在中间改;「绑定到角色卡…」决定哪些卡用它。`}
                   </p>
                 </Inspector>
               </>
