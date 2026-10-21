@@ -18,5 +18,10 @@
     "file": "04.webp",
     "label": "害羞",
     "description": "blushing, looking down and away, shy"
+  },
+  {
+    "file": "05.webp",
+    "label": "闭眼",
+    "description": "eyes fully closed, gentle relaxed eyelids, same expression otherwise"
   }
 ]

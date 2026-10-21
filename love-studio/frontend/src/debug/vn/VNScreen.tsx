@@ -57,6 +57,7 @@ import { kindName } from '../plugins/registry';
 import { bubbleStyle, facesByCanvas, spriteStyle, type SpriteStage } from '../plugins/spriteLayout';
 import { fxStep, MOTION_FRAMES, normalizeEffect, playFxSound, preloadSfx, soundFile } from '../plugins/spriteFx';
 import { SpriteBubble } from './SpriteBubble';
+import { BLINK_CLOSE_MS, blinkSprite, motionForLabel, nextBlinkDelay } from './spriteLife';
 import { playTypeSound, preloadTypeSound } from './typeSound';
 import {
   backgroundsOf,
@@ -411,6 +412,8 @@ function SpriteLayer({
   fx,
   fxVolume,
   covered,
+  blink,
+  motion,
 }: {
   view: SpriteView;
   charName: string;
@@ -418,6 +421,10 @@ function SpriteLayer({
   fxVolume: number;
   /** 这一句有 CG 显示、把立绘盖住了(立绘层透明):切换特效的动作、气泡、音效都不放 */
   covered: boolean;
+  /** 这个角色的「闭眼」帧;没有就整层不眨眼 */
+  blink: SpriteView | null;
+  /** 情绪动作开关(设置里的立绘特效);关掉只保留呼吸和眨眼 */
+  motion: boolean;
 }) {
   // 新表情整张下载完了才换上,没好之前留着旧的 —— 不会看到只画了一半的图
   const view = useSettledView(next);
@@ -462,6 +469,44 @@ function SpriteLayer({
     return () => window.clearTimeout(t);
   }, [playing]);
 
+  // 眨眼:闭眼帧盖在睁眼图上,停 0.11 秒就抬起来。间隔随机,太规律会像节拍器。
+  // 没有闭眼帧的角色(老包、用户自己传的图)就不眨 —— 少一层假动作。
+  const [blinking, setBlinking] = useState(false);
+  useEffect(() => {
+    if (!blink || reduceMotion) return;
+    let close = 0;
+    let open = 0;
+    const loop = () => {
+      close = window.setTimeout(() => {
+        setBlinking(true);
+        open = window.setTimeout(() => {
+          setBlinking(false);
+          loop();
+        }, BLINK_CLOSE_MS);
+      }, nextBlinkDelay());
+    };
+    loop();
+    return () => {
+      window.clearTimeout(close);
+      window.clearTimeout(open);
+    };
+  }, [blink]);
+
+  // 情绪动作:表情换了就按名字挑一个关键帧播一次。作者给这句配了特效(fx)时让位给它,
+  // 不叠两个动作;换人(first)也不抖 —— 入场已经有淡入了。
+  const lastMotion = useRef<string | null>(null);
+  useEffect(() => {
+    const label = layers.cur.label;
+    if (!layers.cur.src) return;
+    const first = lastMotion.current === null;
+    lastMotion.current = label;
+    if (first || reduceMotion || !motion || fx) return;
+    const id = motionForLabel(label);
+    if (!id) return;
+    const m = MOTION_FRAMES[id];
+    if (m) fxRef.current?.animate(m.frames, m.timing);
+  }, [layers.cur.label, layers.cur.src, motion, fx]);
+
   const render = (v: SpriteView, cls: string) =>
     v.src ? (
       <img
@@ -484,7 +529,20 @@ function SpriteLayer({
       {layers.prev && render(layers.prev, 'leaving')}
       {/* 动作套在外面一层:图自己的 transform 管定位,不能被动画盖掉 */}
       <div ref={fxRef} className="vn-sprite-fx">
-        {render(layers.cur, 'entering')}
+        {/* 呼吸再套一层:它只做很小的位移,和上面那层的动作互不覆盖 */}
+        <div className="vn-sprite-breathe">
+          {render(layers.cur, 'entering')}
+          {blink && layers.cur.src && (
+            <img
+              key={blink.key}
+              className={`vn-sprite vn-sprite-blink${blinking ? ' on' : ''}`}
+              src={blink.src ?? undefined}
+              alt=""
+              draggable={false}
+              style={blink.style}
+            />
+          )}
+        </div>
         {playing?.effect.bubble && (
           <SpriteBubble key={playing.id} kind={playing.effect.bubble} style={playing.bubbleAt} />
         )}
@@ -673,7 +731,8 @@ export function VNScreen({
   onChangeCreator,
 }: Props) {
   // AI 出图关了:不画、不显示、画笔收起;设置里那一页照旧在(插件页能再打开)
-  const illustrations = switches.illustrations ? illustrationsInstalled : null;
+  // 玩家模式一律不挂:那个按钮是创作者工具,不该出现在玩家的对话框里
+  const illustrations = switches.illustrations && creator ? illustrationsInstalled : null;
   // ---- 偏好 ----
 
   const [settings, setSettings] = useState<VNSettings>(loadVNSettings);
@@ -873,6 +932,20 @@ export function VNScreen({
     // 这张卡一张立绘都没配:占位长方形上写匹配到的内置表情(模型不可用时是 AI 的原词)
     return { key: `ph:${label ?? ''}`, src: null, label: label ?? '未配置立绘' };
   }, [shownLabel, sprites, faces, spriteLayout, spriteStage]);
+
+  // 眨眼用的「闭眼」帧:同一个包里的另一张立绘(label=闭眼)。没有就是 null,这一层不眨
+  const blinkView: SpriteView | null = useMemo(() => {
+    const b = blinkSprite(sprites);
+    if (!b) return null;
+    const src = spriteImageUrl(b);
+    if (!src) return null;
+    return {
+      key: b.id + `:${b.image_version}`,
+      src,
+      label: b.label,
+      style: spriteStyle(faces.get(b.id) ?? null, spriteLayout, spriteStage),
+    };
+  }, [sprites, faces, spriteLayout, spriteStage]);
 
   const scene: SceneState = cursorState.scene;
   // 这句的形态里不能出的 CG 不预取
@@ -1823,17 +1896,23 @@ export function VNScreen({
       <button className={skip ? 'on' : ''} onClick={() => setSkip((s) => !s)} aria-pressed={skip}>
         跳过
       </button>
-      <button
-        onClick={onRegenerate}
-        disabled={sending || entries.length === 0 || !canSend}
-        title="重新生成最后一条回复"
-      >
-        重来
-      </button>
+      {creator && (
+        <button
+          onClick={onRegenerate}
+          disabled={sending || entries.length === 0 || !canSend}
+          title="重新生成最后一条回复"
+        >
+          重来
+        </button>
+      )}
       <button onClick={() => setUiHidden(true)} title="隐藏界面,只看立绘和背景(右键也行)">
         隐藏
       </button>
-      <button className="wide-only" onClick={() => openMenu('config')}>设置</button>
+      {creator && (
+        <button className="wide-only" onClick={() => openMenu('config')}>
+          设置
+        </button>
+      )}
       <button onClick={() => openMenu()}>菜单</button>
     </>
   );
@@ -1940,6 +2019,8 @@ export function VNScreen({
             fx={spriteFx}
             fxVolume={settings.spriteFxVolume}
             covered={cgOn}
+            blink={blinkView}
+            motion={settings.spriteFx}
           />
         )}
         <CgLayer view={shownCg} />
@@ -1970,7 +2051,7 @@ export function VNScreen({
         </div>
       )}
 
-      {((settings.showModel && modelLabel) || voice.paused || showVoiceChip || lens) && (
+      {((creator && settings.showModel && modelLabel) || voice.paused || showVoiceChip || lens) && (
         <div className="vn-topbar" inert={covered}>
           {showVoiceChip && (
             <VoiceQuick
@@ -2001,7 +2082,7 @@ export function VNScreen({
               语音断了 · 每 15 秒自动重连,点这里马上试
             </button>
           )}
-          {settings.showModel && modelLabel && (
+          {creator && settings.showModel && modelLabel && (
             <span className="vn-chip" title="当前模型 —— 菜单「模型」里换">
               {modelLabel}
             </span>
@@ -2095,7 +2176,7 @@ export function VNScreen({
           {showJa && shown?.ja && !waiting && <div className="vn-ja">{shown.ja}</div>}
           {body !== null && <div className={`vn-text${speaker ? '' : ' narration'}`}>{body}</div>}
           {showNextMark && <span className="vn-next" aria-hidden="true">▼</span>}
-          {atEnd && <span className="vn-end" aria-hidden="true">■</span>}
+          {creator && atEnd && <span className="vn-end" aria-hidden="true">■</span>}
 
           {glass ? (
             <>

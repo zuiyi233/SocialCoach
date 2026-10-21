@@ -156,6 +156,45 @@
   transform-origin: 50% 100%;
 }
 
+/* 呼吸:整个立绘极慢地起伏一点,看起来像在呼吸而不是在抖。
+   单独一层是因为:定位是图自己的 inline transform,动作是 Web Animations,
+   再加一个 CSS transform 动画就会互相覆盖。 */
+.vn-sprite-breathe {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  animation: vn-breathe 5.4s ease-in-out infinite;
+}
+@keyframes vn-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  50% {
+    transform: translateY(0.35%) scaleY(1.006);
+  }
+}
+
+/* 眨眼:闭眼帧和睁眼图叠在同一位置,平时全透明,只换不透明度 —— 不动原图任何像素。
+   阴影由下面那张图负责,这一张不要再投一次。 */
+.vn-sprite-blink {
+  opacity: 0;
+  transition: opacity 60ms linear;
+  filter: none;
+}
+.vn-sprite-blink.on {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vn-sprite-breathe {
+    animation: none;
+  }
+  .vn-sprite-blink {
+    display: none;
+  }
+}
+
 /* 头顶气泡:位置大小由 bubbleStyle 按脸算好;弹出来、停一会儿、往上飘着消失 */
 .vn-bubble {
   position: absolute;
