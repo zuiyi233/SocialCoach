@@ -54,6 +54,32 @@
 
 结论：**「把人物人设当参考图」这条路在本机是通的**（身份能锁住），但我的临时图还没把「编辑指令」接通（表情没变）。要落地必须用用户自己验证过的那份 `Qwen_Image_2.1_合集_加PE增强.json` 里活跃的那条链路（含 `Anything Everywhere3` 广播 VAE/MODEL、`BatchImagesNode`、提示词增强节点），而不是手搭。**在接通指令之前，不要对外说「本地参考图已完成」。**
 
+### 2.4 改正后的链路（2026-10-21 已跑通）
+
+用户提供了两份可用工作流，按它们的图结构重建后**参考图与编辑指令同时生效**：
+
+| 环节 | 卡 / 端口 | 模型 | 实测 |
+|---|---|---|---|
+| MOSS 出人物底图 | T10 `:8189` | `moss加速\moss_image_sft_int8_convrot` + `moss_image_sft_4step_v2.0` LoRA + `qwen3.5_9b_int8_convrot`(type `moss_image`) + `flux2-vae` | 832×1248、4 步，**15 s** |
+| Qwen-Image 2.1 turbo 按参考图改表情 | 3090 `:8188` | `qwen_image_2.1_turbo_bf16` + `qwen3vl_8b_int8_convrot`(type `qwen_image`) + `qwen_image_2.1_vae_bf16` | 832×1248、官方 8 步 sigma，**25 s**/张（冷启 90 s） |
+
+**之前三次出噪声/不听话的原因（已定位）**：
+1. CLIP 用了 `..._pe_i2i`（提示词增强器），编辑链路要的是 `qwen3vl_8b_int8_convrot` —— 提示词因此完全没进模型；
+2. `latent_image` 接了 `EmptyLatentImage`，正确接法是 **`TextEncodeQwenImage21` 的第三路 `latent`**（那已经编码了参考图）；
+3. cfg 用 4、步数用 20/40；turbo 模型要 **cfg 1 + 官方 8 步 `ManualSigmas`**（`1, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0`）。
+
+**双卡编排**：ComfyUI 的卡是启动参数（`--cuda-device`），进程内不能换卡，所以开两个实例各占一张卡：
+
+```
+python_embeded\python.exe -s ComfyUI\main.py --port 8189 --cuda-device 1
+```
+
+脚本 `D:\ComfyUI_Mie_2026_V8.0\ComfyUI\moss_qwen_pipeline.py`：MOSS 在 T10 出底图 → 把底图 `POST /upload/image` 进编辑实例 → 3090 逐张派生表情 → 写 `manifest.json`（`source` / `license` 按 UGC 契约）。一次「1 张底图 + 2 个表情」实测 **66 s** 完成 3 张。
+
+**T10 是 Turing（sm_75）**：没有 bf16，只能用 int8 / fp16 权重，脚本默认 int8。
+
+**仍然没解决的**：输出是**白底不透明**，上舞台前仍要走 `matte.py` 抠图；场景背景、动效、音效都还没开始。
+
 > 以上是**文件与节点盘点**，本地尚未跑通任何一条身份保持或动画 workflow。第一批必须先用一张真实立绘跑通端到端，再谈集成。
 
 ## 三、方案分层（动效）
@@ -157,10 +183,11 @@
 
 ## 八、风险与未验证
 
-- 本地身份保持**已验证一半**：参考图能锁住人脸/服装（见 §2.3），但编辑指令（换表情）在我手搭的图上没接通；接的是不是用户那份 `Qwen_Image_2.1_合集_加PE增强.json` 的活跃链路，还没做。
-- 本地动画 workflow **一次都没跑通**（LivePortrait / Sonic / Wan2.2-Animate 都有现成模板 `开箱即用/视频|通用`，但没执行）。LivePortrait / Sonic 的**权重文件**也未确认已下载（节点在）。
+- **参考图一致性已验证**（§2.4）：同一底图派生「震惊」「害羞」，五官/发型/服装/构图都不漂。**只验了 1 个角色 3 张**，还没做整卡（4–6 表情 × 多角色）的稳定性验收。
+- **本地动画 workflow 一次都没跑通**（LivePortrait / Sonic / Wan2.2-Animate 都有现成模板 `开箱即用/视频|通用`，但没执行）。LivePortrait / Sonic 的**权重文件**也未确认已下载（节点在）。
 - `iki` 是 0.x，schema 会变；接入必须锁版本并包一层适配。
-- 生成时间已测：单张 832×1248 编辑 131 s（3090）。视频耗时与显存占用未测（LTX-2 19B / H3 都可能吃满）。
+- 时间已测：MOSS 15 s、Qwen 编辑 25 s（暖机）/ 90 s（冷启）、3 张共 66 s。**视频耗时与显存占用未测**（LTX-2 19B / H3 都可能吃满）；T10 上跑更大的模型会不会 OOM 未测。
+- 两个 ComfyUI 实例同时持有模型时，系统内存 96 GB / 空闲约 48 GB；长时间连跑是否碎片化未测。
 - 动效在低端移动端的帧率未验。
 
 ## 九、参考项目（已拉取，均在仓库外 `L:\refs\`）
