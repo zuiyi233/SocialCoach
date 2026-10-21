@@ -1,6 +1,6 @@
 # 剧本模式美术升级（spec）
 
-> 状态：**方案，未开工**（2026-10-21 立项）
+> 状态：**已交付**（2026-10-21 批次 E；桌面实测，移动端未验）
 > 范围：`/love/play` 的内置 66 场与自定义剧本；全幅舞台、场景背景、CG、逐句 beat。与 [Love Studio](./spec-love-studio.md) 并行，不依赖 Studio。
 > 关联：[恋爱半教练](./spec-love-semi-coach.md) · [互动叙事](./spec-love-interactive-story.md) · [立绘管线复盘](../81-postmortem-love-portrait-pipeline.md)
 

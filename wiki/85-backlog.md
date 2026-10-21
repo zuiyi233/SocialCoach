@@ -2,31 +2,35 @@
 
 # Backlog
 
-## 恋爱与 Galgame 双系统（2026-10-21，批次 A 已实现并通过桌面 Chromium 验收；真实 BYOK 未验证）
+## 恋爱与 Galgame 双系统（2026-10-21，F0–F3 / F5 / F6 已实现；真实 BYOK 与真人试玩未验证）
 
 Stage F 见 [14-stage-f.md](./14-stage-f.md)。规格：[恋爱半教练](./specs/spec-love-semi-coach.md)、[Love Studio](./specs/spec-love-studio.md)、[剧本模式美术升级](./specs/spec-love-scripted-art.md)、[跨系统桥](./specs/spec-love-bridge.md)、[共享人设](./specs/spec-love-persona.md)；外部依据：[AnimaVN 参考](./refs/animavn.md)。旧规格里「不做好感」「游戏模式 NPC 不讨好」的条目已按 2026-10-21 方向加注修订，实现时按三套契约走。
 
 - [x] F0 文档：五份 spec + AnimaVN 参考 + Stage F；AGENTS 适用范围、产品提案、路线图、架构 / 设计 / API 与旧规格修订（2026-10-21）
-- [ ] F1 恋爱半教练：熟悉 / 信任 / 心动关系状态、主动关心预算与开关、可选关系回顾；不写能力分；关系状态进 story slot（store 已是 v2，加 relationships 为 v2→v3）
+- [x] F1 恋爱半教练（批次 B，2026-10-21）：熟悉 / 信任 / 心动三维状态（tier 0–3、每场每维最多 +1、按 sceneId 幂等）、主动关心预算（每场 1 次 / 全站 24h 1 次 / 静默时段 / 读者开关）、可选关系回顾（只引用自由输入原话）；关系状态进 story slot（**v2→v3**）；不写能力分
 - [x] F2-P0 Love Studio 基座（批次 A，2026-10-21）：fork / build / brand、模型连接、端口与健康检查、创作者模式、五平台启动脚本；桌面 Chromium 用 **mock 连接**完成一局生成并保存 / 读档（真实 BYOK 未验证，见下方剩余项）
 - [x] F2-P1 入口与 persona（批次 A，2026-10-21）：`/love` 双入口、本地 Studio 检测（三态健康检查）、回链；原创起始角色「顾星遥」+ 世界书 + 场景包种子；Studio 侧 `.scpersona` 导入 / 导出 + Python 跨语言契约测试
-- [ ] F2-P2 故事包与角色生成向导：`socialcoach.love-story.v1`、Tavern 卡 + 世界书 + 立绘 / 场景生成、Studio 双语
+- [x] F2-P2 故事包与角色生成向导（批次 D，2026-10-21）：`socialcoach.love-story.v1` 导出 / 导入（Studio 存档页「把这段关系带回半教练」+ 主站 `/love/archive` 导入预览）；角色生成向导（1 次 LLM 规划 → Tavern V2 卡 + 世界书 + 立绘 / 场景生图 → 绑包），后端 17 + 前端 4 个测试；Studio 双语只覆盖新面板与向导（存量界面仍是单语）
 - [ ] F2-P3 托管 Studio（可选）：账号、隔离存储、GPU TTS、生图代理、审核
-- [ ] F3 剧本模式美术：全幅舞台、Rio 背景 / CG、逐句 beat
-- [ ] F5 跨系统桥：一套关系档案、权威矩阵、StoryPack/PersonaPack、导入预览、分支/冲突、叙事阶段 + 关系图鉴 + 故事收藏；不自动写能力分、无 EXP/等级 → [spec](./specs/spec-love-bridge.md)
-- [x] F6 共享人设（批次 A，2026-10-21）：单一 Persona schema + 设备库 + `.scpersona` pack + `/love/persona` 聚焦编辑器（43 个单测 + 桌面 Chromium 8 步真实交互验收）；Studio 侧 Python parser 复刻 + 契约测试；AI 生成、完整 Tavern 工作台待后续 → [spec](./specs/spec-love-persona.md)
+- [x] F3 剧本模式美术（批次 E，2026-10-21）：全幅舞台（背景 + focus + 可读性渐变）、Rio 6 幕背景 + 2 张 CG + 3 条系列兜底（11 张 webp，manifest 记 `source` / `license`）、逐句 `lineBeats`（与自动存档 / 限时选择互斥）、缺条目静默降级
+- [x] F5 跨系统桥（批次 C，2026-10-21）：一套关系档案（人物 / 故事 / 图鉴，上限与冲突语义齐备）、`socialcoach.love-story.v1`（剥剧透字段 + quote 纪律 + 稳定 hash）、`/love/archive` 导入预览 + afterstory + 主线标记、叙事阶段 `stage = min(familiarity, trust)`；不自动写能力分、无 EXP/等级 → [spec](./specs/spec-love-bridge.md)
+- [x] F6 共享人设（批次 A + D，2026-10-21）：单一 Persona schema + 设备库 + `.scpersona` pack + `/love/persona` 聚焦编辑器（43 个单测 + 桌面 Chromium 8 步真实交互验收）；Studio 侧 Python parser 复刻 + 契约测试；AI 角色生成已交付，完整 Tavern 工作台由 fork 提供 → [spec](./specs/spec-love-persona.md)
 - [ ] 旧口径复核：实现时不再以「不做好感 / NPC 不讨好」拒绝恋爱或 Galgame 需求；按 [半教练 spec](./specs/spec-love-semi-coach.md) §2 的三套契约执行
 - [x] 2026-10-21 四条拍板（已写入 spec）：Studio 完整导入 Tavern 卡，恋爱系统 `.scpersona` + 基础 JSON（离线直吃卡须共享 parser + round-trip 测试）；玩家 persona 与教练 profile 分表 + 显式复制；Studio 关系状态只读折叠；局外成长 = 叙事阶段 + 关系图鉴 + 故事收藏，无 EXP/等级
 - [x] 2026-10-21 Studio 本地版 BYOK 密钥策略拍板（已写入 studio spec §7）：默认存本地 SQLite + 「记住密钥」开关（默认开，关掉只在进程内存）；不进日志、不回显、不提交；导出/擦除不含密钥
 
-**批次 A 剩余 / 延期（2026-10-21，均未验证 / 未实现）**：
-- Studio 真实 BYOK 一局生成、密钥填存、ttft / 流式渲染未验证：已用 mock 连接走通「生成一局 → 存档 / 读档」，但 mock 不算真实模型证据。需后端 `:8000` + 真实模型 key 另做一次。
+**Stage F 剩余 / 延期（2026-10-21，均未验证 / 未实现）**：
+- Studio 真实 BYOK 一局生成、密钥填存、ttft / 流式渲染未验证：mock 连接走通「生成一局 → 存档 / 读档」，角色生成向导也只验到单测，mock 不算真实模型证据。需后端 `:8000` + 真实模型 key 另做一次。
+- 故事包只做了「Studio 导出 → 主站导入」的代码与单测；「主站导出 → Studio 导入续写」的浏览器往返、以及 what-if 分支的 `parentStoryId` 保留未走真实 UI。
+- Studio 的关系状态面板（只读、默认折叠）未实现——目前 Studio 完全不显示关系状态，符合契约的最小实现，但 spec §8 的只读面板仍缺。
 - 真机 iOS/Android、真机 / GPU TTS 未验证。
 - 起始角色目前是纯文本（无 `avatar.webp` / 立绘）；场景包只有 3 张程序化原创示意背景（1280×720 WebP，CREDITS 注明非美术成品），无 BGM。待补合格立绘与授权 BGM。
 - Tavern PNG 离线直吃卡（共享 Studio parser + round-trip 契约测试）未实现——按 2026-10-21 拍板本批不做。
 - Studio 完整 Tavern 导入链路（PNG / 世界书 / 预设 / 立绘包）未做端到端验收；本批只覆盖 `.scpersona` pack 与起始种子内容。
 - 主站 `/love/persona` 已做桌面 Chromium 8 步真实交互验收（保存 / 草稿 / 导出 / 导入 / 复制 / 删除 / 公开导出）；其中删除只走了「无关联」分支，「有关联的线或场景」提示未在浏览器点过（代码有单测覆盖）。
 - Studio 标题屏未选卡时「读档」按钮 disabled，属产品逻辑；未单独验收该分支。
+- F3 的 11 张场景图只做了桌面目检；移动端窄屏下全幅背景的 `objectPosition` 与 CG 层未单独验收。
+- 关系图鉴的「未知槽」不剧透展示未实现（当前只显示已解锁计数）。
 
 ## 恋爱承接 P0–P4 落地后剩下的账（2026-10-13）
 

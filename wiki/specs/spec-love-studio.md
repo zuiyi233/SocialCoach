@@ -1,6 +1,6 @@
 # Love Studio：Galgame 生成系统（spec）
 
-> 状态：**方案，未开工**（2026-10-21 立项）
+> 状态：**P0–P2 已交付**（2026-10-21 批次 A + D；真实 BYOK 未验证）；P3 托管见 F4
 > 范围：独立于主站的 Galgame 子系统。用户生成文本、人物、立绘、场景、语音；先玩一局，再把关系带回半教练。
 > 关联：[恋爱半教练](./spec-love-semi-coach.md) · [剧本模式美术升级](./spec-love-scripted-art.md) · [AnimaVN 参考](../refs/animavn.md) · [AGENTS.md](../../AGENTS.md)
 

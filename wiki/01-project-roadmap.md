@@ -11,7 +11,7 @@
 | C | 可索引化与 GEO | 🟡 本地实现并验收，线上未发布 | [12-stage-c](./12-stage-c.md) |
 | D | 发布与增长 | 📋 Planned | — 尚未开卡 |
 | E | 持续练习与可验证成长 | 🚧 In Progress | [13-stage-e](./13-stage-e.md) |
-| F | 恋爱与 Galgame 双系统 | 📋 Planned | [14-stage-f](./14-stage-f.md) |
+| F | 恋爱与 Galgame 双系统 | 🚧 F0–F3/F5/F6 已交付，F4 待决策 | [14-stage-f](./14-stage-f.md) |
 
 ## 阶段性更新
 
@@ -39,12 +39,12 @@
 | # | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | F0 | 规则与 Studio 基座 | ✅ 文档已落地（2026-10-21，c6cd1eb） | 五份 spec + AnimaVN 参考 + AGENTS 适用范围；fork / build / brand 在批次 A 完成 |
-| F1 | 恋爱半教练 | 📋 方案已写，未开工 | 熟悉/信任/心动关系状态、主动关心、可选关系回顾；不写能力分 → [spec](./specs/spec-love-semi-coach.md) |
-| F2 | Love Studio（P0–P2） | ✅ 批次 A 已实现并通过桌面 Chromium 验收（2026-10-21）；真实 BYOK 未验证 | 批次 A = P0 基座（fork/build/brand/模型连接/端口/创作者模式/启动脚本）+ P1（`/love` 双入口、Studio 入口页、三态健康检查、回链、原创起始角色/世界书/场景包、Studio 侧 `.scpersona` 导入导出、密钥策略）；mock 连接完成一局生成并保存/读档；P2 故事包/角色生成、托管 P3 待后续；见 [spec](./specs/spec-love-studio.md) |
-| F3 | 剧本模式美术升级 | 📋 方案已写，未开工 | 全幅舞台、Rio 背景/CG、逐句 beat；**`app/public/love-scenes/` 尚不存在、无任何背景/CG，需从零建 manifest + 目录**；与 Studio 并行 → [spec](./specs/spec-love-scripted-art.md) |
+| F1 | 恋爱半教练 | ✅ 已交付（2026-10-21，批次 B）；未经玩家验证 | 熟悉/信任/心动三维关系状态（tier 0–3，每场每维最多 +1、按 sceneId 幂等）；主动关心预算（每场 1 次、全站 24h 1 次、22:00–08:00 静默、可关）；可选关系回顾只引用自由输入原话；story slot **v2→v3**；不写能力分 → [spec](./specs/spec-love-semi-coach.md) |
+| F2 | Love Studio（P0–P2） | ✅ P0–P2 已实现（2026-10-21）；真实 BYOK 未验证 | 批次 A = P0 基座 + P1（`/love` 双入口、Studio 入口页、三态健康检查、回链、原创起始角色/世界书/场景包、`.scpersona` 导入导出、密钥策略）；批次 D = P2 角色生成向导（1 次 LLM 规划 → 立绘/场景生图 → 建卡绑包）与故事包导出/导入（`socialcoach.love-story.v1`）；托管 P3 见 F4 → [spec](./specs/spec-love-studio.md) |
+| F3 | 剧本模式美术升级 | ✅ 已交付（2026-10-21，批次 E）；桌面浏览器实测，真机未验 | 全幅舞台（背景 + focus + 可读性渐变）、Rio 6 幕背景与 2 张 CG、3 条系列兜底、逐句 `lineBeats`；无 manifest 条目时静默降级回原卡片；TTS/自动/跳过/限时选择不打架 → [spec](./specs/spec-love-scripted-art.md) |
 | F4 | 托管 Studio（P3，可选） | 📋 待 F2 行为数据 | 账号、隔离存储、GPU TTS、生图代理、审核 |
-| F5 | 跨系统桥与局外成长 | 📋 方案已写，未开工 | 一套关系档案；权威矩阵；StoryPack / PersonaPack；导入预览；分支/冲突；叙事阶段 + 关系图鉴 + 故事收藏（无 EXP/等级）；Studio 关系状态只读折叠 → [spec](./specs/spec-love-bridge.md) |
-| F6 | 共享人设与酒馆卡 | ✅ 批次 A 已实现并通过桌面 Chromium 8 步验收（2026-10-21） | 批次 A = 单一 Persona schema + 设备库 + `.scpersona` pack + `/love/persona` 聚焦编辑器 + Studio 侧 Python parser 复刻与跨语言契约测试；完整 Tavern 工作台（世界书/预设/立绘/声音/AI 生成）待后续 → [spec](./specs/spec-love-persona.md) |
+| F5 | 跨系统桥与局外成长 | ✅ 已交付（2026-10-21，批次 C）；往返未做真人验证 | 关系档案 `LoveArchive`（人物/故事/图鉴，上限与冲突语义齐备）；`socialcoach.love-story.v1` 故事包（剥剧透字段、quote 纪律、稳定 hash）；`/love/archive` 导入预览 + afterstory + 主线标记；叙事阶段 `stage = min(familiarity, trust)`；Studio 侧导出/导入同契约 → [spec](./specs/spec-love-bridge.md) |
+| F6 | 共享人设与酒馆卡 | ✅ P1 已交付并通过桌面 Chromium 8 步验收（2026-10-21）；P2 的完整 Tavern 工作台由 fork 提供、AI 生成已交付 | 批次 A = 单一 Persona schema + 设备库 + `.scpersona` pack + `/love/persona` 聚焦编辑器 + Studio 侧 Python parser 复刻与跨语言契约测试；批次 D = AI 角色生成向导（Tavern V2 卡 + 世界书 + 立绘/场景包）→ [spec](./specs/spec-love-persona.md) |
 
 2026-10-21 已拍板：Studio 完整导入 Tavern 卡，恋爱系统只吃 `.scpersona` + 基础 JSON（离线直吃卡须共享 Studio parser + round-trip 测试）；玩家 persona 与教练 profile 分表 + 显式复制；Studio 关系状态只读、默认折叠；局外成长用叙事阶段 + 关系图鉴 + 故事收藏，不做战力/EXP，等级即便出现也只读且不能兑换。
 

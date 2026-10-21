@@ -1,6 +1,6 @@
 # 恋爱双系统桥：关系档案与局外成长（spec）
 
-> 状态：**方案，未开工**（2026-10-21 立项）
+> 状态：**已交付**（2026-10-21 批次 C；主站侧与 Studio 侧同契约，真实 UI 往返未全验）
 > 范围：Love Studio（Galgame）与恋爱半教练之间的双向交接、关系档案、局外成长与人设包交换。
 > 关联：[恋爱半教练](./spec-love-semi-coach.md) · [Love Studio](./spec-love-studio.md) · [共享人设](./spec-love-persona.md) · [Stage F](../14-stage-f.md)
 

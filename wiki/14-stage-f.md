@@ -35,13 +35,13 @@ E10 交付后，恋爱线已经能像 Galgame 一样读、存、回看、走到�
 
 | 阶段 | 用户结果 | 最小范围 | 完成标准 | 当前状态 |
 |---|---|---|---|---|
-| **F0：规则与基座** | 团队知道两套系统各自遵守什么；Studio 能本地跑起来 | 五份 spec + AnimaVN 参考 + AGENTS 适用范围；fork/build/brand；模型连接 | 文档评审通过；本地导入一张卡并完成一局生成故事；主站不受影响 | 📋 方案文档已写（2026-10-21），未开工 |
-| **F1：恋爱半教练** | 高关系时角色会主动关心；用户能选是否被点评 | 熟悉/信任/心动三维关系状态；主动关心预算与开关；可选关系回顾 | 关系状态只在对的节点变化；主动关心不越界、不写分；自由输入才可引用；导出/擦除覆盖 | 📋 方案已写，未开工 → [规格](./specs/spec-love-semi-coach.md) |
-| **F2：Love Studio** | 用户可以生成/导入角色、场景、立绘、语音，先玩一局 | AnimaVN fork；`/love` 双入口；persona 桥；起始角色/场景包；故事包回链 | P0–P1 本地 E2E；P2 角色生成向导与故事包；托管归 F4 | 📋 方案已写，未开工 → [规格](./specs/spec-love-studio.md) |
-| **F3：剧本模式美术升级** | 内置 66 场不再像「立绘卡片 + 渐变」 | 全幅舞台、Rio 背景/CG、逐句 beat；不改语料/账本/结局 | 浏览器实测；无背景静默降级；beats 坏数据回退；TTS/限时选择不打架 | 📋 方案已写，未开工 → [规格](./specs/spec-love-scripted-art.md) |
+| **F0：规则与基座** | 团队知道两套系统各自遵守什么；Studio 能本地跑起来 | 五份 spec + AnimaVN 参考 + AGENTS 适用范围；fork/build/brand；模型连接 | 文档评审通过；本地导入一张卡并完成一局生成故事；主站不受影响 | ✅ 已交付（2026-10-21）：文档 `c6cd1eb`、基座 `28d6709`；mock 连接完成一局，真实 BYOK 未验证 |
+| **F1：恋爱半教练** | 高关系时角色会主动关心；用户能选是否被点评 | 熟悉/信任/心动三维关系状态；主动关心预算与开关；可选关系回顾 | 关系状态只在对的节点变化；主动关心不越界、不写分；自由输入才可引用；导出/擦除覆盖 | ✅ 已交付（批次 B）：`love-relationship.ts` + story v3 + 三张卡片 + 结算/注入；未经玩家验证 → [规格](./specs/spec-love-semi-coach.md) |
+| **F2：Love Studio** | 用户可以生成/导入角色、场景、立绘、语音，先玩一局 | AnimaVN fork；`/love` 双入口；persona 桥；起始角色/场景包；故事包回链 | P0–P1 本地 E2E；P2 角色生成向导与故事包；托管归 F4 | ✅ P0–P2 已交付：批次 A（基座/入口/persona/种子）+ 批次 D（角色生成向导、故事包导出导入）；P3 见 F4 → [规格](./specs/spec-love-studio.md) |
+| **F3：剧本模式美术升级** | 内置 66 场不再像「立绘卡片 + 渐变」 | 全幅舞台、Rio 背景/CG、逐句 beat；不改语料/账本/结局 | 浏览器实测；无背景静默降级；beats 坏数据回退；TTS/限时选择不打架 | ✅ 已交付（批次 E）：11 张 webp + manifest + 全幅舞台 + `lineBeats`；桌面实测，移动端未验 → [规格](./specs/spec-love-scripted-art.md) |
 | **F4：托管 Studio（P3，可选）** | 不装本地也能生成 | 账号、隔离存储、GPU TTS、生图代理、审核 | 多用户隔离；密钥不落库；成本/并发上限 | 📋 待 F2 P0–P2 有行为数据后决策 |
-| **F5：跨系统桥与局外成长** | Studio 的故事/关系能带回半教练，也能带回去续写 | 一套关系档案；权威矩阵；StoryPack / PersonaPack；导入预览；分支与冲突；叙事阶段 + 关系图鉴 + 故事收藏 | 往返不丢人物/关键选择/关系状态；不自动写能力分；剧透字段不导出；删除/导出覆盖；没有 EXP/等级兑换 | 📋 方案已写，未开工 → [规格](./specs/spec-love-bridge.md) |
-| **F6：共享人设与酒馆卡** | 两个系统都能创建/编辑/导入导出同一个人设 | 单一 Persona schema；Studio 全量 Tavern 工作台；恋爱聚焦编辑器（`.scpersona` + 基础 JSON，PNG 引导到 Studio）；AI 生成 | 同一 pack 两边 round-trip；未知字段保留；不执行 prompt_order/jailbreak；恋爱不装 Studio 也能改核心人设 | 📋 方案已写，未开工 → [规格](./specs/spec-love-persona.md) |
+| **F5：跨系统桥与局外成长** | Studio 的故事/关系能带回半教练，也能带回去续写 | 一套关系档案；权威矩阵；StoryPack / PersonaPack；导入预览；分支与冲突；叙事阶段 + 关系图鉴 + 故事收藏 | 往返不丢人物/关键选择/关系状态；不自动写能力分；剧透字段不导出；删除/导出覆盖；没有 EXP/等级兑换 | ✅ 已交付（批次 C）：`love-archive.ts` + `love-story-pack.ts` + `/love/archive` + Studio 侧同契约端点；「主站→Studio」真实 UI 往返未做 → [规格](./specs/spec-love-bridge.md) |
+| **F6：共享人设与酒馆卡** | 两个系统都能创建/编辑/导入导出同一个人设 | 单一 Persona schema；Studio 全量 Tavern 工作台；恋爱聚焦编辑器（`.scpersona` + 基础 JSON，PNG 引导到 Studio）；AI 生成 | 同一 pack 两边 round-trip；未知字段保留；不执行 prompt_order/jailbreak；恋爱不装 Studio 也能改核心人设 | ✅ P1 已交付并通过桌面 Chromium 8 步验收；P2 的 Tavern 工作台由 fork 提供、AI 生成已交付（批次 D） → [规格](./specs/spec-love-persona.md) |
 
 ## 交付顺序
 

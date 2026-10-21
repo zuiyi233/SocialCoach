@@ -2,6 +2,41 @@
 
 # 踩坑记录
 
+### 场景舞台的逐句 beat 必须与自动存档、限时选择互斥（2026-10-21）
+
+- **现象：** 接入逐句 `lineBeats` 后，恢复一局时历史里出现半句台词；偶尔限时选择在最后一句还没显示完就开始倒计时。自动存档写进去的当前 NPC 行只到一半。
+- **原因：** beat 队列是用定时器把一句话拆成 2–4 段显示，`typingDone` 原来只看打字机是否结束；存档、自动推进和限时选择的计时都读 `typingDone`，于是它们认为「这句话已经说完了」。
+- **解法：** `PlayScene` 加 `beatsPending` 状态，`typingDone = 打字机完成 && !beatsPending`；`beatsPending` 期间跳过自动存档、`setEmotion` 延后、推进按钮先 `skipBeats()`。`skipBeats()` 与定时器清理都走同一个 `clearBeatTimer`，换局时按 `turnKey` 作废旧队列。
+- **教训：** 任何「一句话分多段呈现」的播放器都会让「完成」这个判定从布尔变成复合条件；所有等这句话的旁路（存档 / 自动 / 倒计时）都要一起改，否则半句会流进持久化。
+
+### 生成立绘/场景时「不画人」必须显式写进 prompt（2026-10-21）
+
+- **现象：** 场景背景的第一轮生成里，书店和家庭餐桌两张图都出现了人物（其中一张还是主角的近似形象），而这些图是要当**空舞台背景**用的。
+- **原因：** prompt 只描述了地点、光线、画风；`no people` 这类否定约束没写，模型按「场景插画」的常见构图补了人。只看描述语（“企鹅书店内景”）并不蕴含「空无一人」。
+- **解法：** manifest 的 prompt 里补 `unpopulated room, nobody, no humans, no characters` 后重生成两张，再转 webp；`source` / `license` 仍记在 manifest。重生成走 `app/scripts/generate-love-scenes.mjs --force`。
+- **教训：** 否定约束要作为独立子句写出来并逐张目检；「场景图」在生图模型那里默认是「有人物动作的插画」，不是「背景板」。
+
+### 故事包的 `title` / `summary` 是双语非空，Studio 的单语 UGC 不能直接塞（2026-10-21）
+
+- **现象：** 从 Studio 导出的故事包被主站 `/love/archive` 拒收（`title: Required`），而包里「明明有标题」。
+- **原因：** 主站 `love-story-pack.ts` 的 `locText` 要求 `{zh, en}` **两个都非空**；Studio 的 UGC 是单语，导出时只填了当前语言那一边。
+- **解法：** Studio 侧 `app/api/story_pack.py` 的 `_loc()` 把同一段原文同时填进 `zh` / `en`（显式复用，不是偷偷机翻），并在导出面板里让用户能看到、改标题与摘要；解析侧同样按双语非空校验。新增单语内容时**不要**发明第二套字段名或放宽主站 schema。
+- **教训：** 跨系统契约里的「本地化字段」不是可选装饰；单语来源必须在交接层显式补齐，并让用户看见补的是什么。
+
+### Studio 的 venv 在 `love-studio/.venv`，不在 `AnimaBackend/`（2026-10-21）
+
+- **现象：** 按直觉跑 `AnimaBackend/.venv/Scripts/python.exe -m pytest` 报文件不存在；系统 Python 3.12 又缺 `sqlalchemy`。
+- **原因：** 启动脚本与 `README` 把 venv 建在 fork 根目录（`love-studio/.venv`），后端目录只放代码。
+- **解法：** 在 `love-studio/AnimaBackend/` 下用 `../.venv/Scripts/python.exe -m pytest`（Windows）或 `../.venv/bin/python -m pytest`（macOS/Linux）。不要全局安装依赖，也不要改 venv 位置。
+- **教训：** 工具链只装在仓库内是既定约束；命令写进文档时带上工作目录，否则下一个人会在同级目录里找不到解释器。
+
+### 网关只认基础模型名，带上下文/思考强度后缀的名字一律 `model_not_found`（2026-10-21）
+
+- **现象：** 用 `agnes-2.5-flash-500k-32k-high` 这类「模型名+上下文+输出+思考强度」的完整串调 `/v1/chat/completions`，网关返回 `model_not_found`；换成 `agnes-2.5-flash` 立刻可用。
+- **原因：** 那份清单是**配置说明**（每个模型的上下文/输出上限与思考强度档位），不是模型 id 列表；网关的模型表只登记基础名。
+- **解法：** 连接里写基础名（`agnes-2.5-flash`、`deepseek-v4-flash`、`agnes-image-2.5-flash` 等），思考强度按请求参数传。图片尺寸实测支持 `832x1248`（立绘）与 `1280x720`（场景）。
+- **教训：** 供应商给的「模型配置表」先区分标识符与规格列；把规格拼回 id 是最常见的接线错误。
+
 ### 导出是前缀驱动、恢复有 allowlist：新 slot 必须两处同时注册（2026-10-21）
 
 - **现象：** 新增一个 `socialcoach.love-play.*` 的 slot 后，导出文件里能看到它，但恢复 / 导入后被「隔离」——数据回到设备端却读不到。

@@ -1,6 +1,6 @@
 # 恋爱半教练系统（spec）
 
-> 状态：**方案，未开工**（2026-10-21 立项）
+> 状态：**已交付**（2026-10-21 批次 B；未经玩家验证）
 > 范围：恋爱系统的定位、内容契约、好感/关系状态、主动关心、可选反馈。剧本引擎与阅读层继续沿用 [spec-love-interactive-story.md](./spec-love-interactive-story.md) 的成果；不碰主教练。
 > 关联：[Love Studio](./spec-love-studio.md) · [剧本模式美术升级](./spec-love-scripted-art.md) · [GALGAME 基本盘](./spec-love-galgame-foundation.md) · [视觉小说模式](./spec-love-visual-novel.md)
 

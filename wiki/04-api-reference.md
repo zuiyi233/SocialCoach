@@ -171,7 +171,11 @@ HTTP / 流式错误的 `modelIssue:null` 明确表示任务自身错误，例如
 
 **错误**：无模型 key → `503 {"modelIssue":"setup"}`；body 非法或没有非学习者 NPC → `400`（`taskInput` 口径）；LLM 拒绝 → `422`。
 
-**2026-10-21 计划中（未实现）**：恋爱半教练会在现有请求 / 响应上增加可选的关系上下文与 `beats`（见 [spec-love-semi-coach.md](./specs/spec-love-semi-coach.md)、[spec-love-scripted-art.md](./specs/spec-love-scripted-art.md)）；Love Studio 走独立运行时，不新增到本 API 表；故事 / 人设交接走 `.scpersona` pack 或 Studio 本地桥，不新增主站 API。现有 `/api/love-play` 契约在落地前不变。
+**2026-10-21 已落地（批次 B/E，可选字段，旧调用不受影响）**：请求增加
+- `relationship?: LoveRelationshipState \| null`：半教练的三维关系状态（熟悉 / 信任 / 心动，tier 0–3）。系统提示据此注入一段**定性**的 `RELATIONSHIP SO FAR`（无分数、无数值门槛），见 `app/src/lib/love-relationship.ts` 的 `relationshipPromptBlock`。
+- `beats?: boolean`：为 true 时要求模型把本回合台词拆成 2–4 句（`beats: [{text:{zh,en}, emotion}]`），响应里出现 `beats`；`line` 仍由 beats 拼回完整文本，回忆 / 存档 / 结局判定只读 `line`。前端 `lineBeats` 与 Rio 作者拍点 `beats` 是两套东西，不要混用。
+
+Love Studio 走独立运行时，不新增到本 API 表；故事 / 人设交接走 `.scpersona` pack、`socialcoach.love-story.v1` 故事包或 Studio 本地桥，不新增主站 API。
 
 ### Love Studio 本地运行时（`love-studio/`，不是主站 API route）
 
@@ -184,10 +188,17 @@ Love Studio 是独立于主站的 AnimaVN fork 本地运行时（React + Vite �
 | POST | `/api/scpersona/import` | multipart `file`；校验通过后落成 TavernCard。未知字段原样存进 `extensions.studio_scpersona.persona`，导出可带回；同名不同 id 会新建一张并列卡，不静默覆盖。失败返回 `detail.code`（共享 `LOVE_PERSONA_ERROR` 错误码：`persona/bad-json`、`persona/bad-shape`、`persona/bad-version`、`persona/pack-hash`、`persona/pack-too-large` 等，见 `app/src/lib/love-persona.ts`） |
 | GET | `/api/scpersona/export/{card_id}?public_only=0\|1` | 导出 `.scpersona` zip；导入过的卡以 `extensions.studio_scpersona.persona` 为底，Studio 原生卡按 Tavern 字段反推 Persona；`public_only=1` 剥 `storyConstraints.secret` |
 | GET / PUT | `/api/settings/{key}` | Studio 全局设置（任意 JSON 值）；键规则见 `AnimaBackend/app/api/app_settings.py`：`^[a-z0-9][a-z0-9_.-]{0,63}$`，`secret.*` 前缀禁止经此读写；未存过的 GET 返回 `{key, value: null}` 而非 404。`security.remember_api_keys`（bool，默认 true）是特例：PUT 会走密钥策略，关闭时把已存密钥从 SQLite 移入进程内存 |
+| POST | `/api/character/generate` | 一句话生成角色（角色生成向导后端）。body：`{description(1–2000), name?, language=zh\|en, style?, expression_count=2–8, scene_count=0–6}`；后台任务执行，立即回 `{job_id}`，不阻塞请求 |
+| GET | `/api/character/generate/{job_id}` | 查任务：`{status: running\|done\|error, step, total, message, result?, error?}`；`result` 含 `{card_id, card_name, sprite_pack_id, scene_pack_id, images_ok, images_failed, warnings}`；job 不存在/已过期回 404，错误信息在 `error` 字段 |
+| – | `/api/character/*` 任务机制 | 依赖已激活的文本连接与 OpenAI 兼容生图 Key；缺任一配置时任务 `status=error` 并给可读中文信息。单张图失败不整体失败（记 `warnings` 继续）。任务表在进程内（v1，单进程 uvicorn 够用），完成后 1 小时清理 |
+| POST | `/api/story/export` | 一局对话 → 故事包 `socialcoach.love-story.v1`。body：`{chat_id, title?, summary?, license?, language=zh}`；返回 `{pack, json, file_name, hash, warnings}`，`json` 就是主站 `/love/archive` 导入的那份字节。关键选择只取玩家自由输入（`choice` + `quote`），并打 `quoteSource:"free-text"`；剧透字段递归剥掉；空对话回 400 `story/no-chat` |
+| POST | `/api/story/import` | multipart `file`（故事包 JSON）；只校验与预览，不写库。返回 `{pack, warnings, hash, can_create_card}`；失败 `detail.code ∈ {story/bad-json, story/bad-shape, story/bad-version, story/too-large}` |
+| POST | `/api/story/import/apply` | body `{pack, card_id?, language=zh}` → 建卡（包里带 `character.name` 且没给 `card_id` 时）+ 新建一局带「【前情】」的对话，返回 `{card_id, chat_id, created_card, recap}`；没有可用角色回 400 `story/no-card`。关系状态**不**在这里写（关系归主站） |
+| – | `/api/story/*` 契约 | Python 侧 `AnimaBackend/app/story_pack.py` 与主站 `app/src/lib/love-story-pack.ts` 共用字段契约（双语 `title`/`summary`/`choice` 必须 `{zh,en}` 非空、`quote` 只随 `quoteSource` 保留、私有字段名同一批）；规范化 JSON 复用 `app.scpersona.canonical_json`，所以两边哈希一致。契约测试 `AnimaBackend/tests/test_story_pack.py` |
 
 **健康检查现状（2026-10-21）**：AnimaVN 后端 health 在 `:8000`，`:5180` 是 vite dev/preview（`strictPort`）；已用 vite 反代 `/api → :8000`，所以主站只需探测 `http://127.0.0.1:5180/api/health`。主站侧不新增 API route；故事 / 人设交接走 `.scpersona` pack 或 Studio 本地桥。
 
-> 注：`.scpersona` 的跨语言契约由 `AnimaBackend/tests/test_scpersona.py` 与 `app/tests/core/love-persona*.test.ts` 共同钉住；Python 侧 `compute_card_hash` 必须等于 TS 侧对同一 fixture 的结果（`with-unknown.scpersona` 的 manifest 值）。
+> 注：`.scpersona` 的跨语言契约由 `AnimaBackend/tests/test_scpersona.py` 与 `app/tests/core/love-persona*.test.ts` 共同钉住；Python 侧 `compute_card_hash` 必须等于 TS 侧对同一 fixture 的结果（`with-unknown.scpersona` 的 manifest 值）。故事包的同一性由 `tests/test_story_pack.py` 与 `app/tests/core/love-story-pack.test.ts` 分别钉住字段形状。
 
 ### `POST /api/track`
 
