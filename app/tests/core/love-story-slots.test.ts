@@ -104,7 +104,7 @@ test("a slot must be keyed by the scenario it claims", () => {
   assert.equal(readLoveStoryStore().status, "empty");
 });
 
-test("a v1 store migrates in memory and persists as v2 on the next write", () => {
+test("a v1 store migrates in memory and persists as v3 on the next write", () => {
   reset();
   const v1 = {
     v: 1,
@@ -118,13 +118,14 @@ test("a v1 store migrates in memory and persists as v2 on the next write", () =>
   const read = readLoveStoryStore();
   assert.equal(read.status, "ok");
   if (read.status !== "ok") return;
-  assert.equal(read.store.v, 2);
+  assert.equal(read.store.v, 3);
   assert.deepEqual(read.store.slots, {});
+  assert.deepEqual(read.store.relationships, {});
   assert.deepEqual(read.store.routes, { "series-a": { lastAct: 2 } });
 
   const written = saveLovePlaySlot("scene-a", "1", save(), read.store.revision);
   assert.equal(written.ok, true);
-  assert.equal(stored().v, 2);
+  assert.equal(stored().v, 3);
 });
 
 test("a corrupt store rejects slot writes and keeps the original bytes", () => {

@@ -90,6 +90,7 @@ test("reader settings default, validate and round-trip", () => {
     skipRead: true,
     reduceMotion: false,
     timedChoice: true,
+    care: true,
   };
   assert.equal(writeLoveReaderSettings(next), true);
   assert.deepEqual(readLoveReaderSettings(), next);

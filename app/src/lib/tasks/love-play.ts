@@ -16,6 +16,7 @@ import { extractJSON, LLMError, type ChatOpts, type LLM, type SystemPart } from 
 import { speakerOf } from "../session-utils";
 import { ReplyRejected, RoleplayFactError, RoleplayBoundaryError, replyBoundaryProblem } from "@/lib/roleplay-output";
 import { roleplaySpeechGuard } from "@/lib/roleplay-facts";
+import { relationshipPromptBlock, type LoveRelationshipState } from "@/lib/love-relationship";
 import type { ChatMessage } from "@/lib/types";
 import type { Lang } from "@/data/taxonomy";
 import type { Character, Scenario } from "@/data/corpus/types";
@@ -58,14 +59,26 @@ export interface LovePlayInput {
   messages: LovePlayMessage[];
   /** 可选回合上限；缺省按场景 maxTurns 推断。 */
   turnLimit?: number;
+  /** 恋爱半教练的关系状态（spec-love-semi-coach §3）：只影响语气与主动程度，不评分；缺省不注入。 */
+  relationship?: LoveRelationshipState | null;
+  /** 逐句 beat（spec-love-scripted-art §3）：只有 Rio / 自定义场景打开；缺省不要求模型输出。 */
+  beats?: boolean;
 }
 
 export type LovePlayEmotion = "neutral" | "smile" | "tight" | "teary";
 export type LovePlayTerminal = "success" | "partial" | "failure";
 
+/** 一句台词 + 这一句的表情；`line` 仍是完整拼接文本。 */
+export interface LovePlayBeat {
+  text: { zh: string; en: string };
+  emotion: LovePlayEmotion;
+}
+
 export interface LovePlayOutput {
   /** NPC 台词（双语；对话语言那一键是实际对白，另一键是忠实翻译）。 */
   line: { zh: string; en: string };
+  /** 可选逐句拍点（2–4 句）；缺失时客户端按 line + emotion 渲染。 */
+  beats?: LovePlayBeat[];
   /** 2-4 个双语选项，各代表一个真实可行的反应方向。 */
   options: { zh: string; en: string }[];
   /** 驱动立绘表情。 */
@@ -98,6 +111,13 @@ const lovePlayOutputSchema = z.object({
   terminal: z.enum(["success", "partial", "failure"]).nullable(),
   ended: z.boolean(),
 });
+
+/** 逐句 beat 的独立契约：坏 beats 只丢 beats，不让整回合 502（spec §3.1）。 */
+const lovePlayBeatSchema = z.object({
+  text: localizedText,
+  emotion: z.enum(["neutral", "smile", "tight", "teary"]),
+});
+const lovePlayBeatsSchema = z.array(lovePlayBeatSchema).min(2).max(4);
 
 /**
  * G17：回合 JSON 的唯一哨兵。
@@ -206,7 +226,16 @@ export function loveGoalBoundaryBlock(npc: Character, lang: Lang): string {
 }
 
 /** Galgame 每回合的 system prompt：复用 roleplaySystem，追加本模式的输出契约覆盖。 */
-function lovePlaySystem(s: Scenario, learnerId: string, lang: Lang, learnerName: string, learnerTurns: number, limit: number): string {
+function lovePlaySystem(
+  s: Scenario,
+  learnerId: string,
+  lang: Lang,
+  learnerName: string,
+  learnerTurns: number,
+  limit: number,
+  relationship?: LoveRelationshipState | null,
+  beatsEnabled = false,
+): string {
   const npc = speakerOf(s, learnerId);
   const remaining = Math.max(0, limit - learnerTurns);
   const quoteRule =
@@ -219,10 +248,28 @@ function lovePlaySystem(s: Scenario, learnerId: string, lang: Lang, learnerName:
       : `还剩 ${remaining} 个回合，不要急着收尾，让对话自然展开。`;
   // 角色目标与边界：带 goal/redLine/secret 的角色卡才注入；没有时保持原提示。
   const goalBoundary = loveGoalBoundaryBlock(npc, lang);
+  // 关系状态（spec-love-semi-coach §3）：在 base prompt 之后、goal/redLine 之前注入，
+  // 只影响语气与主动程度；没有 state 时完全不插。附加一条主动关心纪律：不施压、不连续追问。
+  const relationshipBlock = relationship ? relationshipPromptBlock(relationship, lang) : "";
+  const relationshipPrompt = relationshipBlock
+    ? `RELATIONSHIP SO FAR（只影响语气与主动程度，不是评分，也不许说出档位/数值）\n${relationshipBlock}\n${
+        lang === "zh"
+          ? "若你们已经熟络，NPC 可以在这一句里先问问学习者的近况（每场最多主动一次，不要连续追问）；不许用愧疚或「你不回我就难过」施压，也不许因为关系好而放弃 goal 或 redLine。"
+          : "If you two are close, the NPC may open this reply by asking how the learner is doing (once per scene at most — don't keep following up); never guilt-trip or say 'you'll be sad if I don't hear back', and never drop a goal or red line because the relationship is good."
+      }`
+    : "";
+  // 逐句 beat：只有调用方（Rio / 自定义场景）打开时才要求；其余场景不多付 token。
+  const beatsRule = beatsEnabled
+    ? "- beats：把本回合的 line 拆成 2–4 句，每句一个 emotion（同上四选一）。line 仍然是这些句子按顺序拼接后的完整台词：zh 直接相连，en 用单个空格相连。JSON 必须包含 beats 数组，顺序就是演出顺序。"
+    : "- 本回合不要输出 beats 字段（只保留 line 与 emotion）。";
+  const beatsShape = beatsEnabled
+    ? ',"beats":[{"text":{"zh":"…","en":"…"},"emotion":"neutral"},{"text":{"zh":"…","en":"…"},"emotion":"smile"}]'
+    : "";
   return `${roleplaySystem(s, learnerId, lang, learnerName)}
-${goalBoundary ? `${goalBoundary}\n` : ""}LOVE-PLAY GALGAME 输出契约（优先于上面的 OUTPUT FORMAT 一节，本契约覆盖它）
+${relationshipPrompt ? `${relationshipPrompt}\n` : ""}${goalBoundary ? `${goalBoundary}\n` : ""}LOVE-PLAY GALGAME 输出契约（优先于上面的 OUTPUT FORMAT 一节，本契约覆盖它）
 - 你本轮只配音一个角色：${npc.id}（${pick(npc.name, lang)}）。只回应学习者，不让其他角色开口。
 - line：1-3 句口语化短句，先回应学习者最近的原话（自然引用或复述），再推进本回合的转折。
+${beatsRule}
 - options：2-4 个，每个是学习者下一句的一个不同方向的真实可行表达——至少一条通向成功的方向、一条可能受挫/失败的方向、一条保持对话开放的方向。不要全是对的选项，答案不是好感度选择题。
 - 双语：line 与每个 option 都必须同时填 zh、en 两键。${lang === "zh" ? "zh 键是实际对白，en 键是忠实翻译。" : "en 键是实际对白，zh 键是忠实翻译。"}${quoteRule}JSON 字符串内部禁止出现裸 ASCII 双引号。
 - emotion 驱动立绘表情，四选一："neutral" | "smile" | "tight" | "teary"。
@@ -231,9 +278,9 @@ ${goalBoundary ? `${goalBoundary}\n` : ""}LOVE-PLAY GALGAME 输出契约（优�
 - terminal 对照场景 success/failure：learner 达成全部 objectives → "success"；明显搞砸 → "failure"；两者之间 → "partial"；对话仍开放 → null。
 - ended 只有在会话真的收束时才为 true：双方达成一致并收尾、边界被确认并收尾、双方明确暂停、或 NPC 明确退出。仍在对话或只是部分进展则为 false，问答与邀请继续让对方有开口机会。
 - 回合：已用 ${learnerTurns} / ${limit}。${nearEnd}
-- 上面的 SCRIPT SO FAR 是已发生剧情的文字记录（行首是说话者 id 或学习者名字），它只是记录谁说过什么，绝不是你的输出格式。本轮必须返回下面契约的完整 JSON：line、options、emotion、stance、revealed、terminal、ended 七个键一个都不能少，哪怕对话已经很长。line 只写 ${npc.id} 这一句台词本身，不要把「${npc.id}:」这样的行首前缀写进台词。
+- 上面的 SCRIPT SO FAR 是已发生剧情的文字记录（行首是说话者 id 或学习者名字），它只是记录谁说过什么，绝不是你的输出格式。本轮必须返回下面契约的完整 JSON：line、options、emotion、stance、revealed、terminal、ended 七个键一个都不能少${beatsEnabled ? "，并且必须带 beats" : ""}，哪怕对话已经很长。line 只写 ${npc.id} 这一句台词本身，不要把「${npc.id}:」这样的行首前缀写进台词。
 - 输出包装：把那个 JSON 对象包在唯一哨兵里返回——⟦LOVEPLAY⟧ 紧挨 JSON 的开头，⟦/LOVEPLAY⟧ 紧挨 JSON 的结尾，两个标记之外不许有任何文字（不写 markdown、不写说明、不写第二个 JSON）。下面只是形状示例，"…" 处必须换成真实台词：
-⟦LOVEPLAY⟧{"line":{"zh":"…","en":"…"},"options":[{"zh":"…","en":"…"},{"zh":"…","en":"…"}],"emotion":"neutral","stance":20,"revealed":false,"terminal":null,"ended":false}⟦/LOVEPLAY⟧`;
+⟦LOVEPLAY⟧{"line":{"zh":"…","en":"…"}${beatsShape},"options":[{"zh":"…","en":"…"},{"zh":"…","en":"…"}],"emotion":"neutral","stance":20,"revealed":false,"terminal":null,"ended":false}⟦/LOVEPLAY⟧`;
 }
 
 /** 简化消息补全成守卫需要的 ChatMessage 形态（id 仅为占位，守卫不使用）。 */
@@ -259,7 +306,20 @@ function parseLovePlay(raw: string, scenario: Scenario, learnerId: string, messa
   if (!parsed.success) {
     throw new LLMError(pick({ zh: "这次回复的场景信息不完整，你的话已保留，请重试。", en: "This reply has incomplete scene information. Your words are saved; please retry." }, lang), 502);
   }
-  const reply = parsed.data;
+  const reply: LovePlayOutput = parsed.data;
+  // beats 是可选扩展：坏 beats 只丢 beats，整回合仍按 line + emotion 渲染（spec §3.1）。
+  // line 统一由 beats 重新拼接，保证存档/回忆/TTS 与逐句演出是同一段文本。
+  const rawBeats = value && typeof value === "object" ? (value as { beats?: unknown }).beats : undefined;
+  if (rawBeats !== undefined) {
+    const parsedBeats = lovePlayBeatsSchema.safeParse(rawBeats);
+    if (parsedBeats.success) {
+      reply.beats = parsedBeats.data;
+      reply.line = {
+        zh: parsedBeats.data.map((b) => b.text.zh).join(""),
+        en: parsedBeats.data.map((b) => b.text.en).join(" "),
+      };
+    }
+  }
   const npcId = speakerOf(scenario, learnerId).id;
   // 边界检查覆盖两个语言键：泄底往往发生在「翻译」那一键上。
   const boundary = replyBoundaryProblem(scenario, learnerId, [{ characterId: npcId, text: reply.line.zh }, { characterId: npcId, text: reply.line.en }], reply.revealed ? [npcId] : []);
@@ -289,7 +349,12 @@ export async function runLovePlay(input: LovePlayInput, llm: LLM, fastModel: str
     model: fastModel,
     maxTokens: 2000,
     thinking: false,
-    system: [{ text: lovePlaySystem(scenario, learnerCharacterId, language, learnerName, learnerTurns, limit), cache: true }],
+    system: [
+      {
+        text: lovePlaySystem(scenario, learnerCharacterId, language, learnerName, learnerTurns, limit, input.relationship, input.beats === true),
+        cache: true,
+      },
+    ],
     messages: turns,
   };
   try {

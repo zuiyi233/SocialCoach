@@ -5,6 +5,7 @@ import type {CarryPromiseClass} from '@/data/corpus/love-carry-lines';
 import {LOVE_CARRY_CAP, LOVE_CARRY_KEY, LOVE_CARRY_TEXT_MAX, LOVE_PLAY_PREFIX, type LoveCarryState} from './love-carry-store';
 import {LOVE_MEMORY_KEY, LOVE_MEMORY_SCOPE_MAX, LOVE_MEMORY_TEXT_MAX, LOVE_MEMORY_TOTAL_MAX} from './love-memory';
 import {LOVE_STORY_KEY, LoveStoryStoreSchema} from './love-story';
+import {LOVE_ARCHIVE_KEY, LoveArchiveSchema} from './love-archive';
 import {LOVE_PERSONA_KEY, LovePersonaStoreSchema} from './love-persona-store';
 import {LOVE_READ_KEY} from './love-read';
 import {LOVE_READER_KEY} from './love-reader-settings';
@@ -133,11 +134,14 @@ export const LoveMemoryStoreSchema=z.object({
 const LoveMemorySlotSchema=z.union([LoveMemoryStoreSchema,LovePlayUnreadableSchema]);
 /** 人设库 slot：与 story/memory 同前缀、形状自成一类；恢复必须原样带回未知字段（loose Persona）。 */
 const LovePersonaSlotSchema=z.union([LovePersonaStoreSchema,LovePlayUnreadableSchema]);
-type LoveSlotShape='carry'|'story'|'series'|'read'|'reader'|'memory'|'persona';
+/** 关系档案 slot（spec-love-bridge §3）：键名即形状，损坏档原样保留 `{unreadable}`。 */
+const LoveArchiveSlotSchema=z.union([LoveArchiveSchema,LovePlayUnreadableSchema]);
+type LoveSlotShape='carry'|'story'|'series'|'read'|'reader'|'memory'|'persona'|'archive';
 /** 键名决定形状；其余同前缀键不属于这份闭合联合，导出与恢复都不越界。 */
 function loveSlotShape(key:string):LoveSlotShape|null{
  if(key===LOVE_CARRY_KEY)return 'carry';
  if(key===LOVE_STORY_KEY)return 'story';
+ if(key===LOVE_ARCHIVE_KEY)return 'archive';
  if(key===LOVE_READ_KEY)return 'read';
  if(key===LOVE_READER_KEY)return 'reader';
  if(key===LOVE_MEMORY_KEY)return 'memory';
@@ -149,6 +153,7 @@ function loveSlotShape(key:string):LoveSlotShape|null{
 function loveValueShape(value:unknown):LoveSlotShape|null{
  if(Array.isArray(value))return 'carry';
  if(!value||typeof value!=='object')return null;
+ if('characters' in value&&'stories' in value&&'unlocks' in value)return 'archive';
  if('saves' in value&&'records' in value&&'routes' in value)return 'story';
  if('completed' in value&&'lastScene' in value&&'outcome' in value)return 'series';
  if('seen' in value&&'updatedAt' in value)return 'read';
@@ -157,7 +162,7 @@ function loveValueShape(value:unknown):LoveSlotShape|null{
  if('personas' in value&&'revision' in value)return 'persona';
  return null;
 }
-export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveStoryStoreSchema,LoveSeriesProgressSchema,LoveReadSlotSchema,LoveReaderSlotSchema,LoveMemoryStoreSchema,LovePersonaStoreSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
+export const LovePlaySchema=z.record(text.startsWith(LOVE_PLAY_PREFIX).min(LOVE_PLAY_PREFIX.length+1).max(140),z.union([LoveCarryListSchema,LoveStoryStoreSchema,LoveSeriesProgressSchema,LoveReadSlotSchema,LoveReaderSlotSchema,LoveMemoryStoreSchema,LovePersonaStoreSchema,LoveArchiveSchema,LovePlayUnreadableSchema])).superRefine((slots,ctx)=>{
  for(const [key,slot] of Object.entries(slots)){
   const target=loveSlotShape(key);
   if(!target){ctx.addIssue({code:'custom',path:[key],message:'Love-play slot key is not part of the archive'});continue;}
@@ -172,6 +177,7 @@ export function parseLovePlaySlot(key:string,value:unknown){
  switch(loveSlotShape(key)){
   case 'carry':return LoveCarrySlotSchema.safeParse(value);
   case 'story':return LoveStorySlotSchema.safeParse(value);
+  case 'archive':return LoveArchiveSlotSchema.safeParse(value);
   case 'series':return LoveSeriesSlotSchema.safeParse(value);
   case 'read':return LoveReadSlotSchema.safeParse(value);
   case 'reader':return LoveReaderSlotSchema.safeParse(value);

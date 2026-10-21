@@ -18,6 +18,8 @@ export interface LoveReaderSettings {
   reduceMotion: boolean;
   /** 限时选择：默认关；开了也只在高潮幕生效（spec §4.5，拍板 Q6）。 */
   timedChoice: boolean;
+  /** 角色主动关心：熟络后开场/回访的关心卡；默认开，旧档缺字段按开处理（spec-love-semi-coach §3.3）。 */
+  care: boolean;
 }
 
 export const DEFAULT_LOVE_READER: LoveReaderSettings = {
@@ -28,6 +30,7 @@ export const DEFAULT_LOVE_READER: LoveReaderSettings = {
   skipRead: false,
   reduceMotion: false,
   timedChoice: false,
+  care: true,
 };
 
 function storage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> | null {
@@ -56,6 +59,8 @@ export function readLoveReaderSettings(): LoveReaderSettings {
       reduceMotion: value.reduceMotion === true,
       // 旧档没有这个字段：默认关。识别不出的值也按关处理，绝不猜成开。
       timedChoice: value.timedChoice === true,
+      // 主动关心默认开：只有显式关掉才不出现；旧档缺字段与识别不出的值都按开。
+      care: value.care !== false,
     };
   } catch {
     return DEFAULT_LOVE_READER;

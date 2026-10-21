@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { L, Lang } from "@/data/taxonomy";
 import type { Scenario } from "@/data/corpus/types";
 import type { ChatMessage } from "./types";
+import type { LoveRelationshipState } from "./love-relationship";
 import { readModelFailure, type ModelIssue } from "./model-status";
 import { ApiError } from "./client-api";
 
@@ -9,10 +10,18 @@ import { ApiError } from "./client-api";
 export type LovePlayEmotion = "neutral" | "smile" | "tight" | "teary";
 export type LovePlayOutcome = "success" | "partial" | "failure";
 
+/** 逐句拍点：只驱动逐句台词与表情，不参与路线账本 / 结局判定。 */
+export interface LovePlayLineBeat {
+  text: L;
+  emotion: LovePlayEmotion;
+}
+
 export interface LovePlayTurn {
   line: L;
   options: L[];
   emotion: LovePlayEmotion;
+  /** 2–4 句逐句拍点；缺失或坏数据时按 line + emotion 整句渲染。 */
+  lineBeats?: LovePlayLineBeat[];
   /** 0-100，对方立场（不是给学习者的评分）。 */
   stance: number;
   revealed: boolean;
@@ -29,6 +38,10 @@ export interface LovePlayTurnInput {
   /** 历史消息：role/characterId?/text/ts 与现有 ChatMessage 兼容。 */
   messages: ChatMessage[];
   turnLimit?: number;
+  /** 恋爱半教练的关系状态（只影响语气与主动程度）；可空，body 原样带上。 */
+  relationship?: LoveRelationshipState | null;
+  /** 逐句拍点开关（Rio / 自定义场景）；缺省不要求模型输出 beats。 */
+  beats?: boolean;
 }
 
 /** 与 client-api 同口径的断网提示（用户可读、双语）。 */
@@ -47,15 +60,26 @@ const BAD_RESPONSE_MSG: L = {
  * 保留在调用方的 pending 命令里原样重发）。未知多余键被剥掉，前向兼容。
  */
 const localizedLine = z.object({ zh: z.string().trim().min(1), en: z.string().trim().min(1) });
-const lovePlayTurnSchema: z.ZodType<LovePlayTurn> = z.object({
+const emotionSchema = z.enum(["neutral", "smile", "tight", "teary"]);
+const rawBeatSchema = z.object({ text: localizedLine, emotion: emotionSchema });
+const beatListSchema = z.array(rawBeatSchema).min(2).max(4);
+/** 原始响应：beats 不在主契约里；坏 beats 只丢 beats，不让整回合失败（spec §3.1）。 */
+const rawLovePlayTurnSchema = z.object({
   line: localizedLine,
   options: z.array(localizedLine).min(2).max(4),
-  emotion: z.enum(["neutral", "smile", "tight", "teary"]),
+  emotion: emotionSchema,
   stance: z.number().int().min(0).max(100),
   revealed: z.boolean(),
   terminal: z.enum(["success", "partial", "failure"]).nullable(),
   ended: z.boolean(),
 });
+type RawLovePlayTurn = z.infer<typeof rawLovePlayTurnSchema>;
+
+/** 把后端的 `beats` 映射成代码内字段 `lineBeats`（spec §3.1 的命名订正）。 */
+function toLovePlayTurn(raw: RawLovePlayTurn, beatsRaw: unknown): LovePlayTurn {
+  const beats = beatListSchema.safeParse(beatsRaw);
+  return beats.success ? { ...raw, lineBeats: beats.data } : raw;
+}
 
 /**
  * 一次 /api/love-play 请求：非流式 JSON，返回双语台词 + 2-4 个选项 + 表情 +
@@ -99,7 +123,7 @@ export async function lovePlayTurn(input: LovePlayTurnInput, signal?: AbortSigna
   } catch {
     throw new ApiError(BAD_RESPONSE_MSG[lang], 502, "http");
   }
-  const parsed = lovePlayTurnSchema.safeParse(body);
+  const parsed = rawLovePlayTurnSchema.safeParse(body);
   if (!parsed.success) throw new ApiError(BAD_RESPONSE_MSG[lang], 502, "http");
-  return parsed.data;
+  return toLovePlayTurn(parsed.data, (body as { beats?: unknown }).beats);
 }

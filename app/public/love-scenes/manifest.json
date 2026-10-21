@@ -1,0 +1,125 @@
+{
+  "v": 1,
+  "scenes": {
+    "love-approach-received-interest": {
+      "scenarioId": "love-approach-received-interest",
+      "background": {
+        "src": "/love-scenes/rio-01.webp",
+        "focusX": 50,
+        "focusY": 42
+      },
+      "cg": [
+        {
+          "src": "/love-scenes/rio-01-cg.webp",
+          "at": "reveal",
+          "caption": { "zh": "他终于把这句话说出了口", "en": "He finally said the words out loud" }
+        }
+      ],
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    },
+    "love-define-rio-pace-talk": {
+      "scenarioId": "love-define-rio-pace-talk",
+      "background": {
+        "src": "/love-scenes/rio-02.webp",
+        "focusX": 50,
+        "focusY": 46
+      },
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    },
+    "love-family-decision-pressure": {
+      "scenarioId": "love-family-decision-pressure",
+      "background": {
+        "src": "/love-scenes/rio-03.webp",
+        "focusX": 50,
+        "focusY": 50
+      },
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    },
+    "love-rio-secondment-deadline": {
+      "scenarioId": "love-rio-secondment-deadline",
+      "background": {
+        "src": "/love-scenes/rio-04.webp",
+        "focusX": 62,
+        "focusY": 44
+      },
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    },
+    "love-rio-family-settled": {
+      "scenarioId": "love-rio-family-settled",
+      "background": {
+        "src": "/love-scenes/rio-05.webp",
+        "focusX": 50,
+        "focusY": 45
+      },
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    },
+    "love-rio-deadline-night": {
+      "scenarioId": "love-rio-deadline-night",
+      "background": {
+        "src": "/love-scenes/rio-06.webp",
+        "focusX": 60,
+        "focusY": 40
+      },
+      "cg": [
+        {
+          "src": "/love-scenes/rio-06-cg.webp",
+          "at": "ending",
+          "caption": { "zh": "期限的最后一晚", "en": "The last night of the deadline" }
+        }
+      ],
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    },
+    "love-arc-approach": {
+      "scenarioId": "love-arc-approach",
+      "background": {
+        "src": "/love-scenes/arc-approach.webp",
+        "focusX": 50,
+        "focusY": 45
+      },
+      "note": "series fallback",
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    },
+    "love-arc-long-distance": {
+      "scenarioId": "love-arc-long-distance",
+      "background": {
+        "src": "/love-scenes/arc-long-distance.webp",
+        "focusX": 45,
+        "focusY": 40
+      },
+      "note": "series fallback",
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    },
+    "love-arc-eve-after-no": {
+      "scenarioId": "love-arc-eve-after-no",
+      "background": {
+        "src": "/love-scenes/arc-eve-after-no.webp",
+        "focusX": 50,
+        "focusY": 45
+      },
+      "note": "series fallback",
+      "source": "Agnes image 2.5 flash / SocialCoach",
+      "license": "CC-BY-4.0"
+    }
+  },
+  "prompts": {
+    "rio-01": "visual novel background art, interior of a cozy community bookstore-cafe after a small evening book club has ended, warm amber pendant lights over wooden tables with stacks of books and empty chairs, bookshelves along the walls, unpopulated room, nobody, no humans, no characters, soft dusk glow through the windows, clean lineart, painterly cel shading, wide shot, centered composition, 16:9",
+    "rio-01-cg": "visual novel CG, anime style, a nervous young man with short dark hair gathering courage to approach a woman at an evening book club event, bookshelves and warm pendant lights behind them, he holds a book as an excuse, gentle hopeful atmosphere, detailed faces, dramatic warm lighting, high quality anime illustration, 16:9",
+    "rio-02": "visual novel background art, a quiet cafe table for two at dusk, two cups of tea and an untouched plate at the center of the frame, large window showing purple-blue evening sky and city silhouettes, warm interior lamp, intimate slightly tense mood, empty seats, no people, anime visual novel background, clean lineart, soft cel shading, centered composition, 16:9",
+    "rio-03": "visual novel background art, a warm family dining room set for dinner, round table with home-cooked dishes, bowls and chopsticks, overhead warm ceiling light, family photos on the wall in the background, slightly formal weighty mood, empty chairs, unpopulated room, nobody, no humans, no characters, anime visual novel background, clean lineart, soft cel shading, centered composition, 16:9",
+    "rio-04": "visual novel background art, a coffee shop table placed on the right side of the frame by a large window at early evening, a smartphone lying on the table with a faint document-reading glow, two cups of coffee, city street lights outside the window, cool teal evening light mixed with warm interior light, pensive mood, empty seats, no people, anime visual novel background, clean lineart, soft cel shading, 16:9",
+    "rio-05": "visual novel background art, a cozy home living room at night, low tea table with a smartphone showing a chat screen, half-finished cup of tea, warm floor lamp, quiet weighty atmosphere, empty sofa, no people, anime visual novel background, clean lineart, soft cel shading, centered composition, 16:9",
+    "rio-06": "visual novel background art, a bedroom at night with moonlight streaming from a window on the left side of the frame, a smartphone on the table on the right side glowing faintly like a reply-draft screen, city night lights far below, muted blue palette with a warm lamp accent, decisive quiet mood, no people, anime visual novel background, clean lineart, soft cel shading, 16:9",
+    "rio-06-cg": "visual novel CG, anime style, late night by the window, a man and a woman facing each other, she holds the glowing smartphone down at her side with a soft resolved smile, moonlit room with city lights behind the glass, tender and decisive atmosphere, detailed faces, high quality anime illustration, 16:9",
+    "arc-approach": "visual novel background art, a bright cafe terrace on a sunny afternoon, two empty seats at a small table with menus, potted plants and soft white parasols, fresh hopeful first-meeting mood, no people, anime visual novel background, clean lineart, soft cel shading, centered composition, 16:9",
+    "arc-long-distance": "visual novel background art, a desk by a tall window at night, a laptop showing a video-call interface on stand-by, a mug of tea, view over two distant city skylines divided by a river with light streaks, blue-violet night palette warmed by a desk lamp, wistful long-distance mood, no people, anime visual novel background, clean lineart, soft cel shading, 16:9",
+    "arc-eve-after-no": "visual novel background art, an empty street bench by a quiet rainy crosswalk at night, wet asphalt reflecting neon signs, red and cyan light streaks, a single streetlight, subdued downcast mood, no people, anime visual novel background, clean lineart, soft cel shading, centered composition, 16:9"
+  }
+}

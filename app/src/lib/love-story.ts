@@ -3,6 +3,7 @@ import type { Lang } from "@/data/taxonomy";
 import type { LovePlayEmotion, LovePlayOutcome } from "./love-play-client";
 import { LOVE_PLAY_PREFIX } from "./love-carry-store";
 import { notifyLoveSlotsChanged } from "./love-slot-events";
+import { LoveRelationshipStateSchema, type LoveRelationshipState } from "./love-relationship";
 
 /**
  * 恋爱 Galgame 的设备端存档（spec-love-galgame-foundation §3、§3.5）。
@@ -15,7 +16,8 @@ import { notifyLoveSlotsChanged } from "./love-slot-events";
  */
 
 export const LOVE_STORY_KEY = `${LOVE_PLAY_PREFIX}story`;
-export const LOVE_STORY_VERSION = 2;
+/** v2 加了手动槽；v3（spec §6）加恋爱关系状态 `relationships`。 */
+export const LOVE_STORY_VERSION = 3;
 /** 单份 save 的形状版本；与 store 版本分开，v1 save 在 v2 store 里原样保留。 */
 export const LOVE_SAVE_VERSION = 1;
 
@@ -64,7 +66,7 @@ export interface LovePlayRecord {
 }
 
 export interface LoveStoryStore {
-  v: 2;
+  v: 3;
   revision: number;
   /** 自动档：每场一份，续玩读这里。 */
   saves: Record<string, LovePlaySave>;
@@ -72,6 +74,8 @@ export interface LoveStoryStore {
   slots: Record<string, Partial<Record<LovePlaySlot, LovePlaySave>>>;
   records: LovePlayRecord[];
   routes: Record<string, unknown>;
+  /** 恋爱半教练的关系状态（spec §6）：按 characterKey 存，最多保留 100 个。 */
+  relationships: Record<string, LoveRelationshipState>;
   updatedAt: number;
 }
 
@@ -97,6 +101,8 @@ const OPTIONS_MAX = 4;
 const RECORDS_MAX = 100;
 /** 已结束场景的 save 只留最近 12 个；进行中的一律保留。 */
 const ENDED_SAVES_MAX = 12;
+/** `relationships` 只留最近 100 个（按 updatedAt），防长线用户无限膨胀。 */
+const RELATIONSHIPS_MAX = 100;
 
 const langSchema = z.enum(["zh", "en"]);
 const emotionSchema = z.enum(["neutral", "smile", "tight", "teary"]);
@@ -206,11 +212,18 @@ const storyStoreV2Shape = z.object({
   ...storyStoreBaseShape,
   slots: z.record(z.string(), z.partialRecord(slotSchema, LovePlaySaveSchema)).default({}),
 });
-const storyStoreUnion = z.union([storyStoreV1Shape, storyStoreV2Shape]);
+const storyStoreV3Shape = z.object({
+  v: z.literal(3),
+  ...storyStoreBaseShape,
+  slots: z.record(z.string(), z.partialRecord(slotSchema, LovePlaySaveSchema)).default({}),
+  relationships: z.record(z.string(), LoveRelationshipStateSchema).default({}),
+});
+const storyStoreUnion = z.union([storyStoreV1Shape, storyStoreV2Shape, storyStoreV3Shape]);
 
 /**
- * v1 store 读出来即迁移成 v2（slots 为空），下一次成功写入才落盘成 v2。
- * 手动槽与自动档同 schema；槽内 save 的 scenarioId 必须与外层场景 key 一致。
+ * v1/v2 store 读出来即迁移成 v3：v1 在内存里补 slots，v1/v2 补空 relationships，
+ * 下一次成功写入才落盘成 v3。手动槽与自动档同 schema；槽内 save 的 scenarioId
+ * 必须与外层场景 key 一致；relationships 的键必须等于关系自己的 characterKey。
  */
 export const LoveStoryStoreSchema: z.ZodType<LoveStoryStore> = storyStoreUnion
   .superRefine((store, ctx) => {
@@ -219,7 +232,7 @@ export const LoveStoryStoreSchema: z.ZodType<LoveStoryStore> = storyStoreUnion
         ctx.addIssue({ code: "custom", path: ["saves", key], message: "a save is keyed by its scenarioId" });
       }
     }
-    if (store.v !== 2) return;
+    if (store.v === 1) return;
     for (const [sceneId, slots] of Object.entries(store.slots)) {
       for (const [slot, save] of Object.entries(slots)) {
         if (save && save.scenarioId !== sceneId) {
@@ -231,19 +244,31 @@ export const LoveStoryStoreSchema: z.ZodType<LoveStoryStore> = storyStoreUnion
         }
       }
     }
+    if (store.v === 3) {
+      for (const [key, rel] of Object.entries(store.relationships)) {
+        if (key !== rel.characterKey) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["relationships", key],
+            message: "a relationship is keyed by its characterKey",
+          });
+        }
+      }
+    }
   })
   .transform((store): LoveStoryStore => ({
-    v: 2,
+    v: 3,
     revision: store.revision,
     saves: store.saves,
-    slots: store.v === 2 ? store.slots : {},
+    slots: store.v === 1 ? {} : store.slots,
     records: store.records,
     routes: store.routes,
+    relationships: store.v === 3 ? store.relationships : {},
     updatedAt: store.updatedAt,
   })) as unknown as z.ZodType<LoveStoryStore>;
 
 export function emptyLoveStoryStore(): LoveStoryStore {
-  return { v: 2, revision: 0, saves: {}, slots: {}, records: [], routes: {}, updatedAt: 0 };
+  return { v: 3, revision: 0, saves: {}, slots: {}, records: [], routes: {}, relationships: {}, updatedAt: 0 };
 }
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -303,10 +328,10 @@ export function readLoveStoryStore(): LoveStoryRead {
     return { status: "corrupt", raw, reason: "json" };
   }
 
-  // 版本先判：1 是旧 store（读时迁移到 v2），2 是当前；其他数字是「未来写的」，不是「写坏了」。
+  // 版本先判：1/2 是旧 store（读时迁移到 v3），3 是当前；其他数字是「未来写的」，不是「写坏了」。
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const v = (value as { v?: unknown }).v;
-    if (typeof v === "number" && v !== 1 && v !== 2) return { status: "incompatible", raw };
+    if (typeof v === "number" && v !== 1 && v !== 2 && v !== 3) return { status: "incompatible", raw };
   }
 
   const parsed = LoveStoryStoreSchema.safeParse(value);
@@ -337,7 +362,7 @@ export function readLovePlaySave(scenarioId: string): {
   }
 }
 
-/** 只保留所有进行中的 save + 最近 12 个已结束的（按 updatedAt）。 */
+/** 只保留所有进行中的 save + 最近 12 个已结束的（按 updatedAt）；records 与 relationships 同样只留最近的。 */
 function pruneStore(store: LoveStoryStore): LoveStoryStore {
   const entries = Object.entries(store.saves);
   const ended = entries
@@ -352,7 +377,21 @@ function pruneStore(store: LoveStoryStore): LoveStoryStore {
     store.records.length > RECORDS_MAX
       ? [...store.records].sort((a, b) => a.endedAt - b.endedAt).slice(-RECORDS_MAX)
       : store.records;
-  return { ...store, saves, records };
+  return { ...store, saves, records, relationships: pruneLoveRelationships(store.relationships) };
+}
+
+/** relationships 只留 updatedAt 最新的 100 个；不按「谁最后写入」猜，旧数据给旧时间戳。 */
+function pruneLoveRelationships(
+  relationships: Record<string, LoveRelationshipState>,
+): Record<string, LoveRelationshipState> {
+  const entries = Object.entries(relationships);
+  if (entries.length <= RELATIONSHIPS_MAX) return relationships;
+  const newest = new Set(
+    [...entries].sort((a, b) => a[1].updatedAt - b[1].updatedAt).slice(-RELATIONSHIPS_MAX).map(([key]) => key),
+  );
+  const next: Record<string, LoveRelationshipState> = {};
+  for (const [key, value] of entries) if (newest.has(key)) next[key] = value;
+  return next;
 }
 
 /**
@@ -603,6 +642,84 @@ export function writeLovePlayRoute(seriesId: string, routeState: unknown, expect
     { ...current.store, routes: { ...current.store.routes, [seriesId]: routeState } },
     expectedRevision,
   );
+}
+
+export type LoveRelationshipWrite =
+  | { ok: true; store: LoveStoryStore }
+  | {
+      ok: false;
+      reason: "conflict" | "invalid" | "quota" | "unavailable" | "corrupt" | "incompatible";
+      diskRevision?: number;
+    };
+
+/**
+ * 读取一位角色的关系状态；没有、损坏或版本不兼容一律返回 null，不抛错
+ * （口径与 `readLovePlayRoute` 一致，迁移/中性开场由调用方决定）。
+ */
+export function readLoveRelationship(characterKey: string): LoveRelationshipState | null {
+  if (!characterKey) return null;
+  const read = readLoveStoryStore();
+  if (read.status !== "ok") return null;
+  return read.store.relationships[characterKey] ?? null;
+}
+
+/** 读取全部关系状态；损坏 / 存储不可用读成空对象，不抛错。 */
+export function readAllLoveRelationships(): Record<string, LoveRelationshipState> {
+  const read = readLoveStoryStore();
+  return read.status === "ok" ? read.store.relationships : {};
+}
+
+/**
+ * 写（或覆盖）一位角色的关系状态。
+ * `updatedAt` 由传入的 state 决定；只合并自己的 key，其他 relationships / saves / slots 不动；
+ * revision 语义、坏档保护与字节上限全部走 `writeLoveStoryStore`。
+ */
+export function writeLoveRelationship(
+  state: LoveRelationshipState,
+  expectedRevision?: number,
+): LoveRelationshipWrite {
+  const parsed = LoveRelationshipStateSchema.safeParse(state);
+  if (!parsed.success) return { ok: false, reason: "invalid" };
+
+  const ls = storage();
+  if (!ls) return { ok: false, reason: "unavailable" };
+
+  const disk = readLoveStoryStore();
+  if (disk.status === "unavailable") return { ok: false, reason: "unavailable" };
+  if (disk.status === "corrupt") return { ok: false, reason: "corrupt" };
+  if (disk.status === "incompatible") return { ok: false, reason: "incompatible" };
+
+  const base = disk.status === "ok" ? disk.store : emptyLoveStoryStore();
+  if (expectedRevision !== undefined && expectedRevision !== base.revision) {
+    return { ok: false, reason: "conflict", diskRevision: base.revision };
+  }
+
+  return writeLoveStoryStore(
+    { ...base, relationships: { ...base.relationships, [parsed.data.characterKey]: parsed.data } },
+    expectedRevision,
+  );
+}
+
+/** 「忘掉这段关系」：删除单个 characterKey；幂等，缺键也算成功。 */
+export function deleteLoveRelationship(characterKey: string, expectedRevision?: number): LoveRelationshipWrite {
+  if (!characterKey) return { ok: false, reason: "invalid" };
+
+  const ls = storage();
+  if (!ls) return { ok: false, reason: "unavailable" };
+
+  const disk = readLoveStoryStore();
+  if (disk.status === "unavailable") return { ok: false, reason: "unavailable" };
+  if (disk.status === "corrupt") return { ok: false, reason: "corrupt" };
+  if (disk.status === "incompatible") return { ok: false, reason: "incompatible" };
+
+  const base = disk.status === "ok" ? disk.store : emptyLoveStoryStore();
+  if (expectedRevision !== undefined && expectedRevision !== base.revision) {
+    return { ok: false, reason: "conflict", diskRevision: base.revision };
+  }
+
+  const relationships = { ...base.relationships };
+  delete relationships[characterKey];
+  return writeLoveStoryStore({ ...base, relationships }, expectedRevision);
 }
 
 export function hasLovePlaySave(scenarioId: string): boolean {

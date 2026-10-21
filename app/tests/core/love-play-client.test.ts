@@ -129,3 +129,27 @@ test('a fetch that rejects with anything else reads as offline', async () => {
   });
   await assert.rejects(lovePlayTurn(input), (e: unknown) => e instanceof ApiError && e.status === 0 && e.kind === 'network');
 });
+
+test('valid beats map to lineBeats without leaking the raw beats field', async () => {
+  install(() =>
+    http(200, {
+      ...VALID,
+      beats: [
+        { text: { zh: '你在听吗？', en: 'Are you listening?' }, emotion: 'neutral' },
+        { text: { zh: '我刚才说到一半。', en: 'I was mid-sentence.' }, emotion: 'tight' },
+      ],
+    }),
+  );
+  const turn = await lovePlayTurn(input);
+  assert.equal(turn.lineBeats?.length, 2);
+  assert.equal(turn.lineBeats?.[1]?.emotion, 'tight');
+  assert.equal('beats' in turn, false);
+});
+
+test('invalid beats are dropped and the turn still renders on the legacy path', async () => {
+  install(() => http(200, { ...VALID, beats: [{ text: { zh: '只有一句。', en: 'Only one.' }, emotion: 'neutral' }] }));
+  const turn = await lovePlayTurn(input);
+  assert.equal(turn.lineBeats, undefined);
+  assert.deepEqual(turn.line, VALID.line);
+  assert.deepEqual(turn.options, VALID.options);
+});

@@ -16,7 +16,8 @@ import { t, type TKey } from "@/lib/i18n";
 import { uid } from "@/lib/format";
 import { canListen, pauseSpeaking, speak, stopSpeaking, unlockSpeech } from "@/lib/speech";
 import { useLoveVoice, withInterim, useLoveSpeechActivity } from "@/lib/love-play-voice";
-import { lovePlayTurn, type LovePlayEmotion, type LovePlayOutcome } from "@/lib/love-play-client";
+import { lovePlayTurn, type LovePlayEmotion, type LovePlayLineBeat, type LovePlayOutcome } from "@/lib/love-play-client";
+import { loveCgFor, loveSceneFor } from "@/lib/love-scenes";
 import { readLoveSeriesProgress, writeLoveSeriesProgress } from "@/lib/love-series-progress";
 import { loveSeriesById } from "@/data/corpus/love-series";
 import { markLoveCarryoverShown, peekLoveCarryoverForScene, peekLoveCarryPromiseForScene } from "@/lib/love-carryover";
@@ -35,14 +36,27 @@ import {
   readLovePlayRoute,
   readLovePlaySave,
   readLovePlaySlots,
+  readLoveRelationship,
   readLoveStoryStore,
   saveLovePlayScene,
   saveLovePlaySlot,
   writeLovePlayRoute,
+  writeLoveRelationship,
   LOVE_STORY_KEY,
   type LovePlaySave,
   type LovePlaySlot,
 } from "@/lib/love-story";
+import {
+  applySceneEnd,
+  buildRelationshipReview,
+  emptyRelationship,
+  markCareShown,
+  relationshipKey,
+  shouldOfferCare,
+  type LoveRelationshipReview,
+  type LoveRelationshipState,
+} from "@/lib/love-relationship";
+import { rioSceneSignature, rioSceneSignals } from "@/lib/love-rio-signals";
 import {
   buildLovePlaySave,
   canSubmitLovePlayRecord,
@@ -57,7 +71,7 @@ import {
   type LovePlayResumeState,
   type RioRouteSnapshot,
 } from "@/lib/love-play-save-view";
-import { RIO_SERIES_ID, resolveRioEnding, type RioAct, type RioRelationshipState } from "@/lib/love-relationship-state";
+import { RIO_SERIES_ID, emptyRioState, resolveRioEnding, type RioAct, type RioRelationshipState } from "@/lib/love-relationship-state";
 import { applyRioBeat, resolveRioOpening, rioRouteSceneAct, type RioBeat, type RioBeatGroup } from "@/lib/rio-route";
 import { resolveLoveVoice } from "@/lib/love-voices";
 import { useLoveTyping } from "@/lib/love-play-typing";
@@ -89,6 +103,8 @@ import {
 } from "@/lib/love-stage";
 import { AvatarStand, scenarioTone, startHistory } from "./PlaySceneFigure";
 import { LoveChapterCard as LoveChapterCardPanel, LoveStanceBar, LoveRevealBadge, LoveMemorySheet, LoveTimedCountdown, PlayOptions, PlayEnding } from "./PlayPanels";
+import { RelationshipCareCard } from "./RelationshipCareCard";
+import { RelationshipReviewCard } from "./RelationshipReviewCard";
 import { LoveRecap } from "./LoveRecap";
 import type { LoveCarryTarget } from "./PlayCarryCapture";
 
@@ -132,6 +148,8 @@ const SAVE_NOTICE_KEY: Record<SaveNotice, TKey> = {
 type PendingTurn = { history: ChatMessage[]; showLine: boolean; pending?: LoveCarryTurn };
 type EndingKind = "terminal" | "ended";
 const SLOT_IDS: readonly LovePlaySlot[] = ["1", "2", "3"];
+/** 逐句 beat 之间的停顿（spec §3.2：120–200ms）。 */
+const BEAT_PAUSE_MS = 160;
 
 /** 幕号（1 起），供 series v2 的 `lastAct`；缺省由线内顺序推出。 */
 function actNumberOf(scenario: Scenario): number | undefined {
@@ -163,7 +181,13 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   // 内置场景由服务端传入；自定义场景在 hydration 后从 store 解析。
   const sc = scenario ?? custom ?? null;
 
-  const [npcLine, setNpcLine] = useState<{ key: string; characterId: string; text: string } | null>(null);
+  const [npcLine, setNpcLine] = useState<{
+    key: string;
+    characterId: string;
+    text: string;
+    /** beats 的逐句 key（打字机/TTS 用）；key 仍是整句在 history 里的 key。 */
+    displayKey?: string;
+  } | null>(null);
   const [options, setOptions] = useState<L[] | null>(null);
   const [emotion, setEmotion] = useState<LovePlayEmotion>("neutral");
   /** 对方此刻的开放程度 0-100；开场回合无数据，首条 AI 回复后才显示。 */
@@ -234,6 +258,29 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   /** 系统级减少动态（prefers-reduced-motion）：挂载时读一次，与阅读设置双闸。 */
   const [sysReduced, setSysReduced] = useState(false);
 
+  /** 恋爱半教练：本幕角色的关系状态；挂载时读盘，结算后更新并写盘。 */
+  const relationshipRef = useRef<LoveRelationshipState | null>(null);
+  /** 开局时的 Rio 承诺/边界签名（幕前）；结算时与幕后的做差推导本幕信号。 */
+  const rioBeforeRef = useRef<string>("");
+  /** 主动关心卡：只在开局符合预算时显示一次；点掉只收卡片，不写任何状态。 */
+  const [careState, setCareState] = useState<LoveRelationshipState | null>(null);
+  /** 关系回顾（spec §4）：本幕结算后构建；跳过只隐藏卡片。 */
+  const [review, setReview] = useState<LoveRelationshipReview | null>(null);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
+  /** 关系状态写盘失败：只在回顾卡里提示，不阻塞结局 / 记入统计。 */
+  const [relationshipWriteFailed, setRelationshipWriteFailed] = useState(false);
+
+  /** 逐句 beat：队列 + 当前句下标；beatsPending 期间选项/限时/自动存档都等台词走完。 */
+  const beatQueueRef = useRef<LovePlayLineBeat[]>([]);
+  const beatIndexRef = useRef(0);
+  const beatTimerRef = useRef<number | null>(null);
+  const beatTurnKeyRef = useRef<string | null>(null);
+  const beatSpeakerIdRef = useRef<string | null>(null);
+  const beatFullTextRef = useRef<L | null>(null);
+  const [beatsPending, setBeatsPending] = useState(false);
+  /** 系统减少动态给回调用（state 在 effect 里同步）。 */
+  const sysReducedRef = useRef(false);
+
   /** 已确认入库的历史（失败的那次尝试不写入，重试用 cmdRef 找回）。 */
   const historyRef = useRef<ChatMessage[]>([]);
   const cmdRef = useRef<PendingTurn | null>(null);
@@ -272,7 +319,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   /** 拍点轻震：命令式动画，只在拍点时刻播一次，不常动。 */
   const shakeControls = useAnimation();
   /** 当前这句 TTS 是否还在读：BGM ducking 与限时选择起表共用这个信号。 */
-  const ttsBusy = useLoveSpeechActivity(npcLine?.key ?? null, tts);
+  const ttsBusy = useLoveSpeechActivity(npcLine?.displayKey ?? npcLine?.key ?? null, tts);
 
   const voice = useLoveVoice(lang, !busy && !outcome && !!sc, setInput);
   // startScene / send 是稳定回调，用 ref 拿到最新语音方法，避免依赖抖动。
@@ -283,15 +330,121 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
 
   /** 换台词：同步重置打字机；已读/自动/减少动态直接出全文。 */
   const putLine = useCallback(
-    (line: { key: string; characterId: string; text: string }) => {
+    (line: { key: string; characterId: string; text: string; displayKey?: string; instant?: boolean }) => {
       setNpcLine(line);
       const seen = sc ? seenRef.current.has(loveContentKey(sc.id, line.text)) : false;
       setLineWasSeen(seen);
       const r = readerRef.current;
-      typeLine(line.key, line.text, r.reduceMotion || r.auto || (r.skipRead && seen));
+      // displayKey 只给打字机/朗读用：beats 的每一句换 key 重新起表，但 npcLine.key
+      // 始终是完整台词在 history 里的 key，存档/回想因此不会只存到半句。
+      typeLine(
+        line.displayKey ?? line.key,
+        line.text,
+        line.instant === true || r.reduceMotion || r.auto || (r.skipRead && seen),
+      );
     },
     [typeLine, sc],
   );
+
+  const clearBeatTimer = useCallback(() => {
+    if (beatTimerRef.current !== null) {
+      window.clearTimeout(beatTimerRef.current);
+      beatTimerRef.current = null;
+    }
+  }, []);
+
+  /** 逐句 beat 收尾：清队列、放开选项/限时/自动存档。 */
+  const finishBeats = useCallback(() => {
+    clearBeatTimer();
+    beatQueueRef.current = [];
+    beatIndexRef.current = 0;
+    beatTurnKeyRef.current = null;
+    beatSpeakerIdRef.current = null;
+    beatFullTextRef.current = null;
+    setBeatsPending(false);
+  }, [clearBeatTimer]);
+
+  /** 显示第 index 句：npcLine.key 保持整句 key，displayKey 换句以重启打字机/TTS。 */
+  const showBeat = useCallback(
+    (index: number) => {
+      const beat = beatQueueRef.current[index];
+      const turnKey = beatTurnKeyRef.current;
+      const speakerId = beatSpeakerIdRef.current;
+      if (!beat || !turnKey || !speakerId) return;
+      beatIndexRef.current = index;
+      setEmotion(beat.emotion);
+      putLine({
+        key: turnKey,
+        displayKey: `${turnKey}-b${index}`,
+        characterId: speakerId,
+        text: beat.text[lang],
+      });
+    },
+    [lang, putLine],
+  );
+
+  /** 开始逐句演出；减少动态/自动全文时退回整句（仍用最后一句的表情）。 */
+  const startBeats = useCallback(
+    (beats: LovePlayLineBeat[], speakerId: string, turnKey: string, fullText: L) => {
+      clearBeatTimer();
+      beatQueueRef.current = beats;
+      beatIndexRef.current = 0;
+      beatTurnKeyRef.current = turnKey;
+      beatSpeakerIdRef.current = speakerId;
+      beatFullTextRef.current = fullText;
+      const instant = readerRef.current.reduceMotion || readerRef.current.auto || sysReducedRef.current;
+      if (instant || beats.length === 0) {
+        setEmotion(beats[beats.length - 1]?.emotion ?? "neutral");
+        putLine({ key: turnKey, characterId: speakerId, text: fullText[lang] });
+        finishBeats();
+        return;
+      }
+      setBeatsPending(true);
+      showBeat(0);
+    },
+    [clearBeatTimer, finishBeats, lang, putLine, showBeat],
+  );
+
+  /** 玩家点「跳过」：整句一次显示，但不再重念一遍 TTS（已念过的部分不重复）。 */
+  const skipBeats = useCallback(() => {
+    const turnKey = beatTurnKeyRef.current;
+    const speakerId = beatSpeakerIdRef.current;
+    const fullText = beatFullTextRef.current;
+    if (!turnKey || !speakerId || !fullText) {
+      finishBeats();
+      return;
+    }
+    const fullKey = `${turnKey}-full`;
+    spokenRef.current.add(fullKey);
+    setEmotion(beatQueueRef.current[beatQueueRef.current.length - 1]?.emotion ?? "neutral");
+    putLine({ key: turnKey, displayKey: fullKey, characterId: speakerId, text: fullText[lang], instant: true });
+    finishBeats();
+  }, [finishBeats, lang, putLine]);
+
+  // 一句打完 → 停 160ms → 下一句；玩家点跳过则整句一次显示。
+  useEffect(() => {
+    if (!beatsPending) return;
+    if (skip) {
+      skipBeats();
+      return;
+    }
+    const displayKey = npcLine?.displayKey;
+    if (!typing || !displayKey || typing.key !== displayKey) return;
+    if (typing.n < typing.total) return;
+    if (beatTimerRef.current !== null) return;
+    beatTimerRef.current = window.setTimeout(() => {
+      beatTimerRef.current = null;
+      const next = beatIndexRef.current + 1;
+      if (next >= beatQueueRef.current.length) {
+        finishBeats();
+        return;
+      }
+      showBeat(next);
+    }, BEAT_PAUSE_MS);
+  }, [beatsPending, skip, typing, npcLine?.displayKey, showBeat, finishBeats, skipBeats]);
+
+  // 卸载/换场景时停掉 beat 定时器。
+  useEffect(() => () => clearBeatTimer(), [clearBeatTimer]);
 
   // 阅读偏好与已读索引都是设备端独立 slot：挂载时只读一次，之后按需写。
   // 首帧必须与服务端默认值一致，所以在 effect 里读 localStorage（lazy init 会造成 hydration 不一致）。
@@ -305,8 +458,10 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
 
   // 系统级减少动态读一次：与阅读设置里的 reduceMotion 组成双闸（spec §4.5）。
   useEffect(() => {
+    const reduced = prefersReducedMotion();
+    sysReducedRef.current = reduced;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSysReduced(prefersReducedMotion());
+    setSysReduced(reduced);
   }, []);
 
   // BGM：manifest 为空（当前没有授权音频资产）时整条链路静默待机；
@@ -365,8 +520,10 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   // 声线按「场景 + 说话人」解析，同一个 tess 在两条线里是两个声音。
   useEffect(() => {
     if (!tts || !npcLine || !npcLine.text || !sc) return;
-    if (spokenRef.current.has(npcLine.key)) return;
-    spokenRef.current.add(npcLine.key);
+    // beats 每句一个 displayKey：逐句朗读，但 history/存档仍用整句 key。
+    const spokenKey = npcLine.displayKey ?? npcLine.key;
+    if (spokenRef.current.has(spokenKey)) return;
+    spokenRef.current.add(spokenKey);
     speak(npcLine.text, lang, resolveLoveVoice(sc.id, npcLine.characterId));
   }, [npcLine, tts, lang, sc]);
 
@@ -560,6 +717,9 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
               history,
             }),
             turnLimit: s.maxTurns,
+            relationship: relationshipRef.current,
+            // 逐句 beat：先对 Rio / 自定义场景打开，避免 66 场全部涨价。
+            beats: !!s.series || !!s.custom,
           },
           controller.signal,
         );
@@ -569,13 +729,25 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         let lineKey: string | null = null;
         const speaker = speakerOf(s, defaultLearnerId(s));
         let nextHistory = history;
+        let beatsUsed = false;
         if (showLine) {
           lineKey = uid();
           const npcText = turn.line[lang];
-          putLine({ key: lineKey, characterId: speaker.id, text: npcText });
+          const beats = turn.lineBeats;
+          const instant = readerRef.current.reduceMotion || readerRef.current.auto || sysReducedRef.current;
+          if (beats && beats.length >= 2 && !instant) {
+            // 逐句演出：history 仍存完整 line；npcLine.key 也保持 lineKey。
+            beatsUsed = true;
+            startBeats(beats, speaker.id, lineKey, turn.line);
+          } else {
+            finishBeats();
+            putLine({ key: lineKey, characterId: speaker.id, text: npcText });
+          }
           // 模型这一句要带回下一回合：只送开场白 + 学习者台词时，它接不住自己上一句，
           // 剧情无法在自身上累积。开场白已经在 history 里，这里只追加本轮这句。
           nextHistory = [...history, { id: lineKey, role: "npc", characterId: speaker.id, text: npcText, ts: Date.now() }];
+        } else {
+          finishBeats();
         }
         historyRef.current = nextHistory;
         if (pending) {
@@ -584,7 +756,8 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           setLearnerLines((prev) => [...prev, pending]);
           learnerLinesRef.current = [...learnerLinesRef.current, pending];
         }
-        setEmotion(turn.emotion);
+        // beats 的每一句自己切表情；不要在这里覆盖回整回合的 emotion。
+        if (!beatsUsed) setEmotion(turn.emotion);
         setStance(turn.stance);
         // 首回合（showLine=false）只有本地 opening 无 AI line；若模型仍标记
         // revealed，徽标挂在 opening 的 key 上，避免揭示时刻被吞掉。
@@ -626,6 +799,46 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
               setEndingId(snapshot ? resolveRioEnding(snapshot.rio) : null);
             }
           }
+          // 恋爱半教练结算（spec-love-semi-coach §3.2/§4）：只写 love-relationship.ts 的关系状态，
+          // 不写 proficiency / loveProficiency / practiceDays / stars / assess。同一幕重开/恢复时
+          // applySceneEnd 幂等返回 false，不重复写盘，也不重复记 review。
+          const settleSpeaker = speakerOf(s, defaultLearnerId(s));
+          const settleKey = relationshipKey(s.series?.id ?? null, s.id, settleSpeaker.id);
+          const before = relationshipRef.current ?? emptyRelationship(settleKey, Date.now(), settleSpeaker.name);
+          relationshipRef.current = before;
+          const freeTextQuotes = learnerLinesRef.current
+            .filter((v) => v.via === "type")
+            .map((v) => v.text)
+            .slice(-3);
+          const rioAfterSig = rioSceneSignature(rioRouteRef.current?.rio);
+          const rioSignals = rioSceneSignals(rioBeforeRef.current, rioAfterSig);
+          rioBeforeRef.current = rioAfterSig;
+          const settleEndingId = rioAct === 6 ? resolveRioEnding(rioRouteRef.current?.rio ?? emptyRioState()) : null;
+          const settled = applySceneEnd(before, {
+            at: Date.now(),
+            sceneId: s.id,
+            outcome: seriesOutcome ?? "partial",
+            endingId: settleEndingId,
+            freeTextQuotes,
+            promiseKept: rioSignals.promiseKept,
+            promiseBroken: rioSignals.promiseBroken,
+            boundaryRespected: rioSignals.boundaryRespected,
+          });
+          if (settled.applied) {
+            if (autosaveRef.current) {
+              const write = writeLoveRelationship(settled.state, revisionRef.current ?? undefined);
+              if (write.ok) {
+                revisionRef.current = write.store.revision;
+                relationshipRef.current = write.store.relationships[settleKey] ?? settled.state;
+              } else {
+                setRelationshipWriteFailed(true);
+              }
+            } else {
+              relationshipRef.current = settled.state;
+            }
+            setReview(buildRelationshipReview(before, settled.state, lang));
+            setReviewDismissed(false);
+          }
         } else {
           // 第 4–6 幕：轮到作者拍点时，用 2–3 条写死的选项替换模型选项；
           // 拍点组一直保留到玩家真的选中一个作者选项，自由输入始终可用。
@@ -662,7 +875,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         }
       }
     },
-    [lang, profile, putLine, finalizeRioRoute],
+    [lang, profile, putLine, startBeats, finishBeats, finalizeRioRoute],
   );
 
   /** 开始一局：展示开场台词，请求首批选项（返回的台词不重复展示）。 */
@@ -698,6 +911,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setEndingId(null);
       setEndingKind(null);
       setBeatGroup(null);
+      finishBeats();
       // 呈现层状态全部归位：拍点/结局动效的触发去重、限时选择、沉默旁白。
       prevBeatGroupRef.current = null;
       prevOutcomeRef.current = null;
@@ -743,9 +957,31 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       setLearnerLines([]);
       learnerLinesRef.current = [];
       setBusy(false);
+      // 主动关心（spec §3.3）：开局符合预算才显示，且只在真正显示时消耗预算一次；
+      // 写失败不阻塞剧情，卡片照常显示。同场景 / 24h / 夜间 / 开关由 shouldOfferCare 把关。
+      const careSpeaker = speakerOf(s, defaultLearnerId(s));
+      const careKey = relationshipKey(s.series?.id ?? null, s.id, careSpeaker.id);
+      const careState = relationshipRef.current ?? emptyRelationship(careKey, Date.now(), careSpeaker.name);
+      relationshipRef.current = careState;
+      setCareState(null);
+      setReview(null);
+      setReviewDismissed(false);
+      setRelationshipWriteFailed(false);
+      if (shouldOfferCare(careState, { now: Date.now(), enabled: readerRef.current.care, sceneId: s.id })) {
+        const marked = markCareShown(careState, s.id, Date.now());
+        relationshipRef.current = marked;
+        setCareState(marked);
+        if (autosaveRef.current) {
+          const write = writeLoveRelationship(marked, revisionRef.current ?? undefined);
+          if (write.ok) {
+            revisionRef.current = write.store.revision;
+            relationshipRef.current = write.store.relationships[careKey] ?? marked;
+          }
+        }
+      }
       await requestTurn(s, historyRef.current, false);
     },
-    [lang, requestTurn, putLine],
+    [lang, requestTurn, putLine, finishBeats],
   );
 
   const applyResume = useCallback(
@@ -781,6 +1017,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           ? pendingGroup
           : null;
       setBeatGroup(savedGroup);
+      finishBeats();
       // 恢复不是时刻：把动效触发去重预置成当前值，重开页面不重放轻震/闪白。
       prevBeatGroupRef.current = savedGroup;
       prevOutcomeRef.current = view.outcome ?? null;
@@ -808,9 +1045,15 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       lastSavedSignatureRef.current = lovePlaySaveSignature(save);
       setCanRecap(true);
       setSaveNotice(null);
+      // 恢复不重放关系卡片与回顾；幕前签名按恢复时的账本重新快照（结算由 requestTurn 幂等把关）。
+      setCareState(null);
+      setReview(null);
+      setReviewDismissed(false);
+      setRelationshipWriteFailed(false);
+      rioBeforeRef.current = rioSceneSignature(rioRouteRef.current?.rio);
       setResumed(true);
     },
-    [skipNow, lang],
+    [skipNow, lang, finishBeats],
   );
 
   // 挂载先读本幕存档：有效则原地恢复（不请求模型、不重读历史语音）；坏档保留原件并停写。
@@ -833,6 +1076,14 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
       : null;
     rioRouteRef.current = rioPlan;
     routeCommitRef.current = null;
+
+    // 恋爱半教练：本幕角色的关系状态在挂载时读盘；没有记录时给空状态，结算后才写盘。
+    const relSpeaker = speakerOf(sc, defaultLearnerId(sc));
+    const characterKey = relationshipKey(sc.series?.id ?? null, sc.id, relSpeaker.id);
+    relationshipRef.current =
+      readLoveRelationship(characterKey) ?? emptyRelationship(characterKey, Date.now(), relSpeaker.name);
+    // 幕前的 Rio 承诺/边界签名：结算时用它判断「这一幕新兑现/新越界」。
+    rioBeforeRef.current = rioSceneSignature(rioRouteRef.current?.rio);
 
     if (plan.mode === "resume") {
       const store = readLoveStoryStore();
@@ -907,7 +1158,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
     if (!id || carryMarkedRef.current || !npcLine) return;
     if (!historyRef.current.some((m) => m.id === npcLine.key && m.role === "npc")) return;
     // 打字机刚开始时一个字都还没露出来，等第一个字符可见再记；随后 ref 保证只记一次。
-    if (typing && typing.key === npcLine.key && typing.n === 0) return;
+    if (typing && typing.key === (npcLine.displayKey ?? npcLine.key) && typing.n === 0) return;
     carryMarkedRef.current = true;
     markLoveCarryoverShown(id);
   }, [npcLine, typing]);
@@ -918,7 +1169,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
    */
   useEffect(() => {
     if (!sc || !npcLine || !npcLine.text) return;
-    if (!skip && typing && typing.key === npcLine.key && typing.n < typing.total) return;
+    if (!skip && typing && typing.key === (npcLine.displayKey ?? npcLine.key) && typing.n < typing.total) return;
     const key = loveContentKey(sc.id, npcLine.text);
     if (seenRef.current.has(key)) return;
     seenRef.current.add(key);
@@ -939,6 +1190,8 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
    */
   useEffect(() => {
     if (!sc || !autosaveRef.current || busy || !npcLine) return;
+    // 逐句 beat 还在走：等整句演出完再存，避免半句状态下写档。
+    if (beatsPending) return;
     if (!outcome && (!options || options.length < 2 || options.length > 4)) return;
     if (!historyRef.current.some((m) => m.id === npcLine.key && m.role === "npc")) return;
 
@@ -962,7 +1215,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
 
     persistSave(save);
     // routeTick 只为把「拍点写进 ref」这件事叫醒 effect；内容去重由 persistSave 负责。
-  }, [sc, busy, npcLine, options, emotion, stance, carryoverMark, learnerLines, outcome, recorded, endingId, lang, routeTick, persistSave]);
+  }, [sc, busy, npcLine, options, emotion, stance, carryoverMark, learnerLines, outcome, recorded, endingId, lang, routeTick, beatsPending, persistSave]);
 
   /** 发言：把这句话作为 learner 消息追加进历史并请求下一回合。`via` 记下它是点的还是打的。 */
   const send = useCallback(
@@ -1057,8 +1310,8 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const timedGateRef = useRef({ active: false, key: "" });
   useEffect(() => {
     const sheetsOpen = slotsOpen || readerOpen || memoryOpen || recapOpen || voiceNotice || !!recovery;
-    const activeTyping = typing && npcLine && typing.key === npcLine.key ? typing : null;
-    const typingDone = !npcLine || skip || !activeTyping || activeTyping.n >= activeTyping.total;
+    const activeTyping = typing && npcLine && typing.key === (npcLine.displayKey ?? npcLine.key) ? typing : null;
+    const typingDone = !npcLine || skip || !activeTyping || activeTyping.n >= activeTyping.total || beatsPending;
     timedGateRef.current = {
       active:
         timedCapable && !!npcLine && !busy && !outcome && !!options && typingDone && !ttsBusy && !sheetsOpen,
@@ -1189,8 +1442,8 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
   const learnerId = defaultLearnerId(sc);
   const npcs = npcsOf(sc, learnerId).slice(0, 3);
   const speaker = speakerOf(sc, learnerId);
-  const activeTyping = typing && npcLine && typing.key === npcLine.key ? typing : null;
-  const typingDone = !npcLine || skip || !activeTyping || activeTyping.n >= activeTyping.total;
+  const activeTyping = typing && npcLine && typing.key === (npcLine.displayKey ?? npcLine.key) ? typing : null;
+  const typingDone = !npcLine || skip || !activeTyping || activeTyping.n >= activeTyping.total || beatsPending;
   const shownText = !npcLine ? "" : !activeTyping ? npcLine.text : npcLine.text.slice(0, activeTyping.n);
   const draftValue = voice.active ? withInterim(input, voice.interim, lang) : input;
   const voiceStatus = voice.active ? t(lang, "love_play_voice_listening") : voice.notice ? t(lang, speechCopy[voice.notice]) : null;
@@ -1461,6 +1714,14 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           ? t(lang, "love_play_partial_text")
           : sc.success[lang];
   const tone = scenarioTone(sc);
+  // 场景视觉（spec-love-scripted-art §2）：先按场景 id，再回退到 series 级背景；
+  // 坏数据/缺条目时 loveSceneFor 返回 null，舞台保持原有渐变。
+  const sceneVisual = loveSceneFor(sc.id) ?? (sc.series ? loveSceneFor(sc.series.id) : null);
+  const sceneBackground = sceneVisual?.background ?? null;
+  const cgAt: "reveal" | "ending" | null = revealKey ? "reveal" : outcome ? "ending" : null;
+  const cgSrc = cgAt
+    ? (loveCgFor(sc.id, cgAt) ?? (sc.series ? loveCgFor(sc.series.id, cgAt) : null))
+    : null;
   // 镜头语言（spec §4.5）：说话人随拍点/结局推近，开场远景定场；减少动态时保持中景。
   const reducedFx = reader.reduceMotion || sysReduced;
   const speakerShot = reducedFx
@@ -1547,6 +1808,53 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
               "linear-gradient(180deg, var(--scene-paper) 0%, color-mix(in oklch, var(--scene-color) 9%, var(--scene-paper)) 46%, color-mix(in oklch, var(--scene-color) 15%, var(--scene-paper)) 78%, var(--scene-paper) 100%)",
           }}
         />
+        {/* 场景背景：全幅 cover + manifest 焦点；没有条目/坏数据时就是上面的渐变。 */}
+        {sceneBackground && (
+          <img
+            src={sceneBackground.src}
+            alt=""
+            aria-hidden
+            draggable={false}
+            decoding="async"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            style={{
+              objectPosition: `${sceneBackground.focusX ?? 50}% ${sceneBackground.focusY ?? 50}%`,
+            }}
+          />
+        )}
+        {/* 底部可读性渐变：纸色 token，只压暗舞台底缘，不遮人物脸。 */}
+        {sceneBackground && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(180deg, transparent 38%, color-mix(in oklch, var(--scene-paper) 48%, transparent) 76%, color-mix(in oklch, var(--scene-paper) 88%, transparent) 100%)",
+            }}
+          />
+        )}
+        {/* CG：reveal / ending 才出现；减少动态时直接显示。 */}
+        <AnimatePresence>
+          {cgSrc && (
+            <motion.div
+              key={cgSrc}
+              initial={reducedFx ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reducedFx ? 0 : 0.6, ease: "easeOut" }}
+              className="pointer-events-none absolute inset-0 z-[1]"
+            >
+              <img
+                src={cgSrc}
+                alt=""
+                aria-hidden
+                draggable={false}
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* hidden 揭示：背景短暂提亮（纸色 token 的 color-mix，不写死颜色），
             亮起→保持→淡出约 3s，与徽标节奏一致，不常驻。 */}
         <AnimatePresence>
@@ -1581,7 +1889,12 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
         <span className="absolute right-2 top-2 opacity-20" style={{ color: "var(--scene-color)" }} aria-hidden>
           <ScenarioIcon scenario={sc} size={104} strokeWidth={1.1} />
         </span>
-        <div className="relative flex items-end justify-center gap-4 lg:gap-8 px-6 pb-5">
+        <div
+          className={clsx(
+            "relative z-[2] flex items-end justify-center gap-4 lg:gap-8 px-6 pb-5 transition-opacity duration-500",
+            cgSrc && "pointer-events-none opacity-0",
+          )}
+        >
           {npcs.map((c) => (
             <AvatarStand
               key={c.id}
@@ -1641,6 +1954,15 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
           <p className="mt-2 text-[12px] text-ink-3 max-w-[var(--measure)]" role="status">
             {t(lang, slotNotice.key, slotNotice.vars)}
           </p>
+        )}
+
+        {/* 主动关心卡（spec §3.3）：开局符合预算才出现；点掉只收卡片，不写任何状态。 */}
+        {careState && (
+          <RelationshipCareCard
+            lang={lang}
+            state={careState}
+            onDismiss={() => setCareState(null)}
+          />
         )}
 
         {/* 台词框：点一下跳过打字动画（收束回合的最后一句也保留可见） */}
@@ -1768,6 +2090,16 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
             onRecord={record}
             onRestart={restart}
             onBack={leave}
+          />
+        )}
+
+        {/* 关系回顾卡（spec §4）：可选、可跳过；只引用自由输入的原话。 */}
+        {outcome && review && !reviewDismissed && (
+          <RelationshipReviewCard
+            lang={lang}
+            review={review}
+            writeFailed={relationshipWriteFailed}
+            onSkip={() => setReviewDismissed(true)}
           />
         )}
       </div>
@@ -1907,6 +2239,7 @@ export function PlayScene({ scenario, scenarioId }: { scenario: Scenario | null;
             ["skipRead", "love_play_reader_skip", "love_play_reader_skip_hint"],
             ["reduceMotion", "love_play_reader_motion", "love_play_reader_motion_hint"],
             ["timedChoice", "love_play_reader_timed", "love_play_reader_timed_hint"],
+            ["care", "love_play_reader_care", "love_play_reader_care_hint"],
           ] as const).map(([field, label, hint]) => (
             <div key={field} className="flex items-start justify-between gap-3">
               <div className="min-w-0">

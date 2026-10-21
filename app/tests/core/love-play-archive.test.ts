@@ -64,7 +64,7 @@ const storySave = {
   startedAt: 1_700_000_000_000,
   updatedAt: 1_700_000_000_001,
 };
-const story = { v: 2, revision: 2, saves: { [storySave.scenarioId]: storySave }, slots: {}, records: [], routes: {}, updatedAt: 1_700_000_000_002 };
+const story = { v: 3, revision: 2, saves: { [storySave.scenarioId]: storySave }, slots: {}, records: [], routes: {}, relationships: {}, updatedAt: 1_700_000_000_002 };
 /** 阅读层两个 slot：形状与 story 完全不同，但同在前缀下，必须跟备份一起走。 */
 const read = { v: 1, seen: { 'love-approach-soft-decline-reinvite:1a2b3c:8': 1_700_000_000_003 }, updatedAt: 1_700_000_000_003 };
 const reader = { v: 1, textSize: 'lg', speed: 'fast', auto: true, skipRead: true, reduceMotion: false };
@@ -143,15 +143,16 @@ test('the story slot is exported and restored verbatim beside carry and series',
   assert.deepEqual(JSON.parse(decoded.lovePlay![seriesKey('love-arc-rio-clarify')]), progress);
 });
 
-test('a v1 story store is migrated to v2 with an empty manual-slot table', async () => {
+test('a v1 story store is migrated to v3 with an empty slot table and empty relationships', async () => {
   slots.clear();
   const v1 = { v: 1, revision: 4, saves: story.saves, records: [], routes: {}, updatedAt: 1_700_000_000_004 };
   slots.set(STORY_KEY, JSON.stringify(v1));
   const decoded = await decodeLove(lovePlayBackup());
   assert.equal(decoded.lovePlayIssue, undefined);
   const restored = JSON.parse(decoded.lovePlay![STORY_KEY]);
-  assert.equal(restored.v, 2);
+  assert.equal(restored.v, 3);
   assert.deepEqual(restored.slots, {});
+  assert.deepEqual(restored.relationships, {});
   assert.deepEqual(restored.saves, story.saves);
 });
 

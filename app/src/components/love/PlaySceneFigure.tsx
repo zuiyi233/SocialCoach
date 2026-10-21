@@ -145,15 +145,17 @@ export function AvatarStand({ character, lang, emotion, active, emphasize = fals
       transition={{ type: "spring", stiffness: 200, damping: 26 }}
     >
       {portraitSrc ? (
-        // PNG 立绘模式：竖版画布（832×1248，2:3），透明底由模型原生生成，直接叠在场景渐变上。
+        // PNG 立绘模式：竖版画布（832×1248，2:3），透明底由模型原生生成，直接叠在场景背景上。
+        // 全幅舞台下不再套圆角卡片/矩形投影，只给人物一层 drop-shadow，避免在背景上切出一个框。
         // 表情已由生成管线内置，不再叠加 EmotionOverlay；覆盖层只留给回退模式。
         <div
-          className="relative overflow-hidden"
+          className="relative overflow-visible"
           style={{
             width: size,
             height: Math.round(size * 1.46),
-            borderRadius: Math.round(size * 0.07),
-            boxShadow: highlight ? `0 18px 44px -22px var(--edge-shadow), ${ring}` : "0 18px 44px -22px var(--edge-shadow)",
+            filter: highlight
+              ? "drop-shadow(0 18px 22px var(--edge-shadow)) drop-shadow(0 0 3px var(--rose))"
+              : "drop-shadow(0 18px 22px var(--edge-shadow))",
           }}
         >
           <span
