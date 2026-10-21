@@ -165,6 +165,35 @@ class GenerateIn(BaseModel):
     allow_paid: bool = False
 
 
+class OpenAIImageConfigIn(BaseModel):
+    base_url: str = Field(..., max_length=400)
+    model: str = Field("agnes-image-2.5-flash", max_length=120)
+    # 不传 = 保持已存的 key；空串 = 删掉
+    api_key: str | None = Field(None, max_length=400)
+
+
+class OpenAIImageStatusOut(BaseModel):
+    has_key: bool
+    base_url: str
+    model: str
+    models: list[str]
+
+
+class OpenAIImageGenerateIn(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=8000)
+    model: str | None = Field(None, max_length=120)
+    size: str = Field("1024x1024", max_length=32)
+    n: int = Field(1, ge=1, le=8)
+    card_id: str | None = None
+    chat_id: str | None = None
+    entry_id: str | None = None
+    swipe: int | None = None
+    line: int | None = None
+    trigger: Literal["manual", "auto", "reroll"] = "manual"
+    title: str = Field("", max_length=40)
+    description: str = Field("", max_length=400)
+
+
 class CharOut(BaseModel):
     prompt: str
     negative: str

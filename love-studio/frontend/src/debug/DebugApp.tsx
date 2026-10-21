@@ -6,6 +6,7 @@ import { CardBindings } from './components/CardBindings';
 import { CardPanel, type CardView, type SaveState } from './components/CardPanel';
 import { EnvBadge } from './components/EnvBadge';
 import { CardStudio } from './studio/CardStudio';
+import { CharacterGenerate } from './studio/CharacterGenerate';
 import { DropLayer } from './importer/DropLayer';
 import { ImportConfirm } from './importer/ImportConfirm';
 import { ImportProgress } from './importer/ImportProgress';
@@ -506,6 +507,8 @@ export default function DebugApp() {
 
   // 卡编辑器(全屏页,studio/):开在哪个页签、哪一栏;null = 没开。编辑的永远是当前这张卡
   const [studio, setStudio] = useState<StudioRoute | null>(null);
+  // 一句话生成角色向导:创作者模式的弹窗;生成成功后刷新卡列表并打开新卡
+  const [generateOpen, setGenerateOpen] = useState(false);
   // 从卡编辑器里打开的插件抽屉(盖在卡编辑器上面,PluginSheet);null = 没开
   const [studioPlugin, setStudioPlugin] = useState<PluginFocus | null>(null);
   // 素材管理页(全屏页,library/):开在哪个页签、选中哪个包;null = 没开。关了再开回到上次的地方
@@ -3109,6 +3112,20 @@ export default function DebugApp() {
   useEffect(() => {
     if (!cardId) setStudio(null);
   }, [cardId]);
+
+  /** 生成完成：重读卡列表，选中新卡并打开资料页。 */
+  const openGeneratedCard = async (generatedId: string) => {
+    const list = await debugApi.listCards();
+    setSavedCards(list);
+    const row = list.find((c) => c.id === generatedId);
+    if (!row) {
+      notify('error', '生成完成，但卡列表里找不到这张卡；请刷新页面后再试。');
+      return;
+    }
+    await selectCard(row);
+    setStudio({ tab: 'profile', slot: 'sprite' });
+    notify('ok', `已生成「${row.name}」`);
+  };
   /** 「开始」:关掉卡编辑器进游戏;已经在视觉小说里就只关。从素材管理页点卡名进来的,素材管理页也一起关 */
   const startFromStudio = () => {
     setStudio(null);
@@ -3653,6 +3670,14 @@ export default function DebugApp() {
           >
             <AnimaIcon name="library" size={16} />
             <span>素材</span>
+          </button>
+          <button
+            className={`btn icon-label topbar-action${generateOpen ? ' accent' : ''}`}
+            onClick={() => setGenerateOpen(true)}
+            title="一句话生成角色 —— 写卡、世界书、立绘与场景图"
+          >
+            <AnimaIcon name="add" size={16} />
+            <span>生成角色</span>
           </button>
           <input
             ref={presetInputRef}
@@ -4236,6 +4261,15 @@ export default function DebugApp() {
           onClassifyUnknown={classifyInLibrary}
           covered={studio !== null}
           reloadKey={libraryReload}
+        />
+      )}
+
+      {/* 一句话生成角色：表单 → 后端 job → 轮询；完成后刷新卡列表并打开新卡 */}
+      {creator && generateOpen && (
+        <CharacterGenerate
+          onClose={() => setGenerateOpen(false)}
+          onOpen={openGeneratedCard}
+          notify={notify}
         />
       )}
 

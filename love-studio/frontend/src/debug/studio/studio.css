@@ -2580,3 +2580,67 @@ button.st-drop-hint:hover {
     flex: 0 1 auto;
   }
 }
+
+/* ── 一句话生成角色（CharacterGenerate.tsx）────────────── */
+
+.st-inline-gap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.st-modal-hint {
+  margin: 0 0 12px;
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+.st-gen-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.st-gen-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.st-gen-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.st-gen-message {
+  margin: 10px 0 2px;
+  color: var(--text);
+  font-size: 13px;
+}
+.st-gen-error {
+  margin: 10px 0 0;
+  color: var(--danger);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.st-gen-result {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.st-gen-name {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+.st-gen-warn {
+  margin-top: 10px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.st-gen-warn ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

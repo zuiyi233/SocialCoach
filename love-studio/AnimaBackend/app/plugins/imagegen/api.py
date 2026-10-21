@@ -24,7 +24,7 @@ from app.db import get_db
 from app.llm.errors import LLMError
 from app.llm.registry import active_connection
 from app.models import ApiConnection, AppSetting, CgAsset, CgPack, PackSprite, TavernCard
-from app.plugins.imagegen import nai, writer
+from app.plugins.imagegen import nai, openai_images, writer
 from app.plugins.imagegen.assemble import QUALITY, Look, Person, Plan, Style, assemble
 from app.plugins.imagegen.models import UPLOAD_REF, GeneratedImage, ImagegenRef
 from app.plugins.imagegen.schemas import (
@@ -36,6 +36,9 @@ from app.plugins.imagegen.schemas import (
     KeepOut,
     LookAskIn,
     LookAskOut,
+    OpenAIImageConfigIn,
+    OpenAIImageGenerateIn,
+    OpenAIImageStatusOut,
     PictureIO,
     PlanIn,
     PlanOut,
@@ -388,6 +391,90 @@ async def generate(req: GenerateIn, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(row)
     return image_out(row)
+
+
+# ── OpenAI 兼容生图（/v1/images/generations） ──
+
+
+def _openai_status(db: Session) -> OpenAIImageStatusOut:
+    cfg = openai_images.config(db)
+    return OpenAIImageStatusOut(
+        has_key=openai_images.key(db) is not None,
+        base_url=cfg.base_url,
+        model=cfg.model,
+        models=list(openai_images.MODELS),
+    )
+
+
+@router.get("/openai/status", response_model=OpenAIImageStatusOut)
+def openai_status(db: Session = Depends(get_db)):
+    return _openai_status(db)
+
+
+@router.put("/openai/config", response_model=OpenAIImageStatusOut)
+def openai_config(req: OpenAIImageConfigIn, db: Session = Depends(get_db)):
+    try:
+        openai_images.save_config(
+            db, base_url=req.base_url, model=req.model, api_key=req.api_key
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return _openai_status(db)
+
+
+@router.post("/openai/generate", response_model=list[ImageOut])
+async def openai_generate(req: OpenAIImageGenerateIn, db: Session = Depends(get_db)):
+    """OpenAI 兼容形状出图；一张一张排隊（网关免费额度容易 429）。
+    生成结果和 NovelAI 那条路一样进 generated_images，相册/收藏都能用。"""
+    cfg = openai_images.config(db)
+    model = req.model or cfg.model
+    if model not in openai_images.MODELS:
+        raise HTTPException(400, f"不认识的模型 {model}")
+    api_key = openai_images.key(db)
+    if not api_key:
+        raise HTTPException(400, "还没填生图服务的 API Key（设置 → 生图 → OpenAI 兼容）")
+    rows: list[ImageOut] = []
+    for index in range(req.n):
+        try:
+            png = await openai_images.generate_one(
+                base_url=cfg.base_url,
+                api_key=api_key,
+                model=model,
+                prompt=req.prompt,
+                size=req.size,
+            )
+        except openai_images.OpenAIImageError as e:
+            raise HTTPException(e.status if 400 <= e.status < 600 else 502, e.message) from e
+        mime = sniff_image_mime(png) or "image/png"
+        row = GeneratedImage(
+            card_id=req.card_id,
+            chat_id=req.chat_id,
+            entry_id=req.entry_id,
+            swipe=req.swipe,
+            line=req.line,
+            trigger=req.trigger,
+            title=req.title.strip(),
+            description=req.description.strip(),
+            plan={
+                "provider": "openai",
+                "model": model,
+                "size": req.size,
+                "prompt": req.prompt,
+            },
+            prompt=req.prompt,
+            negative="",
+            chars=[],
+            params={"provider": "openai", "model": model, "size": req.size, "index": index},
+            mime=mime,
+            size=len(png),
+            ms=0,
+        )
+        row.data_sha = store().put(png, mime, db)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        rows.append(image_out(row))
+    return rows
 
 
 # ── 参考图(上传的) ──

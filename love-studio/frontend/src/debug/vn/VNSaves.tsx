@@ -32,6 +32,7 @@ import type { FormsState } from '../plugins/cartridges';
 import { cgFrameFromPairs } from '../plugins/pairings';
 import { facesByCanvas, type SpriteStage } from '../plugins/spriteLayout';
 import { FALLBACK_BACKGROUND } from './fallbacks';
+import { StoryPackBridge } from './StoryPackBridge';
 import { titleSpriteStyle } from './titleArt';
 import type { TagKind } from './script';
 import { useEmotionMatches } from './useEmotionMatches';
@@ -327,6 +328,14 @@ export function VNSaves({
             </button>
           </div>
         </div>
+
+        {/* 桥的入口放在存档页顶部：玩完一局、想带回半教练时，第一眼就能看到。 */}
+        <StoryPackBridge
+          cardId={cardId ?? null}
+          chatId={currentChatId}
+          charName={charName}
+          chatName={chats.find((c) => c.id === currentChatId)?.name}
+        />
 
         <div className="vn-slots">
           <button

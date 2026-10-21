@@ -490,6 +490,35 @@ function parseEmoMode(v: string | null): EmoMode {
   return v === 'vector' || v === 'none' ? v : 'ref';
 }
 
+/** 一句话生成角色：表单 → 后端 job（1 次文本模型 + N 张图，可能跑几分钟）。 */
+export interface CharacterGeneratePayload {
+  description: string;
+  name?: string;
+  language?: 'zh' | 'en';
+  style?: string;
+  expression_count?: number;
+  scene_count?: number;
+}
+
+export interface CharacterGenerateResult {
+  card_id: string;
+  card_name: string;
+  sprite_pack_id: string | null;
+  scene_pack_id: string | null;
+  images_ok: number;
+  images_failed: number;
+  warnings: string[];
+}
+
+export interface CharacterGenerateJob {
+  status: 'running' | 'done' | 'error';
+  step: number;
+  total: number;
+  message: string;
+  result: CharacterGenerateResult | null;
+  error: string | null;
+}
+
 export const debugApi = {
   health: () => request<HealthResult>('/api/health'),
   migrations: () => request<MigrationStatus>('/api/meta/migrations'),
@@ -614,6 +643,17 @@ export const debugApi = {
   // ── 角色卡 ────────────────────────────────────────
 
   listCards: () => request<StoredCard[]>('/api/tavern/cards'),
+
+  // ── 一句话生成角色（角色生成向导）──────────────
+
+  startCharacterGeneration: (payload: CharacterGeneratePayload) =>
+    request<{ job_id: string }>('/api/character/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getCharacterGeneration: (jobId: string) =>
+    request<CharacterGenerateJob>(`/api/character/generate/${encodeURIComponent(jobId)}`),
 
   getCard: (id: string) => request<StoredCard>(`/api/tavern/cards/${id}`),
 
@@ -1111,6 +1151,37 @@ export const debugApi = {
   /** 导出的下载地址(带 ?public_only=...);Blob 下载在调用方做 */
   exportScPersonaUrl: (cardId: string, publicOnly: boolean) =>
     `${BASE_URL}/api/scpersona/export/${encodeURIComponent(cardId)}${publicOnly ? '?public_only=1' : ''}`,
+
+  // ---- 故事包 `socialcoach.love-story.v1`（「把这段关系带回半教练」；spec-love-bridge §5）----
+
+  /** 一局对话 → 故事包；`json` 就是要下载的那份字节，`file_name` 由后端按同一规则生成 */
+  exportStory: (payload: {
+    chat_id: string;
+    title?: string;
+    summary?: string;
+    license?: string;
+    language?: string;
+  }) =>
+    request<StoryPackExport>('/api/story/export', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** 只校验并预览，不写库 */
+  importStory: async (file: File): Promise<StoryPackPreview> => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${BASE_URL}/api/story/import`, { method: 'POST', body: form });
+    if (!res.ok) throw await failure(res);
+    return res.json() as Promise<StoryPackPreview>;
+  },
+
+  /** 包 → 建卡（包里带角色快照时）+ 新建一局带「前情」的对话 */
+  applyStoryImport: (pack: unknown, cardId?: string | null, language = 'zh') =>
+    request<StoryPackApplyResult>('/api/story/import/apply', {
+      method: 'POST',
+      body: JSON.stringify({ pack, card_id: cardId ?? null, language }),
+    }),
 
   // ---- 全局设置(插件配置) ----
 
@@ -1976,4 +2047,29 @@ export interface ScPersonaImportResult {
   card_name: string;
   persona: Record<string, unknown>;
   notices: unknown[];
+}
+
+/** 故事包导出结果：`json` 是稳定序列化后的整包，直接下载即可 */
+export interface StoryPackExport {
+  pack: Record<string, unknown>;
+  json: string;
+  file_name: string;
+  hash: string;
+  warnings: string[];
+}
+
+/** 导入预览：只校验，不写库。`can_create_card` 表示包里带了可建卡的角色快照 */
+export interface StoryPackPreview {
+  pack: Record<string, unknown>;
+  warnings: string[];
+  hash: string;
+  can_create_card: boolean;
+}
+
+/** 「从这里续写」的回执：新建（或复用）的卡 + 一局带前情的对话 */
+export interface StoryPackApplyResult {
+  card_id: string;
+  chat_id: string;
+  created_card: boolean;
+  recap: string;
 }

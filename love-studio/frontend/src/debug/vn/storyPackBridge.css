@@ -1,0 +1,148 @@
+/* 「把这段关系带回半教练」：故事包导出/导入面板。
+   放在存档页顶部，沿用视觉小说的玻璃质感；颜色全部走 vn.css 的变量。 */
+
+.spb {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--vn-border);
+  border-radius: var(--vn-radius);
+  background: var(--vn-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--vn-text);
+  font-family: var(--vn-font);
+}
+
+.spb-head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.spb-copy h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.spb-copy p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--vn-text-dim);
+}
+
+.spb-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spb-body {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vn-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--vn-text-dim);
+}
+
+.spb-field input,
+.spb-field textarea {
+  font: inherit;
+  font-size: 13px;
+  color: var(--vn-text);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--vn-border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  resize: vertical;
+}
+
+.spb-field input:focus,
+.spb-field textarea:focus {
+  outline: none;
+  border-color: var(--vn-accent);
+}
+
+.spb-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.spb-hint {
+  font-size: 11px;
+  color: var(--vn-text-faint);
+}
+
+.spb-ok {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--vn-ok);
+}
+
+.spb-ok p {
+  margin: 0 0 4px;
+}
+
+.spb-ok code {
+  font-family: var(--vn-mono);
+  font-size: 11px;
+  color: var(--vn-text);
+}
+
+.spb-ok a {
+  color: var(--vn-user);
+}
+
+.spb-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.spb-preview-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.spb-preview-summary {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--vn-text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.spb-warn {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: var(--vn-miss);
+}
+
+.spb-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--vn-miss);
+}
