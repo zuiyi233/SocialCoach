@@ -1,0 +1,22 @@
+[
+  {
+    "file": "01.webp",
+    "label": "平静",
+    "description": "gentle calm expression, looking at viewer"
+  },
+  {
+    "file": "02.webp",
+    "label": "微笑",
+    "description": "small smile, eyes gently curved"
+  },
+  {
+    "file": "03.webp",
+    "label": "惊讶",
+    "description": "eyes wide open, mouth slightly open in surprise"
+  },
+  {
+    "file": "04.webp",
+    "label": "害羞",
+    "description": "blushing, looking down and away, shy"
+  }
+]

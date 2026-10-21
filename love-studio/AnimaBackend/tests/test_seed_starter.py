@@ -52,8 +52,16 @@ def _source(path: str):
     return json.loads((STARTER / path).read_text(encoding="utf-8"))
 
 
+STARTER_NAME = "顾星遥"
+
+
+def _starter_card(db):
+    """seed_data/ 下已经不止一个起始角色，按名字取，不能再用「库里唯一那张卡」。"""
+    return db.scalars(select(TavernCard).where(TavernCard.name == STARTER_NAME)).one()
+
+
 def test_starter_card_is_seeded_with_opening_worldbook_and_hard_limits(seeded_db):
-    card = seeded_db.scalars(select(TavernCard)).first()
+    card = _starter_card(seeded_db)
     raw = _source("card.json")
     d = raw["data"]
 
@@ -75,7 +83,7 @@ def test_starter_card_is_seeded_with_opening_worldbook_and_hard_limits(seeded_db
 
 
 def test_starter_scene_pack_is_seeded_and_bound_to_card(seeded_db):
-    card = seeded_db.scalars(select(TavernCard)).first()
+    card = _starter_card(seeded_db)
     packs = list(seeded_db.scalars(select(ScenePack)))
     assert len(packs) == 1
     pack = packs[0]
@@ -113,7 +121,7 @@ def test_scene_asset_files_are_readable_with_correct_mime(seeded_db):
 
 
 def test_seed_scene_pack_direct_call_is_idempotent(seeded_db):
-    card = seeded_db.scalars(select(TavernCard)).first()
+    card = _starter_card(seeded_db)
     pack = seeded_db.scalars(select(ScenePack)).first()
     asset_ids = set(seeded_db.scalars(select(SceneAsset.id)).all())
 
@@ -126,18 +134,24 @@ def test_seed_scene_pack_direct_call_is_idempotent(seeded_db):
 
 
 def test_reseed_after_card_delete_reuses_pack_without_duplicating_assets(seeded_db):
-    """删了卡重新种(现行种子机制的恢复路径):卡重建,场景包按名复用,资产不多存"""
-    card0 = seeded_db.scalars(select(TavernCard)).first()
+    """库清空后重新种(现行种子机制的恢复路径):卡重建,场景包按名复用,资产不多存
+
+    注意口径：`seed_default_tavern_data()` 的触发条件是「库里一张卡都没有」。seed_data/
+    现在带了多个起始角色，所以只删一张不会触发补种——要验这条恢复路径，得把卡清空。
+    单独补某个角色走 `app.seed_one`（见 tests/test_seed_one.py）。
+    """
+    card0 = _starter_card(seeded_db)
     pack = seeded_db.scalars(select(ScenePack)).first()
     asset_ids = set(seeded_db.scalars(select(SceneAsset.id)).all())
 
     # 和删卡接口一样:绑定、角色位、旧表行 + 卡本身
-    bindings.delete_card(seeded_db, card0.id)
-    seeded_db.delete(card0)
+    for card in seeded_db.scalars(select(TavernCard)).all():
+        bindings.delete_card(seeded_db, card.id)
+        seeded_db.delete(card)
     seeded_db.commit()
     seed.seed_default_tavern_data(seeded_db)
 
-    card1 = seeded_db.scalars(select(TavernCard)).first()
+    card1 = _starter_card(seeded_db)
     assert card1 is not None and card1.id != card0.id
     assert [p.id for p in seeded_db.scalars(select(ScenePack))] == [pack.id]
     assert set(seeded_db.scalars(select(SceneAsset.id)).all()) == asset_ids

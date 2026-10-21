@@ -115,8 +115,12 @@ def test_first_start_seeds_every_resource_needed_for_offline_use(start_app):
     assert [item["name"] for item in data["connections"]] == ["Mock（本地测试）"]
     assert data["connections"][0]["is_active"] is True
     assert data["connections"][0]["model"] == "mock"
-    # 本 fork 自带的原创起始角色(拾光书栈 · 顾星遥,CC-BY-4.0)首启种上,开箱就有得玩
-    assert [item["name"] for item in data["cards"]] == ["顾星遥"]
+    # 本 fork 自带的起始角色首启种上,开箱就有得玩。seed_data/ 里带几个由内容决定，
+    # 这里只要求「原创起始角色在」且每张卡都有开场白，不锁具体张数。
+    names = [item["name"] for item in data["cards"]]
+    assert "顾星遥" in names
+    assert len(names) == len(set(names))
+    assert all(item["first_mes"].strip() for item in data["cards"])
     assert [item["name"] for item in data["presets"]] == ["默认预设"]
 
 
@@ -169,13 +173,17 @@ def test_restarting_app_is_idempotent_and_preserves_user_edits(start_app):
     with start_app() as client:
         second = snapshot(client)
 
+    # 数量的口径是「第二次启动跟第一次一样」：seed_data/ 里带几个起始角色由内容决定，
+    # 写死数字会在每次加角色时误报。真正要防的是重启后又多种一遍。
     assert {key: len(value) for key, value in second.items()} == {
         "personas": 1,
         "connections": 1,
-        # 自带的原创起始角色在,但第二次启动不会凭空再多出一张
-        "cards": 1,
+        "cards": len(first["cards"]),
         "presets": 1,
     }
+    assert {c["name"] for c in first["cards"]} == {c["name"] for c in second["cards"]}
+    # 自带的原创起始角色在
+    assert "顾星遥" in {c["name"] for c in second["cards"]}
     assert second["personas"][0]["id"] == persona_id
     assert second["personas"][0]["description"] == "用户修改后的描述"
 
