@@ -329,7 +329,12 @@ Studio 的路由与主站不同源，`nav` 接受绝对 URL。
 { "cmd": "studio.seed", "card": "genshin-ganyu", "reset": true }
 ```
 
-Studio 前端已有 11 个 `data-debug` 锚点，`studio-chat` 全流程走锚点（含重生成 / 新对话 / 模型下拉）：
+Studio 前端已有 11 个 `data-debug` 锚点，`studio-chat` 全流程走锚点（含重生成 / 新对话 / 模型下拉）。
+选卡那一步按**卡名**点（`ui.click text=甘雨`）而不是点列表第 0 行：库里还有 starter 的顾星遥和以前跑留下的卡，
+点第 0 行会接到别人的旧对话上，`seed --reset` 就白做了，断言还可能命中上一轮的同一条 mock 回复。
+列表本身由 `assert.count studio.card` 证明在。
+
+锚点清单：
 
 | 锚点 | 元素 |
 |---|---|
