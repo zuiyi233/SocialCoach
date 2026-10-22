@@ -462,6 +462,33 @@ runner 比本机慢一个量级（`state.load` 28s、`nav` 41s），暴露出三
 冷启动时按需编译吃掉场景超时。本地连续 3 轮 `suite` 已稳定（中间仍有 1 次 Studio 场景的间歇失败，
 CI 里该场景本就不跑），runner 上的复跑结果见 §9。
 
+**第二次真实运行（run 39844874580）**前进到新加的 `smoke (warm-up)` 步骤后失败，失败点是 `/love`：
+`Failed to load resource: net::ERR_CONNECTION_REFUSED`。原因不是页面坏了——`/love` 会探测本机 Studio
+（`127.0.0.1:5180`，见 `src/lib/love-studio-link.ts`），runner 上没有 Studio，浏览器必然记这一条。
+所以 `smoke` 的错误过滤改成 `isSmokeNoise(text, route)`：HMR 握手噪声全局忽略，
+`net::ERR_CONNECTION_REFUSED` **只在 `/love*` 路由**上忽略，别的路由连不上仍然算失败（有单测锁住这条边界）。
+
+同批还修了两个只在真环境暴露的机制问题：
+
+- **点击不能靠「目标还在不在」判断是否生效**（F37 补充）。`studio-chat` 在本机 `suite` 里约 1/3 失败，
+  单跑全绿：点击卡片后 CDP 的 `Runtime.evaluate` promise 被回收，重试时卡片因为 `selectCard` 里还有几个
+  `await` 仍挂在 DOM 上，被判成「没点到」，重跑表达式，最后干等满 30s timeout 报 `not found`。
+  现在 `ui.click` 生成 token、页面点击前写进 `data-sc-click`，重跑看到同一 token 直接返回 `already`；
+  点击表达式用 `evaluate({ retries: 0 })`，重跑只由 `uiClick` 控制；目标 400ms 内消失也算生效
+  （结果带 `afterNavigation`）。冷启动连续 3 轮 `suite` 全绿，其中一轮走的就是 `afterNavigation` 分支。
+- **守护进程会跑旧代码**（F39）。`engine.mjs` 常驻在 daemon 内存里，改了不重启，红绿都可能是假的。
+  `daemon-client.ensure()` 现在比较 `scripts/debug/*.mjs` 的 mtime 与 `session.startedAt`，源码更新就重启；
+  重启前要等旧进程退干净（它的 `shutdown()` 会删 `session.json`，抢跑会把新会话文件删掉，整轮套件全红）。
+
+**第三次真实运行（run 39852100058）**smoke 已过，suite 失败在 `coach-flows`：
+`ui.click 推荐今日练习` 等满 90s 报「找不到可点元素」，失败截图里页面上的按钮是灰的。
+根因不是点击机制，而是**场景隐式依赖本机配了模型 key**：首页那颗按钮是 `<Button requiresModel>`，
+`canUseModel` 读 `/api/health`；本机 `.env.local` 有 key → `available` → 可点，runner 没 key → `unavailable`
+→ `disabled`，`clickTextReady` 只接受可点元素。修法是**回放模式下由 harness 回答 `/api/health`**
+（`{state:"available"}`），夹具里显式写 `health` 可以覆盖（想测不可用路径就这么写）。
+A/B 验证：夹具写 `available` → 按钮可点；写 `unavailable` → `disabled` 且
+`title="接入可用的模型后继续"`（F40）。
+
 ### 4.15 MCP：把同一套能力变成原生工具
 
 CLI 是「AI 学会调命令」，MCP 是「工具本来就在手里」。同一套命令被包成一个 stdio MCP 服务器，

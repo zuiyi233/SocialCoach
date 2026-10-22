@@ -1266,6 +1266,27 @@ export class DebugEngine {
       return;
     }
 
+    // 回放模式下「模型可用吗」由 harness 自己回答：否则每个点「需要模型」按钮的场景
+    // 都隐式依赖这台机器配了 key——本地配过、CI 没配，就是本机全绿、runner 全红
+    // （coach-flows 的「推荐今日练习」正是这么变灰的）。要测不可用路径就在夹具里显式写 health。
+    if (route === "health" && this.fixtures.size > 0 && !this.fixtures.has(route)) {
+      recorded.replay = true;
+      try {
+        await this.cdp.send("Fetch.fulfillRequest", {
+          requestId,
+          responseCode: 200,
+          responseHeaders: [
+            { name: "content-type", value: "application/json; charset=utf-8" },
+            { name: "cache-control", value: "no-store" },
+          ],
+          body: Buffer.from(JSON.stringify({ state: "available" })).toString("base64"),
+        });
+      } catch (error) {
+        this.#pushEvent({ kind: "model.health.error", text: String(error.message) });
+      }
+      return;
+    }
+
     const fixture = this.fixtures.get(route);
     if (!fixture) {
       if (this.strict && route) {

@@ -659,3 +659,10 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **原因：** `createDinnerStorage` 用 `navigator.locks.request('socialcoach.dinner',{ifAvailable:true})` 做单写者。开发模式下 StrictMode 会把组件挂载两次（路由重挂同理），于是同一个页面里先后存在两个 storage 实例：前一个刚 `acquired`、还没来得及 `dispose()` 释放，后一个的 `ifAvailable` 请求就返回 `null`，代码据此 `issue('conflict')`。`trace` 的 `lock` 事件能直接看到 `#2 acquired` → `#3 NULL`。
 - **解法：** 首次拿锁失败时短暂重试（5 × 60ms）再判冲突，把「自己的收尾」和「真有另一个窗口在写」分开。真正的多窗口仍会在重试耗尽后报冲突，语义不变。
 - **教训：** `ifAvailable` 只回答「此刻有没有人持有」，不回答「是谁」。任何「拿不到锁 ⇒ 冲突」的判断都要能区分瞬时占用与持续占用；排查这类问题不要靠截图，看 Web Lock 与 localStorage 的写入轨迹。
+
+### 调试守护进程把引擎常驻在内存里，改了代码不重启跑的还是旧逻辑（2026-10-23）
+
+- **现象：** 改完 `app/scripts/debug/engine.mjs` 再跑 `suite`，失败位置、耗时和改之前一模一样；`pnpm debug down` 之后重跑就正常了。更坏的情况是「改完还是绿」，让人误以为修好了。
+- **原因：** 守护进程（`daemon.mjs`）把 `engine.mjs` 加载在常驻进程里，CLI / MCP 只是连它的端口。`daemon-client.ensure()` 原来只判断「端口能响应」，不判断「跑的是哪份代码」，于是换了源码也照样复用旧进程。
+- **解法：** `ensure()` 比较 `scripts/debug/*.mjs` 里最晚的 mtime 与 `session.startedAt`，源码更新就先关旧进程再拉起。关的时候要等旧进程真正退出——它的 `shutdown()` 会 `rm session.json`，抢跑会把新会话文件删掉，接下来整轮套件都报 `no daemon session`。
+- **教训：** 「常驻进程 + 热改代码」必须有代码版本概念。排查 bug 前先确认「我改的代码真的在跑」；否则会围绕一个不存在的因果链改半天，还会把旧结果当成回归证据。

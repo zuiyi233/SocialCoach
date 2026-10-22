@@ -378,7 +378,25 @@
   早先给 `evaluate` 加的 `collected` 重试会把整个点击表达式重放一遍——第二次时按钮已经不在了，于是「点击成功」被改写成「找不到」。
 - **当前绕过**：`evaluate` 不再对 `collected` 做通用重试；`uiClick` 自己处理：目标/文字已消失 ⇒ 视为点击生效（结果带 `afterNavigation: true`），
   目标还在 ⇒ 重试一次，仍失败才抛错。
-- **建议**：有副作用的页面内操作不要套用「幂等读取」的重试策略；重试前先判断副作用是否已经发生。
+- **补充（2026-10-23，`studio-chat` 偶发）**：「目标还在」这个判据不够——`selectCard` 里有几个 `await`，
+  `setCardView('editor')` 要等它们回来，卡片在点击后还会挂几百毫秒到一秒。于是重试判定「还在 ⇒ 没点到」，
+  重跑表达式，最后干等满 timeout 报 `not found`（实测 step 用时 30.4s，而 `selectCard` 在点击后 218ms 就跑了）。
+  现在 `ui.click` 生成一个 token，页面在点击前写进 `data-sc-click`；重跑看到同一个 token 直接返回 `already`，
+  不点第二下，也不再依赖「目标是否立刻消失」。同时点击表达式用 `evaluate({ retries: 0 })`，
+  重跑只由 `uiClick` 控制；重试预算压到 5s。
+- **建议**：有副作用的页面内操作不要套用「幂等读取」的重试策略。重试前先在页面里留一个「这次副作用已经发生」的标记，
+  而不是靠「目标还在不在」猜——UI 的副作用可能比点击晚几拍。
+
+### F39. 改了调试引擎却跑出旧结果：守护进程常驻旧代码
+
+- **现象**：改完 `engine.mjs` 再跑 `suite`，失败样子和改之前一模一样；手动 `down` 再跑就正常了。
+- **原因**：`daemon-client.ensure()` 只按「端口能响应」复用会话，而 `engine.mjs` / `daemon.mjs` 是常驻在那个进程内存里的。
+  源码改了、进程没重启，跑的就是旧代码——红和绿都可能是假的。
+- **当前绕过**：`ensure()` 比较 `scripts/debug/*.mjs` 里最晚的 mtime 与 `session.startedAt`，源码更新就先关旧进程再拉起。
+  关的时候要**等旧进程退干净**：它 `shutdown()` 会删 `session.json`，抢跑会把新会话文件删掉，
+  接着整轮套件都报 `no daemon session`（本地复现过一次，14 个场景全红）。
+- **建议**：常驻进程 + 热改代码的组合必须有「代码版本」概念；只探活不复用版本，迟早骗自己一次。
+  查这类问题要先确认「我改的代码真的在跑」，否则会围绕不存在的因果改半天。
 
 ### F38. CI 失败包一个都没上传：upload-artifact 默认跳过隐藏目录
 
@@ -389,3 +407,19 @@
 - **当前绕过**：显式 `include-hidden-files: true`。另外 CI 改成先 `smoke`（逐路由预热 Next 的按需编译）再 `suite`，
   避免冷 runner 上 `/3d`、`/love/play` 的首次编译吃掉场景超时。
 - **建议**：把产物上传当成断言来看——「上传成功」不等于「传了东西」，要么关掉 ignore，要么在日志里确认文件数。
+
+### F40. 场景隐式依赖「本机配了模型 key」：本地全绿，runner 全红
+
+- **现象**：`coach-flows` 在 GitHub runner 上卡在 `ui.click 推荐今日练习`（等满 90s 报
+  `no clickable element contains`），本机同样的 commit 连续多轮全绿。runner 的失败截图里还开着一个
+  API 设置弹窗，页面上的按钮是灰的。
+- **原因**：首页那颗按钮是 `<Button requiresModel>`，`canUseModel` 来自 `/api/health` 或 BYOK。
+  本机 `.env.local` 有 key，`/api/health` 回 `{serverKey:true,state:"available"}`，按钮可点；
+  runner 没有 key → `unavailable` → 按钮 `disabled`，`clickTextReady` 只接受可点元素，于是「找不到」。
+  `model.use` 的夹具只覆盖了 `rehearse/schedule/track`，`/api/health` 一直打的是真后端。
+- **当前绕过**：回放模式下 harness 自己回答 `/api/health`（`{state:"available"}`），
+  夹具里显式写 `health` 可以覆盖它（想测不可用路径就这么写）。
+  验证办法是 A/B：夹具写 `available` → 按钮可点；写 `unavailable` → 按钮 `disabled` 且
+  `title="接入可用的模型后继续"`。
+- **建议**：凡是「点一下要能点」的场景，都会隐式依赖一堆「环境就绪」判定（模型、权限、开关）。
+  这些判定必须有夹具来源，不能让它们落到真后端——否则本地绿只是因为你机器上恰好配过。
