@@ -74,6 +74,22 @@ export function normalizeRoute(path) {
   return String(path).startsWith("/") ? String(path) : `/${path}`;
 }
 
+const SMOKE_NOISE = /_next\/hmr|ERR_INVALID_HTTP_RESPONSE/;
+const STUDIO_PROBE_NOISE = /net::ERR_CONNECTION_REFUSED/;
+
+/**
+ * smoke 只报「页面真的坏了」。两类噪声不算：
+ * 1. 开发服务器自身的连接噪声（HMR、热更新握手失败）；
+ * 2. /love 系列路由探测本机 Studio（127.0.0.1:5180）失败——Studio 没启动时浏览器
+ *    必然记一条 ERR_CONNECTION_REFUSED（见 src/lib/love-studio-link.ts 的注释），
+ *    这是预期行为。只豁免这几条路由，别的路由连不上仍然算失败。
+ */
+export function isSmokeNoise(text, route) {
+  const message = String(text ?? "");
+  if (SMOKE_NOISE.test(message)) return true;
+  return String(route ?? "").startsWith("/love") && STUDIO_PROBE_NOISE.test(message);
+}
+
 /** 页面内帮助函数。每次导航都会由 addScriptToEvaluateOnNewDocument 重新注入。 */
 const PAGE_HELPERS = String.raw`
 ${canvasStubSource()}
@@ -234,13 +250,17 @@ ${audioStubSource()}
       el.click();
       return true;
     },
-    async clickReady(target, nth, timeout) {
+    async clickReady(target, nth, timeout, token) {
       const until = Date.now() + (timeout || 15000);
       let last = null;
       while (Date.now() < until) {
         const el = q(target, nth);
         last = el;
+        // 重跑同一个 token = 上一次点击已经点下去了（CDP 的 promise 可能在点击后
+        // 被回收），别再点第二下，直接按成功返回。
+        if (el && token && el.getAttribute("data-sc-click") === token) return "already";
         if (el && !el.disabled && visible(el)) {
+          if (token) el.setAttribute("data-sc-click", token);
           el.scrollIntoView({ block: "center", inline: "center" });
           el.click();
           return true;
@@ -323,11 +343,17 @@ ${audioStubSource()}
       el.click();
       return true;
     },
-    async clickTextReady(text, role, timeout) {
+    async clickTextReady(text, role, timeout, token) {
       const until = Date.now() + (timeout || 15000);
       while (Date.now() < until) {
-        const el = window.__sc.findTextAll(text, role).find((node) => !node.disabled && visible(node));
+        const all = window.__sc.findTextAll(text, role);
+        if (token) {
+          const done = all.find((node) => node.getAttribute("data-sc-click") === token);
+          if (done) return "already";
+        }
+        const el = all.find((node) => !node.disabled && visible(node));
         if (el) {
+          if (token) el.setAttribute("data-sc-click", token);
           el.scrollIntoView({ block: "center" });
           el.click();
           return true;
@@ -599,9 +625,9 @@ export class DebugEngine {
     this.log("stopped");
   }
 
-  async evaluate(expression, { awaitPromise = true, timeout = 30000 } = {}) {
+  async evaluate(expression, { awaitPromise = true, timeout = 30000, retries = 3 } = {}) {
     let lastError = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const result = await this.cdp.send(
           "Runtime.evaluate",
@@ -764,27 +790,52 @@ export class DebugEngine {
 
   // ── ui ───────────────────────────────────────────────────────────────────
 
+  /**
+   * 目标在 ms 内是否消失。消失 = 点击已经生效、界面走开了。
+   * 轮询而不是只看一眼：React 的 setState 要到下一次提交才把节点摘掉，
+   * 点击刚返回时目标往往还在（studio-chat 的 card → editor 切换就是这么翻车的）。
+   */
+  async targetGone(probe, ms = 800) {
+    const until = Date.now() + ms;
+    for (;;) {
+      const gone = await this.evaluate(probe).catch(() => true);
+      if (gone) return true;
+      if (Date.now() >= until) return false;
+      await sleep(100);
+    }
+  }
+
   async uiClick({ target, nth = 0, text = null, role = null, timeout = 15000 }) {
-    const expression = text
-      ? `__sc.clickTextReady(${JSON.stringify(text)}, ${JSON.stringify(role)}, ${Number(timeout)})`
-      : `__sc.clickReady(${JSON.stringify(target)}, ${Number(nth)}, ${Number(timeout)})`;
+    let budget = Number(timeout);
+    // 点击标记：一次 ui.click 内部的重试共用同一个 token，页面靠它认出「这一下
+    // 已经点过了」。没有它，上下文被回收后重跑表达式会重复点击或干等 timeout。
+    const token = `sc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const expression = () =>
+      text
+        ? `__sc.clickTextReady(${JSON.stringify(text)}, ${JSON.stringify(role)}, ${budget}, ${JSON.stringify(token)})`
+        : `__sc.clickReady(${JSON.stringify(target)}, ${Number(nth)}, ${budget}, ${JSON.stringify(token)})`;
+    const probe = text
+      ? `__sc.findText(${JSON.stringify(text)}, ${JSON.stringify(role)}) !== null`
+      : `__sc.q(${JSON.stringify(target)}, ${Number(nth)}) !== null`;
+    const clicked = text ? `text:${text}` : target;
     let lastError = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const ok = await this.evaluate(expression, { timeout: Number(timeout) + 5000 });
-        if (ok !== true) throw new Error(text ? `no clickable element contains: ${text}` : `${target}: ${ok === "missing" ? "not found" : `still ${ok}`}`);
+        // retries: 0 —— 点击表达式由这里控制重跑；evaluate 自己再重跑一次会让
+        // 同一次点击执行两遍（第二遍只能干等 timeout）。
+        const ok = await this.evaluate(expression(), { timeout: budget + 5000, retries: 0 });
+        if (ok !== true && ok !== "already") throw new Error(text ? `no clickable element contains: ${text}` : `${target}: ${ok === "missing" ? "not found" : `still ${ok}`}`);
         await sleep(120);
-        return { clicked: text ? `text:${text}` : target, nth };
+        return { clicked, nth, ...(ok === "already" ? { alreadyClicked: true } : {}), ...(attempt ? { attempts: attempt + 1 } : {}) };
       } catch (error) {
         lastError = error;
         // 页面在点击过程中换文档（整页重载 / 触发导航）时，未决的 Promise 会被回收。
-        // 目标已经不在 = 点击多半生效；目标还在 = 这次点击没落地，重试一次。
+        // 目标随后消失 = 点击生效；目标还在 = 交给点击标记判断，重试一次。
         if (!/collected|destroyed|context/i.test(String(error.message))) throw error;
-        const still = text
-          ? await this.evaluate(`__sc.findText(${JSON.stringify(text)}, ${JSON.stringify(role)}) !== null`).catch(() => false)
-          : await this.evaluate(`__sc.q(${JSON.stringify(target)}, ${Number(nth)}) !== null`).catch(() => false);
-        if (!still) { await sleep(120); return { clicked: text ? `text:${text}` : target, nth, afterNavigation: true }; }
+        if (await this.targetGone(probe, 400)) { await sleep(120); return { clicked, nth, afterNavigation: true }; }
         await sleep(150);
+        // 重试不该再等满一轮 timeout：真没点下去的话 clickReady 第一轮就点。
+        budget = Math.min(budget, 5000);
       }
     }
     throw lastError;
@@ -1586,7 +1637,7 @@ export class DebugEngine {
         const events = this.drainEvents().filter(
           (e) =>
             (e.kind === "exception" || e.kind === "error" || (e.kind === "console" && e.level === "error") || (e.kind === "log" && e.level === "error")) &&
-            !/_next\/hmr|ERR_INVALID_HTTP_RESPONSE/.test(String(e.text ?? "")),
+            !isSmokeNoise(e.text, route),
         );
         row.errors = events.map((e) => e.text).slice(0, 5);
         row.ok = !info.error && info.text.length > 0 && row.errors.length === 0;
