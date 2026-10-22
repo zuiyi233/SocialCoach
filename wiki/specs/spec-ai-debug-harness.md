@@ -489,6 +489,10 @@ CI 里该场景本就不跑），runner 上的复跑结果见 §9。
 A/B 验证：夹具写 `available` → 按钮可点；写 `unavailable` → `disabled` 且
 `title="接入可用的模型后继续"`（F40）。
 
+**第四次真实运行（run 39853577091）全绿**：`doctor` → `smoke (warm-up)` → `suite` → `contracts` 四步通过，
+`studio-chat` 按预期跳过（runner 没有 Python venv），耗时约 3 分钟。这是 CI 入口第一次真正跑通；
+四次运行各暴露一层问题（跨场景串味 / 隐藏目录产物 / 探测噪声 / 环境就绪依赖），都不是「本地也复现」的那种。
+
 ### 4.15 MCP：把同一套能力变成原生工具
 
 CLI 是「AI 学会调命令」，MCP 是「工具本来就在手里」。同一套命令被包成一个 stdio MCP 服务器，
@@ -621,9 +625,10 @@ MCP 侧是 `sc_report {kind:"bundle"|"triage"|"coverage"}`。
 不会让任何锚点变绿）。路由分三层看：`routesUnused` = 夹具里有、没有场景加载；
 `routesUnasserted` = 场景加载了、但没有 `assert.api` 证明它真被调用；`routesAsserted` 才是硬证据。
 当前实测（2026-10-23）：30 个代码锚点、27 个被引用、3 个未用（`studio.creatorTab` / `studio.save` /
-`studio.stop`）；14 条夹具路由全部被加载，11 条被 `assert.api` 断言，剩下 `health`（隐式）、
-`rehearse`、`track`（遥测默认关）。模板值锚点（`love.option-${i}`）与条件值锚点（`studio.lastReply`）
-扫不到，会进 `anchorsUnknown`——这是已知盲区，不是漏报。
+`studio.stop`）；14 条夹具路由全部被加载，11 条被 `assert.api` 断言，剩下 `health`（回放模式下由 harness
+自己回 `{"state":"available"}`，没有夹具文件可算）、`rehearse`、`track`（遥测默认关）。
+模板值锚点（`love.option-${i}`）与条件值锚点（`studio.lastReply`）
+扫不到，会进 `anchorsUnknown`——这是已知盲区，不是漏报。数字随功能增长，以 `debug coverage` 当次输出为准。
 
 `divergence` 比较按 step index 对齐，忽略 `ms` 与易变时间戳；**非导航步骤的 `data.url` 也忽略**
 （场景共享同一个浏览器，`state.load` 的 url 会带着上一轮停留的页面，那不是 flake）。
@@ -778,9 +783,9 @@ node scripts/debug.mjs run debug/scenarios/my-flow.json --repeat=2
    `state.load` 会清掉 `socialcoach*`，但页面卸载时的存档写入仍可能与新页面抢同一把 Web Lock
    （已修：`createDinnerStorage` 在首次拿锁时会短暂重试，见 `80-known-pitfalls.md`）。
 6. **录制只记动作，不记断言**：`record stop` 产出的是骨架；语义断言必须人补。
-7. **GitHub runner 已真实跑过，但还没绿**：2026-10-23 首次运行（run 39836977654）在 4 条场景上失败，
-   暴露了跨场景状态串味、点击期间的 Promise 回收、隐藏目录产物上传三个问题（F36–F38），已修并进入第二次运行。
-   `studio-chat` 在 runner 上始终跳过（没有 Python venv），Studio 侧仍只有本地验证。
+7. **GitHub runner 已跑通**（2026-10-23，run 39853577091）：`doctor` / `smoke` / `suite` / `contracts` 全通，
+   `studio-chat` 按 `requires: studio` 跳过——Studio 侧仍只有本地验证，
+   runner 上没有 Python venv，也没有把 Studio 装进 CI（成本与收益都还不划算）。
 
 ## 9. 验收
 
@@ -788,6 +793,7 @@ node scripts/debug.mjs run debug/scenarios/my-flow.json --repeat=2
   `dinner-turn`、`love-happy`、`practice-chat`、`practice-debrief`、`practice-debrief-ask`、
   `practice-feedback`、`practice-hint`、`practice-pattern`、`practice-tts`、`practice-voice`、`studio-chat`
   （退出码 0；缺 Studio venv 时后者跳过）。
+- GitHub Actions `debug harness` 工作流在真实 runner 上通过（run 39853577091，`studio-chat` 跳过）。
 - `node scripts/debug.mjs smoke`：14 条路由全绿，无控制台错误（失败时退出码 1）。
 - `node scripts/debug.mjs contracts`：`missing` 与 `unknown` 都为空（14/14 覆盖，没有拼错的夹具键）。
 - `node scripts/debug.mjs fixture probe practice-side,coach-side,speech-flow`：全部 2xx。

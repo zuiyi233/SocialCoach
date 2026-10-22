@@ -48,7 +48,7 @@
 - [x] 录制 → 断言草稿：`record stop` 按录制期请求与锚点写 `suggested`（用 `min` 不用 `count`，StrictMode 双调用会假红）
 - [x] `practice-side` 的 5 条路由全部进 UI 场景：`practice-hint` / `practice-debrief-ask`（debrief-chat + reflect）/ `practice-pattern`（新增 `practice-history` 状态夹具）/ `practice-feedback`；各带 `assert.api`，`routesUnused` 归零
 - [ ] Studio 的 3 个锚点还没有场景驱动：`studio.creatorTab` / `studio.save`（要从素材库进卡编辑器，save 还会触发下载）/ `studio.stop`（只在流式回复中渲染，mock 一秒内结束）
-- [ ] CI 第一次真实 GitHub runner 运行与超时预算（本地容器已过，runner 的缓存 / artifact 未验）
+- [x] CI 第一次真实 GitHub runner 运行与超时预算：四次运行逐层修完（跨场景串味 / 隐藏目录产物 / Studio 探测噪声 / 环境就绪依赖），run 39853577091 全绿（`studio-chat` 跳过）
 - [ ] Studio 真实 BYOK：`pnpm debug studio byok --api-type=openai --model=…`（harness 已用 mock 自检，真实 provider 需要 key）
 - [ ] 主站「排练真实对话」的 输入 → 审阅 → 确认 三段 UI 未进场景（只有 rehearse 的 API 夹具自检）
 
