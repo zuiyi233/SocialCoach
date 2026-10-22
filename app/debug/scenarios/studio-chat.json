@@ -1,6 +1,6 @@
 {
   "name": "studio-chat",
-  "description": "Love Studio 的确定性主路径：SQLite 种子（卡 + 空对话 + mock 连接）→ 创作者控制台 → 选中角色 → 发一句 → mock 回复 → 重新生成 → 新对话。seed 带 reset，所以每轮都从空对话开始，断言不会被上一轮的历史命中；全流程走 data-debug 锚点。",
+  "description": "Love Studio 的确定性主路径：SQLite 种子（卡 + 空对话 + mock 连接）→ 创作者控制台 → 选中种子的那张卡 → 发一句 → mock 回复 → 重新生成 → 新对话。按卡名点选而不是点列表第 0 行：库里有别的卡（starter 的顾星遥、之前跑留下的），点第 0 行会接到别人的旧对话上，seed 就白做了。seed 带 reset，每轮从空对话开始；全流程走 data-debug 锚点。",
   "requires": "studio",
   "steps": [
     {
@@ -30,9 +30,13 @@
       "contains": "mock"
     },
     {
-      "cmd": "ui.click",
+      "cmd": "assert.count",
       "target": "studio.card",
-      "nth": 0,
+      "min": 1
+    },
+    {
+      "cmd": "ui.click",
+      "text": "甘雨",
       "timeout": 30000
     },
     {
