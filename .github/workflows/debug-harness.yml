@@ -47,6 +47,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debug-harness-failures
+          # .debug 是隐藏目录；upload-artifact v4 默认跳过隐藏文件，
+          # 不加这一行会「上传成功但 0 个文件」，失败时拿不到现场。
+          include-hidden-files: true
           path: |
             app/.debug/failures/**
             app/.debug/*.log

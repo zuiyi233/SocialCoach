@@ -359,3 +359,33 @@
   `evaluate` 原本只对 `context/destroyed/navigat` 重试，没覆盖这条文案。
 - **当前绕过**：重试正则加 `collected`（最多 3 次，每次间隔 150ms）。
 - **建议**：凡是页面内长轮询，都要考虑「中途导航/重载会收走 Promise」；把这类 CDP 文案加进重试白名单。
+
+### F36. 上一场景的页面把夹具写回去了（CI 慢机器上必现）
+
+- **现象**：CI 上 `love-happy` 的 `nav` 等不到 `love.options`；本地复跑 `dinner-conflict → dinner-turn` 时，3D 页直接进入「回合 00/12」，没有「开始接话」。
+- **原因**：场景共用一个浏览器。`state.load` 先写 localStorage 再 `reload` 当前页，而**上一页仍在运行**——
+  3D 页卸载/收尾时会把 `socialcoach-dinner-v1` 与 `socialcoach.v1` 再写一次，晚于我们的写入，
+  于是新页面拿到的是上一场景的档案（有正在进行的 3D 会话 ⇒ 自动续局）。
+- **当前绕过**：`state.load` / `state.clear` 先 `settlePreviousPage()`（若不在 `/` 就先导航到 `/` 并等 150ms），
+  写完再按语义校验（`profile.name` 对得上、`socialcoach-dinner-v1` 没有残留），不对就重写，最多 3 轮，仍不对就报错而不是带着脏状态继续。
+- **建议**：跨场景共享浏览器时，「写状态」必须发生在旧页面卸载之后，并且要校验而不是假设写入生效。
+
+### F37. 点击过程中页面换文档，`Runtime.evaluate` 报 Promise was collected
+
+- **现象**：`suite` 里 `dinner-turn` 的 `ui.click 开始接话` 失败在「找不到按钮」，但失败时的页面已经进入对话（点击其实生效了）；
+  另一些运行里同一位置报 `Runtime.evaluate: Promise was collected`。
+- **原因**：点击触发整页重载（Next dev 重新编译、Studio 的 Vite 整页 reload）时，页面内未决的 Promise 被回收。
+  早先给 `evaluate` 加的 `collected` 重试会把整个点击表达式重放一遍——第二次时按钮已经不在了，于是「点击成功」被改写成「找不到」。
+- **当前绕过**：`evaluate` 不再对 `collected` 做通用重试；`uiClick` 自己处理：目标/文字已消失 ⇒ 视为点击生效（结果带 `afterNavigation: true`），
+  目标还在 ⇒ 重试一次，仍失败才抛错。
+- **建议**：有副作用的页面内操作不要套用「幂等读取」的重试策略；重试前先判断副作用是否已经发生。
+
+### F38. CI 失败包一个都没上传：upload-artifact 默认跳过隐藏目录
+
+- **现象**：workflow 的「Upload failure bundles」显示 ✓，但 `gh run download` 报 `no valid artifacts`；日志里写着
+  `No files were found with the provided path: app/.debug/failures/**`。
+- **原因**：`.debug` 是隐藏目录，`actions/upload-artifact@v4` 默认 `include-hidden-files: false`；
+  `if-no-files-found: ignore` 又把「没东西可传」变成成功，于是失败现场全部丢失。
+- **当前绕过**：显式 `include-hidden-files: true`。另外 CI 改成先 `smoke`（逐路由预热 Next 的按需编译）再 `suite`，
+  避免冷 runner 上 `/3d`、`/love/play` 的首次编译吃掉场景超时。
+- **建议**：把产物上传当成断言来看——「上传成功」不等于「传了东西」，要么关掉 ignore，要么在日志里确认文件数。

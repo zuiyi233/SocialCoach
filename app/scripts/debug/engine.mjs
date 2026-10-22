@@ -515,6 +515,9 @@ export class DebugEngine {
       "--use-fake-device-for-media-stream",
       "--hide-scrollbars",
       "--autoplay-policy=no-user-gesture-required",
+      // CI 的 runner 没有 GPU：允许 SwiftShader 软件 WebGL，否则 3D 页拿不到上下文。
+      // 本机有 GPU 时 Chrome 仍优先硬件渲染，这个开关只是放开回退。
+      "--enable-unsafe-swiftshader",
       "--window-size=1280,900",
       "about:blank",
     ];
@@ -525,9 +528,14 @@ export class DebugEngine {
     let port = 0;
     for (let i = 0; i < 150; i++) {
       if (existsSync(portFile)) {
-        const [first] = readFileSync(portFile, "utf8").trim().split(/\r?\n/);
-        port = Number(first);
-        if (port) break;
+        try {
+          const [first] = readFileSync(portFile, "utf8").trim().split(/\r?\n/);
+          port = Number(first);
+          if (port) break;
+        } catch (error) {
+          // Windows 上 Chrome 刚写完这个文件时还持有句柄，读会 EBUSY；下一轮再读。
+          if (!/EBUSY|EPERM|EACCES/.test(String(error?.code ?? error?.message))) throw error;
+        }
       }
       if (this.chromeProcess.exitCode !== null) throw new Error(`Chrome exited early (code ${this.chromeProcess.exitCode})`);
       await sleep(100);
@@ -604,7 +612,7 @@ export class DebugEngine {
         return result.result?.value;
       } catch (error) {
         lastError = error;
-        if (!/context|destroyed|navigat|collected/i.test(String(error.message))) break;
+        if (!/context|destroyed|navigat/i.test(String(error.message))) break;
         await sleep(150);
       }
     }
@@ -618,9 +626,12 @@ export class DebugEngine {
     await sleep(120);
   }
 
-  async navigate(path, { wait = null, timeout = 30000 } = {}) {
+  async navigate(path, { wait = null, timeout = 30000, bust = false } = {}) {
     const route = normalizeRoute(path);
-    const url = /^https?:/i.test(route) ? route : `${this.base}${route}`;
+    let url = /^https?:/i.test(route) ? route : `${this.base}${route}`;
+    // bust：加一个唯一 query，保证每次都真的换文档。Studio（:5180）是独立 SPA，
+    // 目标 URL 与当前相同时 Page.navigate 可能不换文档，页面会沿用上一轮的视图。
+    if (bust) url += `${url.includes("?") ? "&" : "?"}_sc=${Date.now()}`;
     const result = await this.cdp.send("Page.navigate", { url });
     if (result.errorText) throw new Error(`navigate failed: ${result.errorText}`);
     this.lastNavigation = url;
@@ -661,6 +672,20 @@ export class DebugEngine {
     if (!href.startsWith(this.base)) await this.navigate("/");
   }
 
+  /**
+   * 让上一场景的页面先卸载干净。场景之间共享同一个浏览器，3D 页面卸载时
+   * 可能把自己的内存状态写回 localStorage；若不先走开，这个迟到的写入会
+   * 覆盖紧跟着 state.load 写进去的夹具（CI 慢机器上表现为「夹具像是没生效」）。
+   */
+  async settlePreviousPage() {
+    const href = await this.evaluate("location.href");
+    if (href.startsWith(this.base) && href !== `${this.base}/`) {
+      await this.navigate("/", { timeout: 60000 });
+      // 给卸载时的收尾写入一点时间落盘，再让调用方清/写夹具。
+      await sleep(150);
+    }
+  }
+
   async stateDump({ save = null } = {}) {
     await this.ensureAppOrigin();
     const raw = await this.evaluate("__sc.snapshot()");
@@ -690,6 +715,9 @@ export class DebugEngine {
   async stateLoad({ fixture, reload = true } = {}) {
     if (!fixture) throw new Error("state.load needs a fixture name");
     await this.ensureAppOrigin();
+    // 先离开上一场景的页面再写：上一页（尤其 3D）卸载时可能把内存里的旧档案
+    // 写回 localStorage，晚一步就覆盖掉刚写进去的夹具（CI 慢机器上必现）。
+    await this.settlePreviousPage();
     const path = this.#fixturePath(fixture, "states");
     if (!existsSync(path)) throw new Error(`fixture not found: ${path}`);
     const data = JSON.parse(readFileSync(path, "utf8"));
@@ -700,8 +728,23 @@ export class DebugEngine {
     for (const [key, value] of Object.entries(keys)) {
       map[key] = typeof value === "string" ? value : JSON.stringify(value);
     }
-    await this.evaluate(`__sc.loadSnapshot(${JSON.stringify(map)})`);
-    if (reload) await this.reload();
+    // 写进去之后要确认没被上一页的迟到写入覆盖：3D 页面在卸载/收尾时会把
+    // socialcoach-dinner-v1 再写一次，慢机器上能晚于 loadSnapshot。被覆盖就重写一轮。
+    // 只比对语义（档案里的 profile.name + 3D slot 是否残留），因为应用挂载后会
+    // 把自己的规范化结果写回去，逐字节比较必然不等。
+    const expectedName = archive?.profile?.name ?? null;
+    const probeName = `(() => { try { const s = JSON.parse(localStorage.getItem("socialcoach.v1") || "null"); return s && s.state && s.state.profile ? s.state.profile.name ?? null : null; } catch { return null; } })()`;
+    const staleKey = !("socialcoach-dinner-v1" in map);
+    let verified = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await this.evaluate(`__sc.loadSnapshot(${JSON.stringify(map)})`);
+      if (reload) await this.reload();
+      const actualName = await this.evaluate(probeName);
+      const stale = staleKey ? Boolean(await this.evaluate(`localStorage.getItem("socialcoach-dinner-v1") !== null`)) : false;
+      if ((expectedName === null || actualName === expectedName) && !stale) { verified = true; break; }
+      await sleep(250);
+    }
+    if (!verified) throw new Error(`state.load could not settle: ${fixture} was overwritten by the previous page`);
     return { fixture: path, archive: Boolean(archive), keys: Object.keys(keys), url: await this.evaluate("location.href") };
   }
 
@@ -713,6 +756,7 @@ export class DebugEngine {
 
   async stateClear({ reload = true } = {}) {
     await this.ensureAppOrigin();
+    await this.settlePreviousPage();
     await this.evaluate("__sc.clearSnapshot()");
     if (reload) await this.reload();
     return { cleared: true };
@@ -721,12 +765,29 @@ export class DebugEngine {
   // ── ui ───────────────────────────────────────────────────────────────────
 
   async uiClick({ target, nth = 0, text = null, role = null, timeout = 15000 }) {
-    const ok = text
-      ? await this.evaluate(`__sc.clickTextReady(${JSON.stringify(text)}, ${JSON.stringify(role)}, ${Number(timeout)})`, { timeout: Number(timeout) + 5000 })
-      : await this.evaluate(`__sc.clickReady(${JSON.stringify(target)}, ${Number(nth)}, ${Number(timeout)})`, { timeout: Number(timeout) + 5000 });
-    if (ok !== true) throw new Error(text ? `no clickable element contains: ${text}` : `${target}: ${ok === "missing" ? "not found" : `still ${ok}`}`);
-    await sleep(120);
-    return { clicked: text ? `text:${text}` : target, nth };
+    const expression = text
+      ? `__sc.clickTextReady(${JSON.stringify(text)}, ${JSON.stringify(role)}, ${Number(timeout)})`
+      : `__sc.clickReady(${JSON.stringify(target)}, ${Number(nth)}, ${Number(timeout)})`;
+    let lastError = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const ok = await this.evaluate(expression, { timeout: Number(timeout) + 5000 });
+        if (ok !== true) throw new Error(text ? `no clickable element contains: ${text}` : `${target}: ${ok === "missing" ? "not found" : `still ${ok}`}`);
+        await sleep(120);
+        return { clicked: text ? `text:${text}` : target, nth };
+      } catch (error) {
+        lastError = error;
+        // 页面在点击过程中换文档（整页重载 / 触发导航）时，未决的 Promise 会被回收。
+        // 目标已经不在 = 点击多半生效；目标还在 = 这次点击没落地，重试一次。
+        if (!/collected|destroyed|context/i.test(String(error.message))) throw error;
+        const still = text
+          ? await this.evaluate(`__sc.findText(${JSON.stringify(text)}, ${JSON.stringify(role)}) !== null`).catch(() => false)
+          : await this.evaluate(`__sc.q(${JSON.stringify(target)}, ${Number(nth)}) !== null`).catch(() => false);
+        if (!still) { await sleep(120); return { clicked: text ? `text:${text}` : target, nth, afterNavigation: true }; }
+        await sleep(150);
+      }
+    }
+    throw lastError;
   }
 
   async uiType({ target, text, nth = 0, enter = false, submit = null, timeout = 15000 }) {

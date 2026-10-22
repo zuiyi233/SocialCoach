@@ -8,17 +8,20 @@
     },
     {
       "cmd": "model.use",
-      "fixtures": ["coach-side"]
+      "fixtures": [
+        "coach-side"
+      ]
     },
     {
       "cmd": "nav",
       "path": "/",
-      "wait": "body"
+      "wait": "body",
+      "timeout": 90000
     },
     {
       "cmd": "ui.click",
       "text": "推荐今日练习",
-      "timeout": 30000
+      "timeout": 90000
     },
     {
       "cmd": "assert.text",

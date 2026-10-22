@@ -450,8 +450,17 @@ pnpm debug run debug/scenarios/dinner-take.json --repeat=2
 是同一条代码路径，不会各写一套然后漂移（F25）。
 
 脚本顺序：浏览器探测（找不到就 `exit 1`，不静默跳过）→ `pnpm install --frozen-lockfile` →
-`up --serve` → `doctor` → `suite` → `smoke` → `contracts`；`trap EXIT` 负责 `debug down`。
-`studio-chat` 因缺 venv 自动跳过；失败包与日志由 workflow 上传。
+`up --serve` → `doctor` → `smoke`（逐路由预热 Next 的按需编译）→ `suite` → `contracts`；
+`trap EXIT` 负责 `debug down`。`studio-chat` 因缺 venv 自动跳过。
+失败包与日志由 workflow 上传，且必须 `include-hidden-files: true`——`.debug` 是隐藏目录，
+upload-artifact v4 默认跳过它，结果就是「上传步骤成功但 0 个文件」（F38）。
+
+**第一次真实 runner 运行（2026-10-23，run 39836977654）**失败在 4 条场景：`coach-flows`（点击不到推荐按钮）、
+`dinner-conflict` / `dinner-turn`（3D 的 `ui.wait` 报 CDP timeout）、`love-happy`（导航后等不到选项）。
+runner 比本机慢一个量级（`state.load` 28s、`nav` 41s），暴露出三个真实问题，修法见 F36/F37/F38：
+上一场景页面在 `state.load` 之后把旧档案写回去（跨场景串味）、点击过程中整页重载导致 Promise 被回收、
+冷启动时按需编译吃掉场景超时。本地连续 3 轮 `suite` 已稳定（中间仍有 1 次 Studio 场景的间歇失败，
+CI 里该场景本就不跑），runner 上的复跑结果见 §9。
 
 ### 4.15 MCP：把同一套能力变成原生工具
 
@@ -742,9 +751,9 @@ node scripts/debug.mjs run debug/scenarios/my-flow.json --repeat=2
    `state.load` 会清掉 `socialcoach*`，但页面卸载时的存档写入仍可能与新页面抢同一把 Web Lock
    （已修：`createDinnerStorage` 在首次拿锁时会短暂重试，见 `80-known-pitfalls.md`）。
 6. **录制只记动作，不记断言**：`record stop` 产出的是骨架；语义断言必须人补。
-7. **CI 的步骤已单源、容器已跑通，但 GitHub runner 本身仍未跑过**：workflow 只调用
-   `scripts/debug/ci-steps.sh`，本地在 `node:22-bookworm` 冷容器里跑同一脚本验证了 Linux 路径；
-   runner 上的缓存、超时预算、artifact 上传仍属未验（见 `FRICTION.md` F20 / F25）。
+7. **GitHub runner 已真实跑过，但还没绿**：2026-10-23 首次运行（run 39836977654）在 4 条场景上失败，
+   暴露了跨场景状态串味、点击期间的 Promise 回收、隐藏目录产物上传三个问题（F36–F38），已修并进入第二次运行。
+   `studio-chat` 在 runner 上始终跳过（没有 Python venv），Studio 侧仍只有本地验证。
 
 ## 9. 验收
 

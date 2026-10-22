@@ -58,11 +58,13 @@ node scripts/debug.mjs up --serve
 echo "== doctor =="
 node scripts/debug.mjs doctor
 
+# smoke 先跑：它逐路由访问一遍，把 Next dev 的按需编译预热掉；
+# 冷 runner 上直接跑 suite 时，/3d 与 /love/play 的首次编译会把场景超时吃光。
+echo "== smoke (warm-up) =="
+node scripts/debug.mjs smoke
+
 echo "== suite =="
 node scripts/debug.mjs suite
-
-echo "== smoke =="
-node scripts/debug.mjs smoke
 
 echo "== contracts =="
 node scripts/debug.mjs contracts

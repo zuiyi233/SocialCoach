@@ -15,18 +15,19 @@
     {
       "cmd": "nav",
       "path": "3d",
-      "wait": "body"
+      "wait": "body",
+      "timeout": 90000
     },
     {
       "cmd": "ui.click",
       "text": "开始接话",
       "role": "button",
-      "timeout": 30000
+      "timeout": 90000
     },
     {
       "cmd": "ui.wait",
       "target": "dinner.input",
-      "timeout": 30000
+      "timeout": 90000
     },
     {
       "cmd": "ui.type",
