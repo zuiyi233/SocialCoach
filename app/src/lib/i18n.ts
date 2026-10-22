@@ -1027,6 +1027,11 @@ const dict = {
     zh: "练完之后，你把那句说给的那个人会在恋爱首页问一次做了没有——同一句最多三次，两次至少隔一天，一天最多浮现两次。关掉后不再提问，已经记下的句子原样保留。",
     en: "After a love scene, the person you left the line with asks once on the Love home screen — at most three times per line, at least a day apart, and no more than two follow-ups surface in a day. Turning this off stops the asking; what you recorded stays untouched.",
   },
+  st_imperfection: { zh: "台词里偶尔打错字", en: "Occasional typos in dialogue" },
+  st_imperfection_hint: {
+    zh: "恋爱与 Galgame 的对方偶尔打错一个字，更像真人。默认关闭；表白、结局和收束的回合永远不会打错字，选项也不会受影响。教练模式不适用。",
+    en: "The other person occasionally mistypes a word in love and Galgame scenes, which reads more human. Off by default; confessions, endings and closing turns never get a typo, and the choices are never affected. Not used in coaching.",
+  },
   st_export_hint: { zh: "下载一份资料与练习记录备份，包含 3D 现场记录、恋爱剧情进度，以及你记下的那句承诺。", en: "Download a backup of your profile and practice records, including 3D scenes, love story progress and the promise you recorded." },
   st_goal_hint: { zh: "已选 {n} 项；至少保留一项，修改立即保存。", en: "{n} selected. Keep at least one; changes save immediately." },
   st_voice_hint: { zh: "对话时自动朗读对方的台词。", en: "Automatically read the other person’s lines during practice." },

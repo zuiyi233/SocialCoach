@@ -282,6 +282,9 @@ export default function Settings() {
               <Row label={t(lang, "st_love_carry")} hint={t(lang, "st_love_carry_hint")}>
                 <Switch checked={settings.loveCarry !== false} onChange={(v) => setSettings({ loveCarry: v })} label={t(lang, "st_love_carry")} />
               </Row>
+              <Row label={t(lang, "st_imperfection")} hint={t(lang, "st_imperfection_hint")}>
+                <Switch checked={settings.imperfection === true} onChange={(v) => setSettings({ imperfection: v })} label={t(lang, "st_imperfection")} />
+              </Row>
               <button
                 onClick={exportData}
                 className="press w-full flex items-center gap-3 px-4 min-h-16 py-3.5 text-left text-[14px] font-medium"

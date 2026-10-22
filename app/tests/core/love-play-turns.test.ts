@@ -165,3 +165,110 @@ test('two unparseable replies stop at the attempts cap with the friendly copy', 
   );
   assert.equal(seen.length, 2, 'one main call plus one bounded repair — nothing more');
 });
+
+test('the human-voice layer adds initiative, shape and style blocks before the output contract', async () => {
+  const { llm, seen } = recorder(JSON.stringify(VALID));
+  await runLovePlay(
+    input([
+      opening,
+      { role: 'learner', text: '今天有点累。', ts: 2 },
+      { role: 'learner', text: '不过还好吧。', ts: 3 },
+      { role: 'learner', text: '你呢？', ts: 4 },
+    ]),
+    llm,
+    'fake',
+    () => 0.1,
+  );
+  const text = systemText(seen[0]!);
+  assert.match(text, /THIS TURN'S INITIATIVE: answer/, 'a learner question forces a direct answer');
+  assert.match(text, /THIS TURN'S SHAPE: /);
+  assert.match(text, /LEARNER'S WRITING STYLE/, 'three learner lines are enough to profile');
+  assert.ok(text.indexOf("THIS TURN'S SHAPE") < text.indexOf('LOVE-PLAY GALGAME 输出契约'), 'voice blocks sit before the output contract');
+});
+
+test('a fixed rng makes the voice blocks reproducible', async () => {
+  const first = recorder(JSON.stringify(VALID));
+  const second = recorder(JSON.stringify(VALID));
+  const messages: LovePlayMessage[] = [opening, { role: 'learner', text: '今天有点累。', ts: 2 }];
+  await runLovePlay(input(messages), first.llm, 'fake', () => 0.42);
+  await runLovePlay(input(messages), second.llm, 'fake', () => 0.42);
+  assert.equal(systemText(first.seen[0]!), systemText(second.seen[0]!));
+});
+
+test('markdown in the NPC line is stripped before it reaches the player', async () => {
+  const dirty = { ...VALID, line: { zh: '- **那句**是你加的？', en: '- **Was that** yours?' } };
+  const { llm } = recorder(JSON.stringify(dirty));
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '是我加的。', ts: 2 }]), llm, 'fake', () => 0.1);
+  assert.equal(out.line.zh, '那句是你加的？');
+  assert.equal(out.line.en, 'Was that yours?');
+});
+
+test('an over-long line is cut at the last sentence end, never mid-sentence', async () => {
+  const zh = '这是一句很长的话。'.repeat(30);
+  const en = 'This is a long sentence. '.repeat(30).trim();
+  const { llm } = recorder(JSON.stringify({ ...VALID, line: { zh, en } }));
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '是我加的。', ts: 2 }]), llm, 'fake', () => 0.1);
+  assert.ok([...out.line.zh].length <= 120, 'zh stays under the absolute cap');
+  assert.ok(out.line.zh.endsWith('。'), 'the cut lands on a sentence end');
+  assert.ok(out.line.en.split(/\s+/).length <= 80, 'en stays under the absolute cap');
+  assert.ok(out.line.en.endsWith('.'), 'the en cut lands on a sentence end too');
+});
+
+test('beats are dropped when truncation breaks the line === beats.join invariant', async () => {
+  const beat = { text: { zh: '这是一句很长的话。'.repeat(6), en: 'This is a long sentence. '.repeat(5).trim() }, emotion: 'neutral' as const };
+  const { llm } = recorder(JSON.stringify({ ...VALID, beats: [beat, beat, beat, beat] }));
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '是我加的。', ts: 2 }]), llm, 'fake', () => 0.1);
+  assert.equal(out.beats, undefined, 'stale beats fall back to line + emotion');
+  assert.ok([...out.line.zh].length <= 120);
+});
+
+test('en beats ending in ellipses survive the per-beat normalization', async () => {
+  const beats = [
+    { text: { zh: '我想你…', en: 'I miss you…' }, emotion: 'neutral' as const },
+    { text: { zh: '算了…', en: 'Never mind…' }, emotion: 'tight' as const },
+  ];
+  const { llm } = recorder(JSON.stringify({ ...VALID, line: { zh: '我想你…算了…', en: 'I miss you… Never mind…' }, beats }));
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '我也想你。', ts: 2 }]), llm, 'fake', () => 0.1);
+  assert.ok(out.beats, 'the ellipsis across the beat boundary must not drop the beats');
+  assert.equal(out.line.zh, out.beats!.map((b) => b.text.zh).join(''));
+  assert.equal(out.line.en, out.beats!.map((b) => b.text.en).join(' '));
+});
+
+/** 顺序 rng：用完最后一个值后重复它。 */
+function seq(...values: number[]): () => number {
+  let i = 0;
+  return () => values[Math.min(i++, values.length - 1)];
+}
+
+test('imperfection is off unless the setting sends true', async () => {
+  const off = recorder(JSON.stringify(VALID));
+  const out = await runLovePlay(input([opening, { role: 'learner', text: '是我加的？', ts: 2 }]), off.llm, 'fake', seq(0.1, 0, 0, 0));
+  assert.deepEqual(out.line, VALID.line);
+});
+
+test('imperfection changes only the spoken line, never the choices', async () => {
+  const on = recorder(JSON.stringify(VALID));
+  const out = await runLovePlay(
+    { ...input([opening, { role: 'learner', text: '是我加的？', ts: 2 }]), imperfection: true },
+    on.llm,
+    'fake',
+    seq(0.1, 0, 0, 0),
+  );
+  assert.notEqual(out.line.zh, VALID.line.zh, 'the first character is duplicated');
+  assert.equal(out.line.en, VALID.line.en, 'the other language key stays a faithful translation');
+  assert.deepEqual(out.options, VALID.options, 'choices are never touched');
+  assert.equal(out.beats, undefined, 'a typo drops beats so line === beats.join cannot break');
+});
+
+test('imperfection is forced off on revealed, terminal and ended turns', async () => {
+  for (const locked of [{ revealed: true }, { terminal: 'success' as const }, { ended: true }]) {
+    const { llm } = recorder(JSON.stringify({ ...VALID, ...locked }));
+    const out = await runLovePlay(
+      { ...input([opening, { role: 'learner', text: '是我加的？', ts: 2 }]), imperfection: true },
+      llm,
+      'fake',
+      seq(0.1, 0, 0, 0),
+    );
+    assert.deepEqual(out.line, VALID.line, `locked turn must stay clean: ${JSON.stringify(locked)}`);
+  }
+});

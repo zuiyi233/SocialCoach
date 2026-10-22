@@ -90,6 +90,11 @@ export interface Settings {
    * the carries themselves stay on the device untouched.
    */
   loveCarry?: boolean;
+  /**
+   * 玩家模式的偶发错字（恋爱 / Galgame 台词）。Undefined 或 false = 关：
+   * 这是「更像人」的可选项，不是默认体验；教练模式永不生效。
+   */
+  imperfection?: boolean;
 }
 
 export type Patience = 10 | 15 | 20;

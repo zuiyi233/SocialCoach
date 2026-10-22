@@ -45,6 +45,8 @@ export interface LovePlayTurnInput {
   beats?: boolean;
   /** 用户卡模式（spec-love-user-cards §2.3）：卡写的角色简报替代内置场景简报。 */
   card?: LoveCardPayload;
+  /** 玩家模式可选错字（spec-love-human-voice §4.6）：默认关，只有设置里显式打开才带 true。 */
+  imperfection?: boolean;
 }
 
 /** 与 client-api 同口径的断网提示（用户可读、双语）。 */

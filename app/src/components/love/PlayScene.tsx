@@ -190,6 +190,8 @@ export function PlayScene({
   const profile = useApp((s) => s.profile);
   const completeLovePlay = useApp((s) => s.completeLovePlay);
   const tts = useApp((s) => s.settings.tts);
+  // 玩家模式可选错字（spec-love-human-voice §4.6）：默认关，设置里显式打开才随请求带上。
+  const imperfection = useApp((s) => s.settings.imperfection === true);
   const voiceNoticeSeen = useApp((s) => s.settings.voiceNoticeSeen);
   const setSettings = useApp((s) => s.setSettings);
   /** 卡驱动游玩：hydration 后从设备端读卡合成的场景；找不到 → missing（不 notFound）。 */
@@ -743,6 +745,7 @@ export function PlayScene({
             // 不能只看 `s.series`：系列里有一半场景对象本身没挂 series 字段（系列只按 id 引用它们），
             // 那样 Rio 首幕会被静默漏掉。
             beats: !!s.custom || !!loveSceneFor(s.id),
+            imperfection,
           },
           controller.signal,
         );
@@ -898,7 +901,7 @@ export function PlayScene({
         }
       }
     },
-    [lang, profile, putLine, startBeats, finishBeats, finalizeRioRoute],
+    [lang, profile, putLine, startBeats, finishBeats, finalizeRioRoute, imperfection],
   );
 
   /** 开始一局：展示开场台词，请求首批选项（返回的台词不重复展示）。 */
@@ -2067,7 +2070,7 @@ export function PlayScene({
               )}
             </span>
           </div>
-          <p className={clsx("leading-relaxed text-ink mt-1 whitespace-pre-wrap", lineTextClass)}>{npcLine ? shownText : ""}</p>
+          <p data-debug="love.line" className={clsx("leading-relaxed text-ink mt-1 whitespace-pre-wrap", lineTextClass)}>{npcLine ? shownText : ""}</p>
         </div>
 
         {!outcome && (
@@ -2091,6 +2094,7 @@ export function PlayScene({
             {/* 自由输入：旁路选项的另一个入口 */}
             <div className="mt-3 flex items-end gap-2 max-w-[var(--measure)]">
               <textarea
+                data-debug="love.input"
                 rows={1}
                 value={draftValue}
                 onFocus={() => { if (voice.active) voice.edit(); }}
@@ -2122,6 +2126,7 @@ export function PlayScene({
                 </button>
               )}
               <button
+                data-debug="love.send"
                 onClick={() => void send(input, "type")}
                 disabled={!input.trim() || busy || !npcLine}
                 aria-label={t(lang, "rp_send")}

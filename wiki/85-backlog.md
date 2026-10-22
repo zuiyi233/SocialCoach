@@ -2,6 +2,58 @@
 
 # Backlog
 
+## 恋爱域的真人感层（2026-10-22，P0–P2 已实现；P3 部分）
+
+从 MaiBot 提取的四条主张里，「永远更了解你」**已经实现**（`love-memory.ts` 两层 core+archive + 引文校验 + 承诺 + event 旁白注入 + 面板 + 导出擦除），不重做。缺的三条按 [spec-love-human-voice.md](./specs/spec-love-human-voice.md) 实现，全部是纯函数 + 提示词装配：不加 API、不加模型调用、不加存储 slot。
+
+- [x] **P0** `human-voice.ts`：markdown 剥离（URL / 数字 / 邮箱先占位保护，幂等）+ 绝对长度上限（zh 120 / en 80 词）+ 回复形态抽样（clause / trail-off / short / flat / two-beat）；`enforceLine` 在事实与泄底守卫**之前**执行
+- [x] **P1** `turn-taking.ts`：学习者回合分类（question / bare-ack / invitation / long-share）+ 本轮意图（answer / reflect / hold-back / close / deflect）；`bare-ack` 且上轮 NPC 提问时不再连环追问；问句必答；`哪怕 / 在一起 / 不怎么 / 哪里哪里` 不误判
+- [x] **P2** `style-adaptation.ts`：文风画像与轻微靠拢（样本 <3 不注入）+ 用词提示（引号词 / 拉丁 token / 重复片段，上限 8，**不落盘**）
+- [x] **P3a** 注意力漂移：非问句 / 非收束回合按 0.15 放行
+- [x] **P3b** 可选错字：默认**关**，设置页「台词里偶尔打错字」显式打开（`settings.imperfection === true` 才随请求带 `imperfection`）；`revealed / terminal / ended` 强制关；只改对白语言那一键，选项与另一语言不动；落地时丢 beats，保住 `line === beats.join` 不变式
+- [ ] **P3c** Studio 端口：推迟。Studio 的提示词装配在前端 `assembler.ts`（862 行）而非 Python 后端，复制一份等于开第二套平行实现；插入点已记录在 spec §7
+- [ ] 未决：形态权重是否按场景类型分；Studio 端口排期
+
+## AI 调试引擎（2026-10-22，已落地）
+
+视觉识别按钮 / 模拟人类点击对 AI 迭代太慢。现在改成「语义命令 + 状态夹具 + 模型夹具」：CLI → 常驻守护进程 → CDP → 页面内 `__sc`，零新依赖（Node 24 自带 WebSocket + 本机 Chrome）。规格与命令表见 [spec-ai-debug-harness.md](./specs/spec-ai-debug-harness.md)，摩擦日志在 `app/debug/FRICTION.md`。
+
+- [x] `pnpm debug up/down/doctor/nav/state.*/ui.*/model.*/trace/shot/smoke`
+- [x] 状态夹具 `app/debug/fixtures/states/*.json`（`debug-seed.ts` 按 schema 生成）
+- [x] 模型夹具 `app/debug/fixtures/models/*.json`：JSON 与 `__raw` 流式两种；`by: learnerTurns` 对 StrictMode 双调用免疫
+- [x] 流式夹具生成器 `pnpm debug fixture build <spec>`：`@@meta` / `@@<characterId>` / `@@final` 自动包装；`model.record` 按 content-type 自动分流成 `__raw`
+- [x] 场景 `app/debug/scenarios/*.json`：`love-happy`、`practice-chat`、`practice-debrief`、`practice-voice`、`dinner-turn`、`dinner-conflict`、`studio-chat`；`pnpm debug suite` 全跑，失败留现场包
+- [x] Love Studio 接入：`pnpm debug studio up/seed/status/down` + `debug_seed.py`（SQLite 种子 + mock 连接），`studio-chat` 场景（`requires: studio`，缺 venv 自动跳过）
+- [x] 观测增强：语义快照 `snapshot`、`errors`、`logs`、`--strict` 离线模式、`trace` 增加 `storage` / `lock` 事件
+- [x] 全站路由烟测 `pnpm debug smoke`（14 条真实路由，失败退出码 1）
+- [x] 顺带修掉 3D 存档的真实竞态：`createDinnerStorage` 首次拿不到 Web Lock 时短暂重试，不再把「自己上一轮实例」判成「另一窗口修改」
+- [x] 录制场景 `pnpm debug record start/stop`：页面记点击/输入、CLI 记导航/夹具，按锚点名去重合并成场景 JSON（**只出骨架，断言要人补**）
+- [x] 快照 diff `pnpm debug diff [--save]`：改代码前后只输出变化的文本行 / 可交互元素 / 存档键
+- [x] 语音桩 `pnpm debug speech stub/say/log/off`：假 `SpeechRecognition`，`practice-voice` 场景覆盖转写落进输入框
+- [x] 多标签页 `pnpm debug tab open/list/use/close/eval`：`dinner-conflict` 场景覆盖真实存档冲突与恢复
+- [x] API 契约巡检 `pnpm debug contracts`：14 路由 / 5 有夹具 / 9 待补，`unknown` 为空；`--strict` 可当门禁
+- [x] CI `.github/workflows/debug-harness.yml`：up --serve → doctor → suite → smoke → down，失败上传现场包（**仅 YAML 校验，未真实跑过**）
+- [x] `pnpm test:debug`（137 个单测：recorder / snapshot-diff / api-contracts / speech-stub / tabs / mcp-tools / mcp-server）并入 `pnpm check`
+- [x] MCP 层：`scripts/debug/mcp-server.mjs`（stdio JSON-RPC）+ `mcp-tools.mjs`（28 个 `sc_*` 工具）+ `.mcp.json` 项目级注册；CLI 与 MCP 共用 `commands.mjs`，命令逻辑只有一份
+- [x] 命令层抽取：`commands.mjs`（场景 / Studio / 日志 / 契约 / 录制 / diff）+ `daemon-client.mjs`（session / health / ensure / rpc / stop），`debug.mjs` 缩到 370 行只做 argv 与打印
+- [x] MCP 首次碰浏览器自动起守护进程（`sc_doctor` 除外）；工具调用串行化；stdout 只写协议
+- [x] MCP resources / prompts：`mcp-catalog.mjs` 提供 6 个静态资源（`guide` / `scenarios` / `fixtures/models` / `fixtures/states` / `failures` / `contracts`）+ 2 个资源模板 + 4 条提示词（`debug-repro` / `debug-regression` / `debug-new-scenario` / `debug-api-fixture`）；catalog 缺席时 capabilities 只声明 `tools` 并如实回 `-32602`。冒烟与 26 个协议单测覆盖
+- [x] Studio 组件补 `data-debug` 锚点（11 个：`cardList` / `card` / `composer` / `send` / `stop` / `regenerate` / `newChat` / `creatorTab` / `save` / `modelSelect` / `lastReply`）；`studio-chat` 全流程锚点驱动（选卡 / 模型下拉 / 重生成 / 新对话）。同时补 `studio seed --reset` 与场景 `reset: true`——对话在 SQLite 里，不重置会被上一轮历史命中而假绿（F23）
+- [x] 9 条缺夹具的 API 全部补齐（`practice-side` 5 条 + `coach-side` 3 条 + `speech-flow` 1 条），`contracts` 14/14；每个夹具带 `probes`，`debug fixture probe` 真发请求验证（文件存在 ≠ 回放可用，F26）
+- [x] 3D canvas 观测：`canvas stats` + `assert.canvas`（WebGL draw 计数 / rAF 帧数 / webgl-only 画布表），`dinner-turn` 已断言；TTS 观测：`audio log` + `assert.audio`，`practice-tts` 覆盖 PCM → decodeAudioData → source.start
+- [x] CI 步骤抽成唯一实现 `app/scripts/debug/ci-steps.sh`（workflow 只调用它），并在 `node:22-bookworm` 冷容器里真跑一遍；GitHub runner 本身仍未跑过
+- [x] 断言原语：`assert.api`（请求次数 + body 部分匹配）、`assert.state`（localStorage 路径）、`assert.count`（元素数量）；`assert-primitives` 场景 + `sc_assert`；`api.calls` 可随时看被拦请求
+- [x] 失败包离线分诊：`debug why --bundle[=<dir>]` + `debug triage` + `sc_report`（12 类失败、排序假设、每条给下一条命令；不启浏览器）
+- [x] 场景覆盖与 flaky：`debug coverage`（锚点 + 路由三层：加载 / 断言 / 未用）+ `run --repeat` 的 `divergence` / `flake`
+- [x] 录制 → 断言草稿：`record stop` 按录制期请求与锚点写 `suggested`（用 `min` 不用 `count`，StrictMode 双调用会假红）
+- [x] `practice-side` 的 5 条路由全部进 UI 场景：`practice-hint` / `practice-debrief-ask`（debrief-chat + reflect）/ `practice-pattern`（新增 `practice-history` 状态夹具）/ `practice-feedback`；各带 `assert.api`，`routesUnused` 归零
+- [ ] Studio 的 3 个锚点还没有场景驱动：`studio.creatorTab` / `studio.save`（要从素材库进卡编辑器，save 还会触发下载）/ `studio.stop`（只在流式回复中渲染，mock 一秒内结束）
+- [ ] CI 第一次真实 GitHub runner 运行与超时预算（本地容器已过，runner 的缓存 / artifact 未验）
+- [ ] Studio 真实 BYOK：`pnpm debug studio byok --api-type=openai --model=…`（harness 已用 mock 自检，真实 provider 需要 key）
+- [ ] 主站「排练真实对话」的 输入 → 审阅 → 确认 三段 UI 未进场景（只有 rehearse 的 API 夹具自检）
+
+## 架构调研：MaiBot 能否作底层（2026-10-22，结论＝不采用；机制可搬）
+
 ## 恋爱与 Galgame 双系统（2026-10-21，F0–F3 / F5 / F6 已实现；真实 BYOK 与真人试玩未验证）
 
 Stage F 见 [14-stage-f.md](./14-stage-f.md)。规格：[恋爱半教练](./specs/spec-love-semi-coach.md)、[Love Studio](./specs/spec-love-studio.md)、[剧本模式美术升级](./specs/spec-love-scripted-art.md)、[跨系统桥](./specs/spec-love-bridge.md)、[共享人设](./specs/spec-love-persona.md)；外部依据：[AnimaVN 参考](./refs/animavn.md)。旧规格里「不做好感」「游戏模式 NPC 不讨好」的条目已按 2026-10-21 方向加注修订，实现时按三套契约走。

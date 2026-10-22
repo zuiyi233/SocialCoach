@@ -36,6 +36,10 @@ docs/screenshots/raw/
 # External skill source material — extracted into corpus with citations, not vendored
 恋爱军师-skill/
 
+# Reference projects live outside the repo (L:\refs\: iki / talking-picture / drama-skills / MaiBot).
+# This guards against an accidental in-repo clone; wiki/refs/ is documentation and is unaffected.
+/refs/
+
 # Regenerable packed Blender sources and production cache (not web assets)
 .blender-work/
 __pycache__/

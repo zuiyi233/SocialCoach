@@ -32,6 +32,7 @@ export function PlayOptions({ options, busy, ready, lineKey, lang, prompt, onPic
       {!busy && (
         <motion.div
           key={lineKey ?? "opts"}
+          data-debug="love.options"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
@@ -42,6 +43,7 @@ export function PlayOptions({ options, busy, ready, lineKey, lang, prompt, onPic
           {options.map((o, i) => (
             <button
               key={i}
+              data-debug={`love.option-${i}`}
               onClick={() => onPick(o)}
               disabled={busy || !ready}
               className="press min-h-12 rounded-[var(--radius-sm)] border border-line bg-card px-4 text-left text-[14px] leading-snug text-ink hover:border-line-strong disabled:opacity-40 disabled:hover:border-line"

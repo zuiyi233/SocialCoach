@@ -11,18 +11,25 @@ export function createDinnerStorage(notify:(issue:DinnerSaveIssue|null)=>void,st
   try{original=storage().getItem(DINNER_SAVE_KEY);}catch{unreadable=true;}
   const locks=()=>typeof window!=='undefined'&&typeof navigator!=='undefined'?navigator.locks:undefined;
   const issue=(value:DinnerSaveIssue)=>{blocked=true;if(active)notify(value);};
+  const LOCK_RETRIES=5,LOCK_RETRY_MS=60;
   const acquire=()=>{
     if(owned||!locks())return Promise.resolve(true);
     if(pending)return pending;
     const ticket=generation;
-    pending=new Promise<boolean>(resolve=>{
+    // 挂载瞬间拿不到锁，可能只是自己上一轮实例还没释放（StrictMode 双挂载、路由重挂）；
+    // 短暂重试后仍拿不到，才是真的有另一个窗口在写。
+    const attempt=(left:number)=>new Promise<boolean>(resolve=>{
       void locks()!.request('socialcoach.dinner',{ifAvailable:true},async lock=>{
         if(!active||generation!==ticket){resolve(false);return;}
-        if(!lock){issue('conflict');resolve(false);return;}
+        if(!lock){
+          if(left>0){setTimeout(()=>resolve(attempt(left-1)),LOCK_RETRY_MS);return;}
+          issue('conflict');resolve(false);return;
+        }
         owned=true;const hold=new Promise<void>(done=>{release=done;});resolve(true);
         await hold;if(generation===ticket)owned=false;
       }).catch(()=>{if(active&&generation===ticket)issue('unavailable');resolve(false);});
-    }).catch(()=>{if(active&&generation===ticket)issue('unavailable');return false;});
+    });
+    pending=attempt(LOCK_RETRIES).catch(()=>{if(active&&generation===ticket)issue('unavailable');return false;});
     return pending;
   };
   const changed=(event:StorageEvent)=>{

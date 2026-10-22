@@ -17,6 +17,18 @@ import { speakerOf } from "../session-utils";
 import { ReplyRejected, RoleplayFactError, RoleplayBoundaryError, replyBoundaryProblem } from "@/lib/roleplay-output";
 import { roleplaySpeechGuard } from "@/lib/roleplay-facts";
 import { relationshipPromptBlock, type LoveRelationshipState } from "@/lib/love-relationship";
+import { chooseInitiative, classifyLearnerTurn, initiativeDirective } from "@/lib/turn-taking";
+import {
+  driftDirective,
+  enforceLine,
+  maybeImperfection,
+  pickDrift,
+  pickReplyShape,
+  replyShapeDirective,
+  stripSpokenMarkdown,
+  type ReplyShape,
+} from "@/lib/human-voice";
+import { analyzeStyle, extractTerms, lexiconBlock, styleMirrorBlock } from "@/lib/style-adaptation";
 import type { LoveCardPayload } from "@/lib/love-card";
 import type { ChatMessage } from "@/lib/types";
 import type { Lang } from "@/data/taxonomy";
@@ -70,6 +82,11 @@ export interface LovePlayInput {
    * revealed 恒 false、terminal 恒 null。其余契约（双语、选项、立场、beats、哨兵）不变。
    */
   card?: LoveCardPayload;
+  /**
+   * 玩家模式的可选错字（spec-love-human-voice §4.6）：默认关，只有设置里显式打开才生效。
+   * 只改 NPC 台词、不改选项；revealed / terminal / ended 的回合强制关。
+   */
+  imperfection?: boolean;
 }
 
 /** 用户卡里参与提示词的子集；上限由 `task-input` 的 schema 兜住（类型在 love-card.ts）。 */
@@ -296,6 +313,15 @@ export function loveGoalBoundaryBlock(npc: Character, lang: Lang): string {
   return lines.join("\n");
 }
 
+interface LovePlaySystemExtras {
+  relationship?: LoveRelationshipState | null;
+  beatsEnabled?: boolean;
+  /** 用户卡模式：卡写的角色简报（已含命中的世界书），替代内置场景简报。 */
+  cardBlock?: string;
+  /** 真人感层（spec-love-human-voice §3.2）：文风 / 意图 / 形态 / 漂移，已按段拼好。 */
+  voiceBlock?: string;
+}
+
 /** Galgame 每回合的 system prompt：复用 roleplaySystem，追加本模式的输出契约覆盖。 */
 function lovePlaySystem(
   s: Scenario,
@@ -304,11 +330,9 @@ function lovePlaySystem(
   learnerName: string,
   learnerTurns: number,
   limit: number,
-  relationship?: LoveRelationshipState | null,
-  beatsEnabled = false,
-  /** 用户卡模式：卡写的角色简报（已含命中的世界书），替代内置场景简报。 */
-  cardBlock?: string,
+  extras: LovePlaySystemExtras = {},
 ): string {
+  const { relationship, beatsEnabled = false, cardBlock, voiceBlock } = extras;
   const cardMode = Boolean(cardBlock);
   const npc = speakerOf(s, learnerId);
   const remaining = Math.max(0, limit - learnerTurns);
@@ -341,9 +365,9 @@ function lovePlaySystem(
     ? ',"beats":[{"text":{"zh":"…","en":"…"},"emotion":"neutral"},{"text":{"zh":"…","en":"…"},"emotion":"smile"}]'
     : "";
   return `${roleplaySystem(s, learnerId, lang, learnerName, cardBlock)}
-${relationshipPrompt ? `${relationshipPrompt}\n` : ""}${goalBoundary ? `${goalBoundary}\n` : ""}LOVE-PLAY GALGAME 输出契约（优先于上面的 OUTPUT FORMAT 一节，本契约覆盖它）
+${relationshipPrompt ? `${relationshipPrompt}\n` : ""}${voiceBlock ? `${voiceBlock}\n` : ""}${goalBoundary ? `${goalBoundary}\n` : ""}LOVE-PLAY GALGAME 输出契约（优先于上面的 OUTPUT FORMAT 一节，本契约覆盖它）
 - 你本轮只配音一个角色：${npc.id}（${pick(npc.name, lang)}）。只回应学习者，不让其他角色开口。
-- line：1-3 句口语化短句，先回应学习者最近的原话（自然引用或复述），再推进本回合的转折。
+- line：按 THIS TURN'S SHAPE 的句数与长度预算写，口语化；先回应学习者最近的原话（自然引用或复述），再推进本回合的转折。不写 markdown、不用列表 / 标题 / 加粗、不解释、不换行。
 ${beatsRule}
 - options：2-4 个，每个是学习者下一句的一个不同方向的真实可行表达——${
     cardMode
@@ -380,7 +404,14 @@ function toChatHistory(messages: LovePlayMessage[]): ChatMessage[] {
 }
 
 /** 解析 + zod 校验一次 LLM 回复，并通过 roleplaySpeechGuard 事实守卫。 */
-function parseLovePlay(raw: string, scenario: Scenario, learnerId: string, messages: LovePlayMessage[], lang: Lang): LovePlayOutput {
+function parseLovePlay(
+  raw: string,
+  scenario: Scenario,
+  learnerId: string,
+  messages: LovePlayMessage[],
+  lang: Lang,
+  shape: ReplyShape,
+): LovePlayOutput {
   let value: unknown;
   try {
     value = extractLovePlayJSON(raw);
@@ -405,6 +436,29 @@ function parseLovePlay(raw: string, scenario: Scenario, learnerId: string, messa
       };
     }
   }
+  // 真人感层（spec-love-human-voice §4.5）：先归一，再守卫——守卫必须看到玩家真正会看到的文本。
+  // 逐句剥离后重新拼接；超长截断只作用于整句，截断后 beats 与 line 不再相等时丢弃 beats
+  // （回退到 line + emotion，渲染路径本来就允许 beats 缺失）。
+  const cleanedLine = { zh: enforceLine(reply.line.zh, "zh", shape), en: enforceLine(reply.line.en, "en", shape) };
+  if (reply.beats) {
+    const cleanedBeats = reply.beats.map((beat) => ({
+      ...beat,
+      text: { zh: stripSpokenMarkdown(beat.text.zh).trim(), en: stripSpokenMarkdown(beat.text.en).trim() },
+    }));
+    const rejoined = {
+      zh: cleanedBeats.map((b) => b.text.zh).join(""),
+      en: cleanedBeats.map((b) => b.text.en).join(" "),
+    };
+    // 逐句剥离后重拼，再过一次整句归一：跨句边界的空格/标点规则与整句处理保持一致，
+    // 否则「I miss you… Never mind…」这类 en 省略号分句会被误判成对不上而丢掉 beats。
+    const normalizedRejoined = {
+      zh: stripSpokenMarkdown(rejoined.zh),
+      en: stripSpokenMarkdown(rejoined.en),
+    };
+    if (normalizedRejoined.zh === cleanedLine.zh && normalizedRejoined.en === cleanedLine.en) reply.beats = cleanedBeats;
+    else delete reply.beats;
+  }
+  reply.line = cleanedLine;
   const npcId = speakerOf(scenario, learnerId).id;
   // 边界检查覆盖两个语言键：泄底往往发生在「翻译」那一键上。
   const boundary = replyBoundaryProblem(scenario, learnerId, [{ characterId: npcId, text: reply.line.zh }, { characterId: npcId, text: reply.line.en }], reply.revealed ? [npcId] : []);
@@ -422,30 +476,106 @@ function isRepairable(error: unknown): boolean {
 }
 
 /**
+ * 玩家模式的可选错字（spec-love-human-voice §4.6）：只改对白语言那一键的台词，不改选项、
+ * 不改另一语言的翻译。改了就丢掉 beats——`line` 与分句拼接的不变式不能破。
+ * 揭示 / 结局 / 收束回合强制关闭：不给告白和结局打错字。
+ */
+function withImperfection(turn: LovePlayOutput, lang: Lang, enabled: boolean, rng: () => number): LovePlayOutput {
+  if (!enabled) return turn;
+  const locked = turn.revealed || turn.terminal !== null || turn.ended;
+  const before = turn.line[lang];
+  const { text, corrected } = maybeImperfection({ text: before, lang, rng, enabled: true, locked });
+  if (!corrected || text === before) return turn;
+  const next: LovePlayOutput = { ...turn, line: { ...turn.line, [lang]: text } };
+  delete next.beats;
+  return next;
+}
+
+/**
  * 运行一个 Galgame 回合：一次非流式 JSON 输出，带一次有界修复（同 roleplay 95-99 行）。
  * 真正的 provider 调用经 taskLLM 包装，享有预算/取消/共享池限额。
  */
-export async function runLovePlay(input: LovePlayInput, llm: LLM, fastModel: string): Promise<LovePlayOutput> {
+export async function runLovePlay(
+  input: LovePlayInput,
+  llm: LLM,
+  fastModel: string,
+  /** 随机源：形态 / 意图 / 漂移抽样用；测试注入固定序列，生产默认 Math.random。 */
+  rng: () => number = Math.random,
+): Promise<LovePlayOutput> {
   const { scenario, learnerCharacterId, messages, language } = input;
   const learnerName = input.learnerName || pick(scenario.characters.find((c) => c.id === learnerCharacterId)!.name, language);
   const { turns, learnerTurns } = buildTurns(messages, learnerName, speakerOf(scenario, learnerCharacterId).id);
   const limit = lovePlayTurnLimit({ scenario, turnLimit: input.turnLimit });
   // 用户卡模式（spec-love-user-cards §2.3）：卡写的角色简报替代内置场景简报，只注入命中的世界书。
   const cardBlock = input.card ? loveCardBlock(input.card, matchCardWorldEntries(input.card, messages)) : undefined;
+  // 真人感层（spec-love-human-voice §3.1）：文风与回合意图全部从已有 messages 推导，客户端零改动。
+  // 只取最近 20 条学习者发言做画像——样本再多也不会让台词更像人，只会让每次请求多做无用功。
+  const learnerLines = messages
+    .filter((m) => m.role === "learner")
+    .map((m) => m.text)
+    .slice(-20);
+  const learnerTurn = classifyLearnerTurn(learnerLines.at(-1) ?? "", language);
+  const lastNpcText = [...messages].reverse().find((m) => m.role === "npc")?.text ?? "";
+  const lastNpcAskedQuestion = /[？?]\s*$/.test(lastNpcText);
+  // 生成前不知道模型会不会判 terminal/ended，用「最后一个学习者回合」当收束代理。
+  const closingTurn = learnerTurns >= limit;
+  const initiative = chooseInitiative({
+    rng,
+    learnerTurn,
+    lastNpcAskedQuestion,
+    terminal: false,
+    ended: closingTurn,
+    turnIndex: learnerTurns,
+  });
+  // ended 传 false：收束已经由 initiative==="close" 表达，这里要的是 trail-off 而不是 flat。
+  const shape = pickReplyShape({
+    rng,
+    lang: language,
+    learnerTurn,
+    initiative,
+    terminal: false,
+    ended: false,
+    turnIndex: learnerTurns,
+  });
+  const style = analyzeStyle(learnerLines, language);
+  const terms = extractTerms(learnerLines, language);
+  // 走神只在非问句、非收束、非 close 的回合放行；命中概率 0.15。
+  const drift = !closingTurn && learnerTurn !== "question" && initiative !== "close" && pickDrift(rng);
+  const voiceBlock = [
+    styleMirrorBlock(style, language),
+    lexiconBlock(terms, language),
+    initiativeDirective(initiative, language),
+    replyShapeDirective(shape, language),
+    drift ? driftDirective(language) : null,
+  ]
+    .filter((block): block is string => Boolean(block))
+    .join("\n\n");
   const options: ChatOpts = {
     model: fastModel,
     maxTokens: 2000,
     thinking: false,
     system: [
       {
-        text: lovePlaySystem(scenario, learnerCharacterId, language, learnerName, learnerTurns, limit, input.relationship, input.beats === true, cardBlock),
+        text: lovePlaySystem(scenario, learnerCharacterId, language, learnerName, learnerTurns, limit, {
+          relationship: input.relationship,
+          beatsEnabled: input.beats === true,
+          cardBlock,
+          voiceBlock,
+        }),
         cache: true,
       },
     ],
     messages: turns,
   };
+  const finish = (raw: string): LovePlayOutput =>
+    withImperfection(
+      parseLovePlay(raw, scenario, learnerCharacterId, messages, language, shape),
+      language,
+      input.imperfection === true,
+      rng,
+    );
   try {
-    return parseLovePlay(await llm.chatText(options), scenario, learnerCharacterId, messages, language);
+    return finish(await llm.chatText(options));
   } catch (error) {
     // 拒绝 / 鉴权 / 限流 / 预算类错误不可修复，原样透出。
     if (!isRepairable(error)) throw error;
@@ -454,6 +584,6 @@ export async function runLovePlay(input: LovePlayInput, llm: LLM, fastModel: str
       ...(Array.isArray(options.system) ? options.system : [{ text: options.system }]),
       { text: `${fix} No reply was accepted. Repair this SAME exchange, keeping the same facts, history and the learner's latest words, and return ONLY the LOVE-PLAY JSON contract above, wrapped in ${LOVE_PLAY_SENTINEL_OPEN} and ${LOVE_PLAY_SENTINEL_CLOSE} with nothing outside them. Do not count this as a new turn or invent a transition.` },
     ];
-    return parseLovePlay(await llm.chatText({ ...options, system: repairSystem }), scenario, learnerCharacterId, messages, language);
+    return finish(await llm.chatText({ ...options, system: repairSystem }));
   }
 }
