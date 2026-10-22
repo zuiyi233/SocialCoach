@@ -8,6 +8,11 @@ SocialCoach —— LLM 社交技能教练。应用在 `app/`（Next.js），仓�
 2. 动 `app/` 里的代码前，读 `app/AGENTS.md` —— Next.js 16 与训练数据差异较大，该文件由 `next dev` 自动维护。
 3. 不要一次加载 `wiki/archive/`、`wiki/refs/`、`wiki/reviews/`。
 4. 动恋爱或 Galgame 前，先读 `wiki/14-stage-f.md`、`wiki/specs/spec-love-semi-coach.md`、`wiki/specs/spec-love-studio.md`。
+5. 调 UI / 复现 bug 先读 `wiki/specs/spec-ai-debug-harness.md`，用 `cd app && pnpm debug …` 的语义命令、状态夹具与模型夹具；**不要靠截图识别按钮或模拟坐标点击**。摩擦记录在 `app/debug/FRICTION.md`。
+   同一套能力也有 MCP 层（仓库根 `.mcp.json`，server 名 `socialcoach-debug`，33 个 `sc_*` 工具）：客户端支持 MCP 时优先用工具直调，`pnpm debug:mcp:smoke` 可自检。
+   同一服务器还暴露 6 个 resource（`socialcoach://guide`、`scenarios`、`fixtures/models`、`fixtures/states`、`failures`、`contracts`）+ 2 个模板 + 4 条 prompt（`debug-repro` 等）：客户端支持时先读 `guide`，不用先 `tools/list` 摸用法。
+   夹具「文件存在」不等于能回放：`pnpm debug fixture probe <name>` 才真发请求。3D 看 `pnpm debug canvas stats`（帧数 / draw 次数），TTS 看 `pnpm debug audio log`（`sourcesStarted` 才算真的播），Studio 真实模型用 `pnpm debug studio byok`（无 key 会明确 skipped）。
+   断言默认用 `assert.api`（请求次数用 `min`）/ `assert.state`（localStorage 路径）/ `assert.count`（元素数量）；红了先 `pnpm debug why --bundle` 或 `pnpm debug triage`（离线，不启浏览器），覆盖率看 `pnpm debug coverage`。
 
 ## 仓库与发布线
 

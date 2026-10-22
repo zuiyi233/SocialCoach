@@ -28,7 +28,7 @@ export function CharacterList({ cards, selectedId, avatars, onNeedAvatars, busy,
   }, [cards, onNeedAvatars]);
 
   return (
-    <div className="panel-body">
+    <div className="panel-body" data-debug="studio.cardList">
       {cards.length === 0 && (
         <div className="panel-empty">
           还没有角色卡
@@ -40,6 +40,8 @@ export function CharacterList({ cards, selectedId, avatars, onNeedAvatars, busy,
         <button
           key={c.id}
           className={`char-row${c.id === selectedId ? ' active' : ''}`}
+          data-debug="studio.card"
+          data-card-id={c.id}
           {...dropTarget(c.id, c.name || '(无名)')}
           onClick={() => onSelect(c.id)}
           disabled={busy}

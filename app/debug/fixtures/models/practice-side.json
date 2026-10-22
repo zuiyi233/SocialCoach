@@ -1,0 +1,424 @@
+{
+  "name": "practice-side",
+  "routes": {
+    "hint": {
+      "by": "learnerTurns",
+      "responses": [
+        {
+          "__raw": "{\"hint\":\"先复述她的难处：\\\"客户明天十点要看完整版。\\\"再提一个具体替代，别急着答应接手。\"}",
+          "__contentType": "application/json; charset=utf-8"
+        },
+        {
+          "__raw": "{\"hint\":\"把\\\"我可以\\\"换成具体时段：\\\"我明早七点半到，先改第三部分\\\"。守住你今晚的安排。\"}",
+          "__contentType": "application/json; charset=utf-8"
+        },
+        {
+          "__raw": "{\"hint\":\"她已接受你的方案，就把它收成一句可执行的确认，别再主动加新承诺。\"}",
+          "__contentType": "application/json; charset=utf-8"
+        }
+      ]
+    },
+    "feedback": {
+      "by": "counter",
+      "responses": [
+        {
+          "__raw": "{\"available\":true}",
+          "__contentType": "application/json; charset=utf-8"
+        },
+        {
+          "__raw": "{\"ok\":true,\"id\":\"3f2b1c4a-9e6d-4a51-bb22-c8d9e0f1a2b3\"}",
+          "__contentType": "application/json; charset=utf-8"
+        }
+      ]
+    },
+    "pattern": {
+      "by": "counter",
+      "responses": [
+        {
+          "__raw": "{\"found\":true,\"pattern\":\"被临时加活时，你先答应再找补，而不是当场提替代\",\"why\":\"两次练习里你都先应下\\\"行，那我赶一赶\\\"，直到对方追问才说出自己的限制。先答应让对方默认你会全接，事后找补的成本更高。\",\"evidence\":[{\"sessionId\":\"session-demo-a\",\"messageId\":\"msg-demo-a-1\",\"title\":\"同事把演示推给我\",\"quote\":\"行，那我今晚赶一赶\"},{\"sessionId\":\"session-demo-b\",\"messageId\":\"msg-demo-b-2\",\"title\":\"组长临时要报表\",\"quote\":\"没问题，我加个班\"}],\"skill\":\"communication\",\"nextStep\":\"下次被临时加活，先问时限，再说你能做什么\"}",
+          "__contentType": "application/json; charset=utf-8"
+        }
+      ]
+    },
+    "reflect": {
+      "by": "counter",
+      "responses": [
+        {
+          "__raw": "{\"reply\":\"“我明早七点半到，先改第三部分。”\\n\\n你把自己能做的部分和时限放进同一句，替代方案具体可执行——这是从“先答应”转向“先澄清范围”的实质一步。下次对方再压范围，可以练习先复述对方的顾虑（“客户明天十点要完整版”），再提你的替代。\\n\\n「边界与拒绝（虚构样例）」 — 《关键对话（虚构样例）》, SocialCoach 样例库\"}",
+          "__contentType": "application/json; charset=utf-8"
+        },
+        {
+          "__raw": "{\"reply\":\"“九点前应该能给你完整版。”\\n\\n你把交付时点说得比承诺更具体，这减少了对方继续追问的空间。注意你仍没有回答“哪些页最急”，下次可以主动问一次客户最看重哪几页。\\n\\n「先复述再提替代（虚构样例）」 — 《练习手册（虚构样例）》, SocialCoach 样例库\"}",
+          "__contentType": "application/json; charset=utf-8"
+        }
+      ]
+    },
+    "debrief-chat": {
+      "by": "counter",
+      "responses": [
+        {
+          "__raw": "{\"evidence\":\"我明早七点半到，先改第三部分\",\"answer\":\"你把拒绝和替代放在同一句里：先给“明早七点半到”，再说“先改第三部分”，对方听到的不是“不行”而是“什么时候能行”。这是把边界变成可执行交付的关键一步。\",\"example\":\"「我今晚确实有安排。明早七点半到，先改第三部分，九点前给你完整版——客户明天最急的是哪几页？」\",\"sources\":[{\"kind\":\"theory\",\"id\":\"boundaries-no\"},{\"kind\":\"case\",\"id\":\"case-no-with-alternative\"}]}",
+          "__contentType": "application/json; charset=utf-8"
+        },
+        {
+          "__raw": "{\"evidence\":\"九点前应该能给你完整版\",\"answer\":\"你还差最后一块：告诉对方“哪些页最急”由谁定。主动问一次客户最看重哪几页，就能把接手的范围从“整个演示”缩小到真正要改的部分。\",\"example\":\"「明早九点前给你完整版。客户最急的是哪几页？我先从那几页开始。」\",\"sources\":[{\"kind\":\"theory\",\"id\":\"make-it-safe\"}]}",
+          "__contentType": "application/json; charset=utf-8"
+        },
+        {
+          "__raw": "{\"evidence\":\"我今晚已经有安排了\",\"answer\":\"说出“今晚不行”本身没有让步：真正的问题是你有没有同时给出替代。这一轮你已经做到了前者，下一步是把拒绝的理由说成安排而不是借口，例如“今晚已经有安排”之后直接接你明早能做的部分。\",\"example\":\"「今晚已经有安排了。明早七点半到，第三部分九点前给你。」\",\"sources\":[{\"kind\":\"theory\",\"id\":\"state-my-path\"}]}",
+          "__contentType": "application/json; charset=utf-8"
+        }
+      ]
+    }
+  },
+  "probes": {
+    "hint": {
+      "method": "POST",
+      "body": {
+        "lang": "zh",
+        "learnerCharacterId": "you",
+        "messages": [
+          {
+            "id": "m1",
+            "role": "npc",
+            "characterId": "chen",
+            "text": "客户明天十点要看完整版，我今晚实在赶不出来，你今晚辛苦一下，帮我把演示讲完，行吗？",
+            "ts": 1750000000000
+          },
+          {
+            "id": "m2",
+            "role": "learner",
+            "text": "我今晚已经有安排了，明早七点半到，先改第三部分，九点前应该能给你完整版。",
+            "ts": 1750000001000
+          }
+        ],
+        "scenario": {
+          "id": "fixture-assertion-demo",
+          "title": {
+            "zh": "下班前，同事把明天的演示塞给你",
+            "en": "Tomorrow's demo lands on you before you leave"
+          },
+          "hook": {
+            "zh": "陈姐说客户明天要看的演示她来不及了，希望你今晚接手。",
+            "en": "Chen says she can't finish the client demo tonight and hands it to you."
+          },
+          "background": {
+            "zh": "明天上午十点客户要看新版演示。陈姐下午才收到客户改口，说今晚要带孩子去医院，赶不出来；她希望你把演示讲完。你今晚已经定了事，但不想显得不配合。",
+            "en": "The client wants the new demo at ten tomorrow. Chen only got the change request this afternoon and says she has to take her kid to the hospital tonight, so she asks you to present it. You already have plans this evening but don't want to look uncooperative."
+          },
+          "simulationFacts": {
+            "zh": "已确认：演示明天十点开始；陈姐今晚确实腾不出时间；客户要的是完整版，不是提纲。未知：陈姐手上改到哪一版、客户最看重哪几页、你拒绝后她会不会找别人。",
+            "en": "Confirmed: the demo starts at ten tomorrow; Chen really has no time tonight; the client wants the full version, not an outline. Unknown: which draft Chen has, which pages the client cares about most, whether she would find someone else if you refuse."
+          },
+          "context": "workplace",
+          "contextType": {
+            "zh": "办公室",
+            "en": "Office"
+          },
+          "competencies": ["relationship-skills"],
+          "skills": ["communication"],
+          "relatedSkills": ["empathy"],
+          "relationship": ["peer"],
+          "difficulty": 2,
+          "minutes": 5,
+          "characters": [
+            {
+              "id": "chen",
+              "name": { "zh": "陈姐", "en": "Chen" },
+              "role": { "zh": "资深同事", "en": "Senior colleague" },
+              "personality": {
+                "zh": "习惯把来不及的活往前排，嘴上会说“辛苦你”，但不会主动接回任何被她推出去的活；你给替代方案她会先挑毛病，再决定接不接受。",
+                "en": "Hands off whatever she can't finish, says \"thanks\" but never takes a task back; when you offer an alternative she picks at it first, then decides."
+              },
+              "stance": {
+                "zh": "希望今晚的事今晚有人接，明天演示有人兜底。",
+                "en": "Wants tonight covered and tomorrow's demo to have a fallback."
+              },
+              "hue": 30
+            },
+            {
+              "id": "you",
+              "name": { "zh": "小周", "en": "Zhou" },
+              "role": { "zh": "执行，学员本人", "en": "Executor, the learner" },
+              "personality": {
+                "zh": "今晚已有安排，但担心拒绝显得不配合，倾向先答应再想办法。",
+                "en": "Has plans tonight but worries refusal looks uncooperative; tends to say yes first and figure it out later."
+              },
+              "stance": {
+                "zh": "不想接下整场演示，也不想让人觉得不好说话。",
+                "en": "Doesn't want the whole demo, doesn't want to seem difficult."
+              },
+              "hue": 200,
+              "playable": true
+            }
+          ],
+          "objectives": [
+            {
+              "zh": "在不动摇“今晚有安排”的前提下，说清你明早能交付什么。",
+              "en": "State what you can deliver tomorrow morning without giving up tonight's plans."
+            },
+            {
+              "zh": "把“接手”的范围缩小到客户真正需要的那几页。",
+              "en": "Narrow the handoff to the pages the client actually needs."
+            }
+          ],
+          "success": {
+            "zh": "陈姐拿到明确的时间与范围，你保住今晚的安排，演示有人兜底。",
+            "en": "Chen gets a clear time and scope, your evening stands, and the demo is covered."
+          },
+          "failure": {
+            "zh": "为了显得配合答应今晚接手，或一口回绝不留任何替代。",
+            "en": "Promising tonight to look cooperative, or refusing outright with no alternative."
+          },
+          "maxTurns": 10,
+          "opening": {
+            "characterId": "chen",
+            "text": {
+              "zh": "客户明天十点要看完整版，我今晚实在赶不出来，你今晚辛苦一下，帮我把演示讲完，行吗？",
+              "en": "The client wants the full version at ten tomorrow. I can't finish tonight — can you take the demo this evening?"
+            }
+          },
+          "source": "Fictional practice — SocialCoach debug fixture practice-side.json",
+          "keywords": []
+        }
+      }
+    },
+    "feedback": {
+      "method": "POST",
+      "body": {
+        "id": "3f2b1c4a-9e6d-4a51-bb22-c8d9e0f1a2b3",
+        "category": "idea",
+        "detail": "希望练习后能对比两次回答的差别。",
+        "contact": "",
+        "tags": [],
+        "rating": "helpful",
+        "page": "/learn",
+        "lang": "zh"
+      }
+    },
+    "pattern": {
+      "method": "POST",
+      "body": {
+        "lang": "zh",
+        "goals": ["communication"],
+        "sessions": [
+          {
+            "sessionId": "session-demo-a",
+            "title": "同事把演示推给我",
+            "at": 1750000000000,
+            "outcome": "partial",
+            "verdict": "先答应再找补，替代方案到第二轮才出现。",
+            "gaveGroundOn": [],
+            "turns": 6,
+            "weaknesses": [
+              {
+                "messageId": "msg-demo-a-1",
+                "behavior": "当场答应接手",
+                "evidence": "行，那我今晚赶一赶",
+                "skill": "communication",
+                "deficit": "performance"
+              }
+            ]
+          },
+          {
+            "sessionId": "session-demo-b",
+            "title": "组长临时要报表",
+            "at": 1750000100000,
+            "outcome": "failure",
+            "verdict": "应下加班后，交付质量明显下滑。",
+            "gaveGroundOn": [],
+            "turns": 4,
+            "weaknesses": [
+              {
+                "messageId": "msg-demo-b-2",
+                "behavior": "未问时限直接应下",
+                "evidence": "没问题，我加个班",
+                "skill": "communication",
+                "deficit": "performance"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "reflect": {
+      "method": "POST",
+      "body": {
+        "lang": "zh",
+        "responseFormat": "json",
+        "learnerCharacterId": "you",
+        "question": "这次我做得怎么样？",
+        "answer": "我今晚没答应她，但心里有点虚，怕她觉得我不好说话。",
+        "messages": [
+          {
+            "id": "m1",
+            "role": "npc",
+            "characterId": "chen",
+            "text": "客户明天十点要看完整版，我今晚实在赶不出来，你今晚辛苦一下，帮我把演示讲完，行吗？",
+            "ts": 1750000000000
+          },
+          {
+            "id": "m2",
+            "role": "learner",
+            "text": "我今晚已经有安排了，明早七点半到，先改第三部分，九点前应该能给你完整版。",
+            "ts": 1750000001000
+          }
+        ],
+        "scenario": {
+          "id": "fixture-assertion-demo",
+          "title": {
+            "zh": "下班前，同事把明天的演示塞给你",
+            "en": "Tomorrow's demo lands on you before you leave"
+          },
+          "hook": {
+            "zh": "陈姐说客户明天要看的演示她来不及了，希望你今晚接手。",
+            "en": "Chen says she can't finish the client demo tonight and hands it to you."
+          },
+          "background": {
+            "zh": "明天上午十点客户要看新版演示。陈姐下午才收到客户改口，说今晚要带孩子去医院，赶不出来；她希望你把演示讲完。你今晚已经定了事，但不想显得不配合。",
+            "en": "The client wants the new demo at ten tomorrow. Chen only got the change request this afternoon and says she has to take her kid to the hospital tonight, so she asks you to present it. You already have plans this evening but don't want to look uncooperative."
+          },
+          "simulationFacts": {
+            "zh": "已确认：演示明天十点开始；陈姐今晚确实腾不出时间；客户要的是完整版，不是提纲。未知：陈姐手上改到哪一版、客户最看重哪几页、你拒绝后她会不会找别人。",
+            "en": "Confirmed: the demo starts at ten tomorrow; Chen really has no time tonight; the client wants the full version, not an outline. Unknown: which draft Chen has, which pages the client cares about most, whether she would find someone else if you refuse."
+          },
+          "context": "workplace",
+          "contextType": {
+            "zh": "办公室",
+            "en": "Office"
+          },
+          "competencies": ["relationship-skills"],
+          "skills": ["communication"],
+          "relatedSkills": ["empathy"],
+          "relationship": ["peer"],
+          "difficulty": 2,
+          "minutes": 5,
+          "characters": [
+            {
+              "id": "chen",
+              "name": { "zh": "陈姐", "en": "Chen" },
+              "role": { "zh": "资深同事", "en": "Senior colleague" },
+              "personality": {
+                "zh": "习惯把来不及的活往前排，嘴上会说“辛苦你”，但不会主动接回任何被她推出去的活；你给替代方案她会先挑毛病，再决定接不接受。",
+                "en": "Hands off whatever she can't finish, says \"thanks\" but never takes a task back; when you offer an alternative she picks at it first, then decides."
+              },
+              "stance": {
+                "zh": "希望今晚的事今晚有人接，明天演示有人兜底。",
+                "en": "Wants tonight covered and tomorrow's demo to have a fallback."
+              },
+              "hue": 30
+            },
+            {
+              "id": "you",
+              "name": { "zh": "小周", "en": "Zhou" },
+              "role": { "zh": "执行，学员本人", "en": "Executor, the learner" },
+              "personality": {
+                "zh": "今晚已有安排，但担心拒绝显得不配合，倾向先答应再想办法。",
+                "en": "Has plans tonight but worries refusal looks uncooperative; tends to say yes first and figure it out later."
+              },
+              "stance": {
+                "zh": "不想接下整场演示，也不想让人觉得不好说话。",
+                "en": "Doesn't want the whole demo, doesn't want to seem difficult."
+              },
+              "hue": 200,
+              "playable": true
+            }
+          ],
+          "objectives": [
+            {
+              "zh": "在不动摇“今晚有安排”的前提下，说清你明早能交付什么。",
+              "en": "State what you can deliver tomorrow morning without giving up tonight's plans."
+            },
+            {
+              "zh": "把“接手”的范围缩小到客户真正需要的那几页。",
+              "en": "Narrow the handoff to the pages the client actually needs."
+            }
+          ],
+          "success": {
+            "zh": "陈姐拿到明确的时间与范围，你保住今晚的安排，演示有人兜底。",
+            "en": "Chen gets a clear time and scope, your evening stands, and the demo is covered."
+          },
+          "failure": {
+            "zh": "为了显得配合答应今晚接手，或一口回绝不留任何替代。",
+            "en": "Promising tonight to look cooperative, or refusing outright with no alternative."
+          },
+          "maxTurns": 10,
+          "opening": {
+            "characterId": "chen",
+            "text": {
+              "zh": "客户明天十点要看完整版，我今晚实在赶不出来，你今晚辛苦一下，帮我把演示讲完，行吗？",
+              "en": "The client wants the full version at ten tomorrow. I can't finish tonight — can you take the demo this evening?"
+            }
+          },
+          "source": "Fictional practice — SocialCoach debug fixture practice-side.json",
+          "keywords": []
+        }
+      }
+    },
+    "debrief-chat": {
+      "method": "POST",
+      "body": {
+        "lang": "zh",
+        "practice": {
+          "title": "下班前，同事把明天的演示塞给你",
+          "background": "明天上午十点客户要看新版演示。陈姐下午才收到客户改口，说今晚要带孩子去医院，赶不出来；她希望你把演示讲完。你今晚已经定了事，但不想显得不配合。",
+          "roles": [
+            {
+              "name": "陈姐",
+              "role": "资深同事",
+              "learner": false
+            },
+            {
+              "name": "小周",
+              "role": "执行",
+              "learner": true
+            }
+          ]
+        },
+        "transcript": [
+          {
+            "role": "npc",
+            "name": "陈姐",
+            "text": "客户明天十点要看完整版，我今晚实在赶不出来，你今晚辛苦一下，帮我把演示讲完，行吗？"
+          },
+          {
+            "role": "learner",
+            "name": "小周",
+            "text": "我今晚已经有安排了，明早七点半到，先改第三部分，九点前应该能给你完整版。"
+          }
+        ],
+        "report": {
+          "verdict": "这次回应提出了限制，也给出了替代；还没有把范围收窄到客户真正要的页数。",
+          "summary": "你明确说出了今晚不行，并把话题转到明早的交付；下一步是把接手的范围问清楚。",
+          "nextStep": "下次练习里，把拒绝和替代方案放进同一段话。",
+          "strengths": [
+            {
+              "evidence": "我今晚已经有安排了",
+              "behavior": "先说明自己的限制"
+            }
+          ],
+          "weaknesses": [
+            {
+              "evidence": "我今晚已经有安排了",
+              "behavior": "没有主动问客户最急的页数",
+              "whyItMatters": "范围没问清，接手的部分可能仍是被推来的整场演示。"
+            }
+          ],
+          "alternatives": [
+            {
+              "original": "我今晚已经有安排了",
+              "better": "我今晚不行，但我可以明早七点半到，先改第三部分。",
+              "why": "把拒绝和一个具体可执行的替代放在同一句里。"
+            }
+          ],
+          "knowledge": {
+            "theoryIds": ["boundaries-no"],
+            "caseIds": ["case-no-with-alternative"]
+          }
+        },
+        "history": [],
+        "question": "为什么你觉得我这次算守住了边界？"
+      }
+    }
+  }
+}

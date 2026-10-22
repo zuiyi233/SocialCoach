@@ -1,0 +1,65 @@
+{
+  "name": "assert-primitives",
+  "description": "三种新断言原语的活体验证：assert.state 断言 localStorage 里的档案路径；assert.api 断言应用真的向 /api/roleplay 发了带 lang=zh 的请求；assert.count 断言消息条数（重复发送或漏渲染都会被抓到）。",
+  "steps": [
+    {
+      "cmd": "state.load",
+      "fixture": "practice-active"
+    },
+    {
+      "cmd": "api.clear"
+    },
+    {
+      "cmd": "model.use",
+      "fixtures": ["practice-flow"]
+    },
+    {
+      "cmd": "nav",
+      "path": "practice/debug-practice-active",
+      "wait": "[data-debug=\"practice.input\"]"
+    },
+    {
+      "cmd": "assert.state",
+      "path": "state.settings.tts",
+      "equals": false
+    },
+    {
+      "cmd": "assert.state",
+      "path": "state.profile.name",
+      "equals": "调试者"
+    },
+    {
+      "cmd": "ui.type",
+      "target": "practice.input",
+      "text": "我今晚已经有安排了，可以先告诉我最急的是哪几页吗？"
+    },
+    {
+      "cmd": "ui.click",
+      "target": "practice.send"
+    },
+    {
+      "cmd": "assert.text",
+      "target": "practice.messages",
+      "contains": "明早九点前",
+      "timeout": 20000
+    },
+    {
+      "cmd": "assert.api",
+      "route": "roleplay",
+      "method": "POST",
+      "min": 1,
+      "body": {
+        "lang": "zh"
+      },
+      "timeout": 10000
+    },
+    {
+      "cmd": "assert.count",
+      "target": "practice.message",
+      "min": 2
+    },
+    {
+      "cmd": "assert.noErrors"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "name": "dinner-turn",
+  "description": "3D 饭局的一回合：开始接话 → 输入 → dinner/direct 夹具 → 断言对方台词。",
+  "steps": [
+    {
+      "cmd": "state.load",
+      "fixture": "love-start"
+    },
+    {
+      "cmd": "model.use",
+      "fixtures": [
+        "dinner-flow"
+      ]
+    },
+    {
+      "cmd": "nav",
+      "path": "3d",
+      "wait": "body"
+    },
+    {
+      "cmd": "ui.click",
+      "text": "开始接话",
+      "role": "button",
+      "timeout": 30000
+    },
+    {
+      "cmd": "ui.wait",
+      "target": "dinner.input",
+      "timeout": 30000
+    },
+    {
+      "cmd": "ui.type",
+      "target": "dinner.input",
+      "text": "我先确认一下排期，再给两位一个具体时间。"
+    },
+    {
+      "cmd": "ui.click",
+      "target": "dinner.send"
+    },
+    {
+      "cmd": "assert.text",
+      "target": "body",
+      "contains": "下周的交付",
+      "timeout": 30000
+    },
+    {
+      "cmd": "assert.trace",
+      "kind": "model.replay",
+      "contains": "dinner/direct"
+    },
+    {
+      "cmd": "canvas.stats",
+      "ms": 1500
+    },
+    {
+      "cmd": "assert.canvas",
+      "minDraws": 1,
+      "minFrames": 1,
+      "ms": 1500
+    },
+    {
+      "cmd": "assert.api",
+      "route": "dinner/direct",
+      "method": "POST",
+      "min": 1
+    },
+    {
+      "cmd": "assert.noErrors"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "dinner-flow",
+  "routes": {
+    "health": {
+      "serverKey": true,
+      "requireByok": false,
+      "state": "available"
+    },
+    "dinner/direct": {
+      "responses": [
+        {
+          "speakerId": "lin",
+          "text": "那下周的交付，你打算怎么排？",
+          "cue": "林姐放下杯子，看向你。",
+          "reactions": [
+            { "characterId": "chen", "emotion": "neutral", "gesture": "lean" },
+            { "characterId": "lin", "emotion": "pressing", "gesture": "nod" },
+            { "characterId": "zhou", "emotion": "thinking", "gesture": "idle" }
+          ],
+          "replyTo": "我先确认一下排期"
+        }
+      ]
+    }
+  }
+}

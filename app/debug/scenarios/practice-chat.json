@@ -1,0 +1,16 @@
+{
+  "name": "practice-chat",
+  "description": "练习对话的确定性主路径：状态夹具直接进 active 会话 → 流式 roleplay 夹具回一句 → 断言转写区。",
+  "steps": [
+    { "cmd": "state.load", "fixture": "practice-active" },
+    { "cmd": "model.use", "fixtures": ["practice-flow"] },
+    { "cmd": "nav", "path": "practice/debug-practice-active", "wait": "[data-debug=\"practice.input\"]" },
+    { "cmd": "assert.text", "target": "practice.messages", "contains": "今晚这份改稿" },
+    { "cmd": "ui.type", "target": "practice.input", "text": "我今晚已经有安排了，可以先告诉我最急的是哪几页吗？" },
+    { "cmd": "assert.text", "target": "practice.input", "contains": "已经有安排" },
+    { "cmd": "ui.click", "target": "practice.send" },
+    { "cmd": "assert.text", "target": "practice.messages", "contains": "明早九点前", "timeout": 20000 },
+    { "cmd": "assert.trace", "kind": "model.replay", "contains": "roleplay" },
+    { "cmd": "assert.noErrors" }
+  ]
+}

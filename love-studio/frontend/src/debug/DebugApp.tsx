@@ -3738,6 +3738,7 @@ export default function DebugApp() {
             {/* 选项只有当前连接上次从 API 拉到并存库的 cached_models;空列表时点 ⟳ 现拉一次 */}
             <select
               className="select topbar-model-select"
+              data-debug="studio.modelSelect"
               value={modelInList ? activeModel : ''}
               title="当前连接用的模型 —— 和 API 设置里的模型名是同一个值,改哪边都同步"
               onChange={(e) => pickModel(e.target.value)}

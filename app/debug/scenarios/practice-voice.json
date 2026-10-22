@@ -1,0 +1,16 @@
+{
+  "name": "practice-voice",
+  "description": "语音输入链路：注入假 SpeechRecognition（导航前注册）→ 脚本化转写 → 点麦克风 → 转写落进输入框。真实识别服务无法在无头环境回放，这条桩替代的就是它。",
+  "steps": [
+    { "cmd": "state.load", "fixture": "practice-active" },
+    { "cmd": "model.use", "fixtures": ["practice-flow"] },
+    { "cmd": "speech.stub" },
+    { "cmd": "nav", "path": "practice/debug-practice-active", "wait": "[data-debug=\"practice.input\"]" },
+    { "cmd": "speech.say", "text": "我先确认一下最急的是哪几页" },
+    { "cmd": "ui.click", "target": "practice.mic" },
+    { "cmd": "assert.text", "target": "practice.input", "contains": "最急的是哪几页", "timeout": 15000 },
+    { "cmd": "ui.text", "target": "practice.input" },
+    { "cmd": "speech.off" },
+    { "cmd": "assert.noErrors" }
+  ]
+}

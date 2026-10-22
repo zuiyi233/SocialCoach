@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "socialcoach-debug": {
+      "command": "node",
+      "args": ["app/scripts/debug/mcp-server.mjs"],
+      "env": {}
+    }
+  }
+}

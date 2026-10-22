@@ -1,0 +1,19 @@
+{
+  "name": "assess-flow",
+  "routes": {
+    "health": {
+      "serverKey": true,
+      "requireByok": false,
+      "state": "available"
+    },
+    "assess": {
+      "by": "counter",
+      "responses": [
+        {
+          "__raw": "\n@@final\n{\"scoringVersion\":2,\"ratings\":[{\"skill\":\"communication\",\"level\":2,\"evidence\":\"我今晚已经有安排了，可以先告诉我最急的是哪几页吗？\",\"reason\":\"提出了自己的限制，同时追问优先级，没有直接对抗。\"}],\"stars\":2,\"outcome\":\"partial\",\"verdictEvidence\":\"我今晚已经有安排了，可以先告诉我最急的是哪几页吗？\",\"verdict\":\"这次回应提出了限制，也追问了范围，但还没有给出可执行的替代方案。\",\"summary\":\"你明确说出了今晚不行，并把话题转到优先级；下一步是把你能做的部分和时限说清楚。\",\"strengths\":[{\"behavior\":\"先说明自己的限制\",\"evidence\":\"我今晚已经有安排了\",\"skill\":\"communication\"}],\"weaknesses\":[{\"behavior\":\"没有给出替代方案\",\"evidence\":\"可以先告诉我最急的是哪几页吗？\",\"skill\":\"communication\",\"deficit\":\"performance\",\"whyItMatters\":\"对方只听到拒绝，仍不知道明早的交付怎么保证。\"}],\"alternatives\":[{\"original\":\"我今晚已经有安排了\",\"better\":\"我今晚不行，但我可以在明早七点半到公司，先改第三部分。\",\"why\":\"把拒绝和一个具体可执行的替代放在同一句里。\"}],\"knowledge\":{\"theoryIds\":[],\"caseIds\":[],\"whyThis\":\"先承认限制，再给出可执行替代。\"},\"reflectionQuestions\":[\"如果对方追问『那谁来改』，你准备怎么回答？\"],\"nextStep\":\"下一次练习里，把拒绝和替代方案放进同一段话。\",\"deltas\":{}}",
+          "__contentType": "text/plain; charset=utf-8"
+        }
+      ]
+    }
+  }
+}

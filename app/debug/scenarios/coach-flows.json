@@ -1,0 +1,45 @@
+{
+  "name": "coach-flows",
+  "description": "首页「推荐今日练习」走真实 UI 触发 schedule 回放（真点按钮，不是直接 fetch）；顺便让 track 的可用性探测走夹具。验证夹具在页面里真的被用上，而不只是「文件存在」。",
+  "steps": [
+    {
+      "cmd": "state.load",
+      "fixture": "practice-briefing"
+    },
+    {
+      "cmd": "model.use",
+      "fixtures": ["coach-side"]
+    },
+    {
+      "cmd": "nav",
+      "path": "/",
+      "wait": "body"
+    },
+    {
+      "cmd": "ui.click",
+      "text": "推荐今日练习",
+      "timeout": 30000
+    },
+    {
+      "cmd": "assert.text",
+      "target": "body",
+      "contains": "明天的汇报",
+      "timeout": 30000
+    },
+    {
+      "cmd": "assert.text",
+      "target": "body",
+      "contains": "王姐",
+      "timeout": 15000
+    },
+    {
+      "cmd": "assert.api",
+      "route": "schedule",
+      "method": "POST",
+      "min": 1
+    },
+    {
+      "cmd": "assert.noErrors"
+    }
+  ]
+}

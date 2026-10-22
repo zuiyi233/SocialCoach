@@ -1,0 +1,29 @@
+{
+  "name": "practice-flow",
+  "routes": {
+    "health": {
+      "serverKey": true,
+      "requireByok": false,
+      "state": "available"
+    },
+    "roleplay": {
+      "by": "learnerTurns",
+      "turns": [
+        {
+          "meta": {
+            "objectives": [false, false, false],
+            "ended": false,
+            "stance": 47,
+            "revealed": false
+          },
+          "utterances": [
+            {
+              "characterId": "michael",
+              "text": "我明白你有安排。那你告诉我，明早九点前，你能交哪几页？"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

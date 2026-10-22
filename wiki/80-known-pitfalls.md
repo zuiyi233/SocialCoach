@@ -645,3 +645,17 @@ PR #11 预览 / 全量检查、本地构建和两站构建成功，但 main 的�
 - **原因：** 每张表情都是独立文生图，网关又是 text-only 队列（没有参考图/图生图通道）。规划模型写的 `expressions[].prompt` 里带了手势（`pushing glasses up with one finger`、`one hand resting lightly on chest`），模型据此改姿势和镜头；`style` 留空时画风也由模型每次自选。
 - **解法：** 系统提示词要求表情只写脸（眼睛/眉毛/嘴/脸颊/耳朵）；`_portrait_prompt` 用 `_GESTURE_TAG_WORDS` 丢掉含手势的短句；白底提示词里钉死 `full body from head to feet, standing straight, front view, arms relaxed at sides, same character design`。实测四张从「四个不同的人」变成同一姿势的四个表情。
 - **教训：** 没有参考图时，一致性只能靠**把变化量从提示词里删掉**，不能靠形容词要求模型「保持一致」。画风这种全局属性必须由用户或默认值钉住，留空等于交给随机。
+
+### Next 16 dev 把 `127.0.0.1` 当跨源，无头浏览器里页面永远不 hydration（2026-10-22）
+
+- **现象：** 无头 Chrome 打开 `http://127.0.0.1:3000/`，`readyState=complete`、`title=SocialCoach`，但 `body.innerText` 为空，DOM 只有 `<div class="sheet"><div class="min-h-dvh"></div></div>`；控制台没有应用错误。
+- **原因：** Next 16 dev 默认只放行 `localhost` 的 dev 资源。用 `127.0.0.1` 打开时，`/_next/hmr` 被当成跨源请求拦掉（dev server 日志：`Blocked cross-origin request to Next.js dev resource /_next/hmr from "127.0.0.1"`），RSC/HMR 客户端起不来，页面只剩 SSR 的空壳。
+- **解法：** 调试基址统一用 `http://localhost:3000`（`scripts/debug.mjs` 的默认值已改）。不要为此改 `next.config.ts` 的 `allowedDevOrigins`——那会改变所有人的 dev 行为。
+- **教训：** 「HTML 回来了、标题也对」不等于页面能跑；判断 dev 页面是否就绪要看 hydration 后的 body 内容，不要只看 HTTP 200。跨源限制的报错在浏览器控制台，不在应用日志里。
+
+### Web Lock 的 `ifAvailable` 会把「自己上一轮实例」判成「另一个窗口在改」（2026-10-22）
+
+- **现象：** 3D 饭局第二次进入时，页面直接显示「另一窗口修改了这场练习。此窗口已停止保存」，输入框能打字、发送按钮一直 disabled；只跑一次不会出现。
+- **原因：** `createDinnerStorage` 用 `navigator.locks.request('socialcoach.dinner',{ifAvailable:true})` 做单写者。开发模式下 StrictMode 会把组件挂载两次（路由重挂同理），于是同一个页面里先后存在两个 storage 实例：前一个刚 `acquired`、还没来得及 `dispose()` 释放，后一个的 `ifAvailable` 请求就返回 `null`，代码据此 `issue('conflict')`。`trace` 的 `lock` 事件能直接看到 `#2 acquired` → `#3 NULL`。
+- **解法：** 首次拿锁失败时短暂重试（5 × 60ms）再判冲突，把「自己的收尾」和「真有另一个窗口在写」分开。真正的多窗口仍会在重试耗尽后报冲突，语义不变。
+- **教训：** `ifAvailable` 只回答「此刻有没有人持有」，不回答「是谁」。任何「拿不到锁 ⇒ 冲突」的判断都要能区分瞬时占用与持续占用；排查这类问题不要靠截图，看 Web Lock 与 localStorage 的写入轨迹。

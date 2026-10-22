@@ -1,0 +1,76 @@
+{
+  "name": "coach-side",
+  "routes": {
+    "rehearse": {
+      "by": "counter",
+      "responses": [
+        {
+          "__raw": "{\"scenario\":{\"id\":\"custom-roommate-cat\",\"title\":{\"zh\":\"室友想带猫合租，我要怎么说不\",\"en\":\"My flatmate wants a cat in — how do I say no\"},\"hook\":{\"zh\":\"小林抱着猫站在门口，说是朋友托他照顾两周——你知道，照顾完，猫大概就不会走了。\",\"en\":\"Xiaolin stands at the door with a cat, saying a friend asked him to foster it for two weeks — you know it will probably never leave.\"},\"background\":{\"zh\":\"你和大学室友小林合租两年，房租对半、规矩一直清楚：不带宠物、不养植物。上个月他提过想养猫，你明确说过不行。今晚他抱回一只猫，说是「朋友托我照顾两周」。你的顾虑不只是猫毛：一旦松口，月底合同续签时他大概率会再提长期养猫；你不想搬走，也不想每天踩到猫粮碗。\",\"en\":\"You and Xiaolin, a college friend, have shared a flat for two years — rent split evenly, rules clear: no pets, no plants. Last month he floated getting a cat and you said no. Tonight he carries one in, claiming a friend asked him to foster it for two weeks. Your worry is not just the fur: once you cave, he will likely push for a permanent cat at the renewal; you do not want to move out, and you do not want to step in cat food every day.\"},\"context\":\"friendship\",\"contextType\":{\"zh\":\"合租日常\",\"en\":\"Shared-flat life\"},\"competencies\":[\"relationship-skills\",\"social-awareness\"],\"skills\":[\"communication\",\"perspective-taking\",\"seeking-help\"],\"relationship\":[\"friend\",\"peer\"],\"difficulty\":2,\"minutes\":4,\"characters\":[{\"id\":\"you\",\"name\":{\"zh\":\"你\",\"en\":\"You\"},\"role\":{\"zh\":\"合租室友\",\"en\":\"Flatmate\"},\"personality\":{\"zh\":\"习惯先让步、怕冲突，但这次觉得该守住边界。\",\"en\":\"Tends to give in first and avoid conflict, but feels this boundary is worth holding.\"},\"stance\":{\"zh\":\"犹豫：想守住规矩，又怕伤感情。\",\"en\":\"Torn: wants to hold the line, but is afraid to hurt the friendship.\"},\"playable\":true,\"hue\":210},{\"id\":\"xiaolin\",\"name\":{\"zh\":\"小林\",\"en\":\"Xiaolin\"},\"role\":{\"zh\":\"合租室友\",\"en\":\"Flatmate\"},\"personality\":{\"zh\":\"热情、自来熟，觉得「规矩是拿来商量的」。\",\"en\":\"Warm and casual; thinks rules are made to be negotiated.\"},\"stance\":{\"zh\":\"先试探，嘴上轻描淡写，看你反应再决定怎么提。\",\"en\":\"Testing the water: keeps it light and reads your reaction before pushing.\"},\"hidden\":{\"zh\":\"他这半年加班很多，一个人住越来越闷，想养猫陪自己；但怕承认「孤单」显得矫情，所以包装成朋友托付。\",\"en\":\"He has been working late a lot and living alone has grown lonelier; he wants the cat for company, but is embarrassed to say so, so he frames it as a favor.\"},\"playable\":false,\"hue\":30}],\"objectives\":[{\"zh\":\"明确说出我不同意猫长期住进来，以及为什么\",\"en\":\"Say clearly that a long-term cat is not OK with me, and why\"},{\"zh\":\"提出一个不丢面子的替代安排：这两周可以先照顾，但月底前要重新谈\",\"en\":\"Offer a face-saving alternative: fostering for two weeks is fine, but we revisit this before the renewal\"},{\"zh\":\"问清楚他真正的理由，而不是默认他在得寸进尺\",\"en\":\"Ask what is really behind this instead of assuming he is pushing his luck\"}],\"success\":{\"zh\":\"他承认两周后会把猫送走，也答应月底前不再提长期养猫；你俩的规矩重新说清楚了。\",\"en\":\"He agrees the cat goes back after two weeks and drops the long-term plan until the renewal; the ground rules are restated.\"},\"failure\":{\"zh\":\"他坚持「就两周，你别小题大做」，猫留了下来，规矩被当成了摆设。\",\"en\":\"He insists it is only two weeks and tells you not to overreact; the cat stays and the rules mean nothing.\"},\"maxTurns\":8,\"opening\":{\"characterId\":\"xiaolin\",\"text\":{\"zh\":\"“这是朋友托我照顾两周的猫，可爱吧？它可安静了。”\",\"en\":\"“A friend asked me to look after his cat for two weeks. Cute, right? She is super quiet.”\"}},\"icon\":\"message-square\",\"source\":\"Learner-described situation (generated)\",\"keywords\":[\"合租\",\"宠物\",\"边界\",\"协商\",\"室友\"],\"custom\":true}}",
+          "__contentType": "application/json; charset=utf-8"
+        }
+      ]
+    },
+    "schedule": {
+      "by": "counter",
+      "responses": [
+        {
+          "__raw": "{\"scenario\":{\"id\":\"work-meeting-reorder\",\"title\":{\"zh\":\"明天的汇报，我要申请调顺序\",\"en\":\"Reordering tomorrow's status meeting\"},\"hook\":{\"zh\":\"王姐把汇报顺序发到群里：你的部分排在第三段，可材料还没收尾。\",\"en\":\"Wang posts the run-of-show: your slot is third, and your material is not finished.\"},\"background\":{\"zh\":\"周三早会每人都要过一遍进度。你的演示还剩最后两页没做，排在第三意味着没有喘息机会。你想跟主管王姐谈：把自己的部分挪到后半场，用前半场先把关键风险说清楚。难点是：王姐讨厌「临时改流程」，而这是你本周第二次想动议程。\",\"en\":\"Everyone walks through their progress at Wednesday's status meeting. Your deck is still missing its last two slides, and slot three leaves no breathing room. You want to ask Wang, your lead, to move your part to the second half, using the first half to flag the key risks. The catch: Wang hates last-minute agenda changes, and this is your second attempt this week.\"},\"context\":\"workplace\",\"contextType\":{\"zh\":\"部门例会\",\"en\":\"Team status meeting\"},\"competencies\":[\"relationship-skills\",\"self-management\"],\"skills\":[\"communication\",\"organizational-skills\"],\"relationship\":[\"senior\"],\"difficulty\":2,\"minutes\":3,\"characters\":[{\"id\":\"you\",\"name\":{\"zh\":\"你\",\"en\":\"You\"},\"role\":{\"zh\":\"项目成员\",\"en\":\"Team member\"},\"personality\":{\"zh\":\"做事认真，但开口前总想把话说得滴水不漏，反而拖到最后才求助。\",\"en\":\"Thorough, but wants every sentence polished before speaking up, which is why help arrives late.\"},\"stance\":{\"zh\":\"想争取缓冲，又怕被认为没准备。\",\"en\":\"Wants breathing room but dreads looking unprepared.\"},\"playable\":true,\"hue\":240},{\"id\":\"wang\",\"name\":{\"zh\":\"王姐\",\"en\":\"Wang\"},\"role\":{\"zh\":\"部门主管\",\"en\":\"Team lead\"},\"personality\":{\"zh\":\"直接、守时，最烦临时改议程。\",\"en\":\"Direct and punctual; hates last-minute agenda changes.\"},\"stance\":{\"zh\":\"先公事公办，看你把问题和方案说得多清楚。\",\"en\":\"Starts by the book; judges how clearly you state the problem and the fix.\"},\"hidden\":{\"zh\":\"她自己也连续三周在赶项目，最怕有人借「没准备好」把压力转嫁给团队；如果你只抱怨不提案，她会直接驳回。\",\"en\":\"She has been sprinting for three weeks herself and hates people offloading pressure as not-ready; complain without a proposal and she will shut it down.\"},\"playable\":false,\"hue\":20}],\"objectives\":[{\"zh\":\"说清楚现状：材料差哪两页、卡在什么地方\",\"en\":\"State where things stand: which two slides are unfinished and why\"},{\"zh\":\"提出具体替代安排：和谁换位置、你的部分挪到第几段\",\"en\":\"Propose a concrete swap: whose slot you take and where your part would go\"}],\"success\":{\"zh\":\"王姐同意重排，并要求你在明早九点前把两页补完；你拿到了需要的缓冲。\",\"en\":\"Wang agrees to reorder and asks you to finish the two slides by nine; you get the buffer you need.\"},\"failure\":{\"zh\":\"王姐拒绝改动，说「汇报是检查进度，不是照顾进度」；你只能硬着头皮上场。\",\"en\":\"Wang refuses, saying the meeting checks progress rather than coddles it; you walk in anyway.\"},\"maxTurns\":8,\"opening\":{\"characterId\":\"wang\",\"text\":{\"zh\":\"“明天早会的顺序我发群里了，你的部分排在第三段，材料没问题吧？”\",\"en\":\"“I posted tomorrow's run-of-show. Your slot is third. Material OK?”\"}},\"icon\":\"calendar-x\",\"source\":\"SocialCoach practice corpus (fixture)\",\"keywords\":[\"例会\",\"汇报\",\"议程\",\"请示\",\"谈判\"]},\"prescription\":{\"query\":\"A workplace conversation where the learner, whose deliverable is unfinished, asks their supervisor to move their slot in tomorrow's status meeting\",\"core_constraints\":{\"target_skills\":[\"communication\"],\"contexts\":[\"workplace\"]},\"optional_constraints\":{\"related_skills\":[\"organizational-skills\"],\"relationship_types\":[\"senior\"],\"difficulty\":2},\"rationale\":\"你明天要上台但材料没收尾，这个场景让你在会前把「说明现状、提出替代安排」练熟；这正是你最近两次练习里最想补的那一块。\"},\"adaptation\":{\"learnerCharacterId\":\"you\",\"briefing\":\"你是一名项目成员，明天早会有你的进度汇报，但演示材料还差两页没收尾，而你的部分排在第三段。你将走进主管王姐的工位，说明现状并提出把汇报挪到后半场的具体安排。这是练习角色，不是对你真实生活的描述。\",\"objectives\":[\"说清楚现状：材料差哪两页、卡在什么地方\",\"提出具体替代安排：和谁换位置、你的部分挪到第几段\"],\"focus\":\"先讲清楚事实和你的卡点，再给王姐一个具体的换位方案；把「临时改流程」包装成「替她省事」。\",\"why\":\"你上两次练习里「先让步再补救」的模式又出现了；这一局逼你在开口前把诉求说成方案，正好打在目标上。\"},\"retrieval\":{\"relaxed\":[\"relationship_types\"],\"candidates\":4,\"chosen\":\"work-meeting-reorder\",\"roleFit\":{\"characterId\":\"you\",\"fit\":\"compatible\",\"reason\":\"角色为汇报人，与目标技能「沟通与组织」匹配。\"}}}",
+          "__contentType": "application/json; charset=utf-8"
+        }
+      ]
+    },
+    "track": {
+      "by": "counter",
+      "responses": [
+        {
+          "__raw": "{\"available\":true}",
+          "__contentType": "application/json; charset=utf-8"
+        }
+      ]
+    }
+  },
+  "probes": {
+    "rehearse": [
+      {
+        "method": "POST",
+        "body": {
+          "description": "下周要跟合租两年的室友小林谈带猫入住的事。我不想猫长期住进来，但不想伤感情，想守住合租的规矩。",
+          "lang": "zh",
+          "profile": { "name": "阿哲", "bio": "在大厂做前端，平时不太会拒绝人。", "goals": ["communication", "perspective-taking"] }
+        }
+      }
+    ],
+    "schedule": [
+      {
+        "method": "POST",
+        "body": {
+          "profile": {
+            "name": "阿哲",
+            "bio": "在大厂做前端，平时不太会拒绝人。",
+            "goals": ["communication"],
+            "contexts": ["workplace"],
+            "lang": "zh",
+            "createdAt": 1735689600000
+          },
+          "proficiency": { "communication": 2 },
+          "history": [],
+          "lang": "zh"
+        }
+      }
+    ],
+    "track": [
+      { "method": "GET" },
+      {
+        "method": "POST",
+        "body": {
+          "id": "7f9c2e8a-1b3d-4e5f-8a6b-0c1d2e3f4a5b",
+          "device": "c4a9e8b2-3f5d-4a6c-9b1e-2d3f4a5b6c7d",
+          "lang": "zh",
+          "events": [
+            { "name": "app_open", "ts": 1735689600000, "profile": true, "ua": "desktop", "standalone": false }
+          ]
+        }
+      }
+    ]
+  }
+}

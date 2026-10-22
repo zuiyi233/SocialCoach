@@ -1,0 +1,57 @@
+{
+  "name": "love-flow",
+  "routes": {
+    "love-play": {
+      "by": "learnerTurns",
+      "responses": [
+        {
+          "line": {
+            "zh": "你也常来这家？我每次坐窗边，今天倒被你抢先了。",
+            "en": "You come here often? I always take the window seat — you beat me to it today."
+          },
+          "options": [
+            { "zh": "被你说中了，我几乎每周三都来。", "en": "Guilty. I'm here almost every Wednesday." },
+            { "zh": "窗边光线好，难怪你抢。", "en": "The light's good by the window. I see why you claim it." },
+            { "zh": "抱歉，要不我换到里面？", "en": "Sorry, want me to move inside?" }
+          ],
+          "emotion": "smile",
+          "stance": 52,
+          "revealed": false,
+          "terminal": null,
+          "ended": false
+        },
+        {
+          "line": {
+            "zh": "不用换。你坐着吧，我坐这边也一样。你平时都点什么？",
+            "en": "Don't move. Stay there — this side works too. What do you usually order?"
+          },
+          "options": [
+            { "zh": "手冲，今天想试试你说的那款豆子。", "en": "Pour-over. Today I want to try the blend you mentioned." },
+            { "zh": "拿铁，但看你点的好像更讲究。", "en": "A latte — though yours looks more considered." },
+            { "zh": "还没想好，你有什么推荐？", "en": "Haven't decided. What would you recommend?" }
+          ],
+          "emotion": "smile",
+          "stance": 58,
+          "revealed": false,
+          "terminal": null,
+          "ended": false
+        },
+        {
+          "line": {
+            "zh": "我在写点东西，本来怕被打断。你这么一说，倒不介意了。",
+            "en": "I'm writing something and usually hate being interrupted. Now that you put it that way, I don't mind."
+          },
+          "options": [
+            { "zh": "那我小声点，写完再聊。", "en": "Then I'll keep it down. We can talk when you're done." },
+            { "zh": "写的是什么？不方便说也没关系。", "en": "What are you writing? No pressure to say." }
+          ],
+          "emotion": "neutral",
+          "stance": 61,
+          "revealed": false,
+          "terminal": null,
+          "ended": false
+        }
+      ]
+    }
+  }
+}

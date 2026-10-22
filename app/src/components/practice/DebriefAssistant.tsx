@@ -105,12 +105,12 @@ export function DebriefAssistant({ session, ref }: { session: Session; ref?: Ref
       <form onSubmit={e => { e.preventDefault(); void submit(); }} className="flex flex-col gap-2">
         <label htmlFor="debrief-question" className="sr-only">{t(lang, "da_input")}</label>
         <div className="rounded-2xl bg-paper border border-line-strong focus-within:border-teal transition-colors p-3 flex flex-col gap-2">
-          <textarea id="debrief-question" ref={input} value={text} onChange={e => { setText(e.target.value); setError(null); }} maxLength={DEBRIEF_QUESTION_LIMIT} rows={3} disabled={!!pending} aria-keyshortcuts="Control+Enter Meta+Enter" placeholder={t(lang, "da_placeholder")} className="resize-y min-h-20 max-h-48 w-full bg-transparent text-[14px] leading-relaxed placeholder:text-ink-3 focus:outline-none" onKeyDown={e => {
+          <textarea id="debrief-question" data-debug="debrief.question" ref={input} value={text} onChange={e => { setText(e.target.value); setError(null); }} maxLength={DEBRIEF_QUESTION_LIMIT} rows={3} disabled={!!pending} aria-keyshortcuts="Control+Enter Meta+Enter" placeholder={t(lang, "da_placeholder")} className="resize-y min-h-20 max-h-48 w-full bg-transparent text-[14px] leading-relaxed placeholder:text-ink-3 focus:outline-none" onKeyDown={e => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); }
           }} />
           <div className="flex items-center justify-between gap-3">
             <span className="num text-[11px] text-ink-3" aria-live={text.length >= DEBRIEF_QUESTION_LIMIT ? "polite" : "off"}>{text.length} / {DEBRIEF_QUESTION_LIMIT}</span>
-            {pending ? <Button key="stop" type="button" size="sm" variant="ghost" onClick={stop}><Square size={13} />{t(lang, "da_stop")}</Button> : <Button requiresModel key="send" type="submit" size="sm" disabled={!text.trim() || text.length > DEBRIEF_QUESTION_LIMIT}><ArrowUp size={15} />{t(lang, "da_send")}</Button>}
+            {pending ? <Button key="stop" type="button" size="sm" variant="ghost" onClick={stop}><Square size={13} />{t(lang, "da_stop")}</Button> : <Button data-debug="debrief.send" requiresModel key="send" type="submit" size="sm" disabled={!text.trim() || text.length > DEBRIEF_QUESTION_LIMIT}><ArrowUp size={15} />{t(lang, "da_send")}</Button>}
           </div>
         </div>
         <p className="text-[11px] text-ink-3 leading-relaxed">{t(lang, "da_note")}</p>

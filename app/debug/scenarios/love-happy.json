@@ -1,0 +1,76 @@
+{
+  "name": "love-happy",
+  "description": "恋爱 Galgame 的确定性主路径：本地开场 → 点选项 → 自由输入 → 模型夹具回放。不花钱、不联网。",
+  "steps": [
+    {
+      "cmd": "state.load",
+      "fixture": "love-start"
+    },
+    {
+      "cmd": "model.use",
+      "fixtures": [
+        "love-flow"
+      ]
+    },
+    {
+      "cmd": "nav",
+      "path": "/love/play/love-approach-cafe",
+      "wait": "[data-debug=\"love.options\"]"
+    },
+    {
+      "cmd": "assert.text",
+      "target": "love.line",
+      "contains": "你也点了这款豆子"
+    },
+    {
+      "cmd": "assert.exists",
+      "target": "love.option-0"
+    },
+    {
+      "cmd": "ui.click",
+      "target": "love.option-0"
+    },
+    {
+      "cmd": "ui.wait",
+      "target": "love.options",
+      "timeout": 20000
+    },
+    {
+      "cmd": "assert.text",
+      "target": "love.line",
+      "contains": "不用换"
+    },
+    {
+      "cmd": "ui.type",
+      "target": "love.input",
+      "text": "我一般喝手冲，今天想试试你说的那款。"
+    },
+    {
+      "cmd": "ui.click",
+      "target": "love.send"
+    },
+    {
+      "cmd": "ui.wait",
+      "target": "love.options",
+      "timeout": 20000
+    },
+    {
+      "cmd": "assert.text",
+      "target": "love.line",
+      "contains": "我在写点东西"
+    },
+    {
+      "cmd": "assert.trace",
+      "kind": "model.replay"
+    },
+    {
+      "cmd": "assert.api",
+      "route": "love-play",
+      "method": "POST",
+      "min": 1
+    },
+    {
+      "cmd": "assert.noErrors"
+    }
+  ]
+}

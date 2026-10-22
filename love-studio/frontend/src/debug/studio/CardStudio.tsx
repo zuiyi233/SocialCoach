@@ -152,6 +152,8 @@ export function CardStudio(props: CardStudioProps) {
               key={t.key}
               type="button"
               className="st-tab"
+              data-debug="studio.creatorTab"
+              data-tab={t.key}
               aria-current={route.tab === t.key ? 'page' : undefined}
               onClick={() => onRoute({ ...route, tab: t.key })}
             >
@@ -161,7 +163,7 @@ export function CardStudio(props: CardStudioProps) {
         </nav>
         <span className="st-flex" />
         <SaveIndicator state={saveState} />
-        <Btn icon="export" disabled={scExporting} onClick={() => void exportScPersona()}>
+        <Btn icon="export" data-debug="studio.save" disabled={scExporting} onClick={() => void exportScPersona()}>
           导出 .scpersona
         </Btn>
         <Btn kind="primary" icon="play" onClick={onStart}>

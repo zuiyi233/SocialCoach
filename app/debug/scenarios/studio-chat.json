@@ -1,0 +1,75 @@
+{
+  "name": "studio-chat",
+  "description": "Love Studio 的确定性主路径：SQLite 种子（卡 + 空对话 + mock 连接）→ 创作者控制台 → 选中角色 → 发一句 → mock 回复 → 重新生成 → 新对话。seed 带 reset，所以每轮都从空对话开始，断言不会被上一轮的历史命中；全流程走 data-debug 锚点。",
+  "requires": "studio",
+  "steps": [
+    {
+      "cmd": "studio.up"
+    },
+    {
+      "cmd": "studio.seed",
+      "card": "genshin-ganyu",
+      "reset": true
+    },
+    {
+      "cmd": "model.off"
+    },
+    {
+      "cmd": "nav",
+      "path": "http://127.0.0.1:5180/debug.html?creator=1",
+      "wait": "body"
+    },
+    {
+      "cmd": "assert.exists",
+      "target": "studio.cardList"
+    },
+    {
+      "cmd": "assert.text",
+      "target": "studio.modelSelect",
+      "contains": "mock"
+    },
+    {
+      "cmd": "ui.click",
+      "target": "studio.card",
+      "nth": 0,
+      "timeout": 30000
+    },
+    {
+      "cmd": "ui.wait",
+      "target": "studio.composer",
+      "timeout": 30000
+    },
+    {
+      "cmd": "ui.type",
+      "target": "studio.composer",
+      "text": "今晚的账册我来帮你看一半。"
+    },
+    {
+      "cmd": "ui.click",
+      "target": "studio.send"
+    },
+    {
+      "cmd": "assert.text",
+      "target": "studio.lastReply",
+      "contains": "（mock 回复）我收到了「今晚的账册我来帮你看一半。」",
+      "timeout": 30000
+    },
+    {
+      "cmd": "ui.click",
+      "target": "studio.regenerate"
+    },
+    {
+      "cmd": "assert.text",
+      "target": "studio.lastReply",
+      "contains": "（mock 回复）",
+      "timeout": 30000
+    },
+    {
+      "cmd": "ui.click",
+      "target": "studio.newChat"
+    },
+    {
+      "cmd": "assert.noErrors"
+    }
+  ]
+}

@@ -52,7 +52,7 @@ const useFeedback = create<{ open: boolean; rating?: Feedback["rating"]; show: (
 
 export function FeedbackButton({ className = "", compact = false, plain = false }: { className?: string; compact?: boolean; plain?: boolean }) {
   const lang = useLang();
-  return <button type="button" aria-label={pick(copy.entry, lang)} className={`press inline-flex min-h-11 items-center justify-center gap-2 text-[13px] font-medium ${plain ? "min-w-11 px-2 rounded-[var(--radius-sm)] text-ink-3 hover:bg-inset hover:text-ink" : `rounded-full border border-line bg-card ${compact ? "px-3 sm:px-4" : "px-4"} text-ink-2`} ${className}`} onClick={() => useFeedback.getState().show()}>{!plain && <MessageSquare size={16} aria-hidden />}<span className={compact && !plain ? "hidden sm:inline" : undefined}>{pick(copy.entry, lang)}</span></button>;
+  return <button data-debug="feedback.entry" type="button" aria-label={pick(copy.entry, lang)} className={`press inline-flex min-h-11 items-center justify-center gap-2 text-[13px] font-medium ${plain ? "min-w-11 px-2 rounded-[var(--radius-sm)] text-ink-3 hover:bg-inset hover:text-ink" : `rounded-full border border-line bg-card ${compact ? "px-3 sm:px-4" : "px-4"} text-ink-2`} ${className}`} onClick={() => useFeedback.getState().show()}>{!plain && <MessageSquare size={16} aria-hidden />}<span className={compact && !plain ? "hidden sm:inline" : undefined}>{pick(copy.entry, lang)}</span></button>;
 }
 
 export function FeedbackPrompt() {
@@ -113,7 +113,7 @@ export function FeedbackWidget() {
 
   return <>
     {!path.startsWith("/practice/") && path !== "/onboarding" && <div className="hidden lg:block fixed z-30 right-6 bottom-6"><FeedbackButton /></div>}
-    <Sheet open={open} onClose={dismiss} title={pick(copy.title, lang)} footer={!sent && <><p className="mb-3 text-[12px] leading-relaxed text-ink-3">{pick(copy.consent, lang)}</p><Button form="socialcoach-feedback-form" type="submit" block disabled={busy || (!category && !rating) || available === false} aria-busy={busy}><Send size={16} />{pick(copy[busy ? "sending" : "send"], lang)}</Button></>}>
+    <Sheet open={open} onClose={dismiss} title={pick(copy.title, lang)} footer={!sent && <><p className="mb-3 text-[12px] leading-relaxed text-ink-3">{pick(copy.consent, lang)}</p><Button data-debug="feedback.send" form="socialcoach-feedback-form" type="submit" block disabled={busy || (!category && !rating) || available === false} aria-busy={busy}><Send size={16} />{pick(copy[busy ? "sending" : "send"], lang)}</Button></>}>
       {sent ? <div role="status" className="py-8 text-center flex flex-col items-center gap-4">
         <CheckCircle2 size={40} className="text-moss" />
         <h3 className="display text-[26px]">{pick(copy.success, lang)}</h3>
@@ -127,7 +127,7 @@ export function FeedbackWidget() {
         </div>}
         <fieldset disabled={busy} className="flex flex-col gap-3">
           <legend className="mb-3 text-[14px] font-semibold">{pick(copy.type, lang)}</legend>
-          <div className="grid grid-cols-2 gap-2">{options.map(o => <button key={o.id} type="button" aria-pressed={category === o.id} onClick={() => { setCategory(o.id); setSelected([]); }} className={`press min-h-12 rounded-[var(--radius-sm)] border px-3 py-2 text-[13px] flex items-center justify-between gap-2 ${category === o.id ? "bg-accent-soft border-accent text-accent-deep" : "bg-card border-line text-ink-2"}`}>
+          <div className="grid grid-cols-2 gap-2">{options.map(o => <button key={o.id} data-debug="feedback.option" type="button" aria-pressed={category === o.id} onClick={() => { setCategory(o.id); setSelected([]); }} className={`press min-h-12 rounded-[var(--radius-sm)] border px-3 py-2 text-[13px] flex items-center justify-between gap-2 ${category === o.id ? "bg-accent-soft border-accent text-accent-deep" : "bg-card border-line text-ink-2"}`}>
             {pick(o.label, lang)}{category === o.id && <Check size={16} />}
           </button>)}</div>
         </fieldset>

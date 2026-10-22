@@ -503,7 +503,7 @@ export function Chat({ session }: { session: Session }) {
             <h1 className="text-[16px] font-semibold truncate">{sc.title[lang]}</h1>
             <p className="text-[12px] text-ink-3 num">{t(lang, "pr_turn_progress", { n: learnerTurns })}</p>
           </div>
-          <button onClick={() => setEndOpen(true)} className="press min-h-11 px-2 text-[12px] font-medium text-ink-2 whitespace-nowrap">{t(lang, "pr_review_action")}</button>
+          <button data-debug="practice.end" onClick={() => setEndOpen(true)} className="press min-h-11 px-2 text-[12px] font-medium text-ink-2 whitespace-nowrap">{t(lang, "pr_review_action")}</button>
           <IconButton label={t(lang, "pr_clock_title")} aria-pressed={timed} onClick={() => setClockOpen(true)}>
             <Timer size={20} className={clsx("transition-colors duration-300", timed ? "text-accent-deep" : "text-ink-3")} />
           </IconButton>
@@ -528,7 +528,7 @@ export function Chat({ session }: { session: Session }) {
       </header>
 
       {/* messages */}
-      <div ref={listRef} aria-label={t(lang, "rp_transcript")} role="region" tabIndex={0}
+      <div ref={listRef} data-debug="practice.messages" aria-label={t(lang, "rp_transcript")} role="region" tabIndex={0}
         onScroll={(e) => {
           const el = e.currentTarget;
           const away = el.scrollHeight - el.scrollTop - el.clientHeight > 80;
@@ -540,7 +540,7 @@ export function Chat({ session }: { session: Session }) {
         {displayMessages.map((m, i) => {
           if (m.role === "coach") {
             return (
-              <motion.div key={m.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="bubble-coach px-3.5 py-2.5 text-[13.5px] leading-relaxed flex gap-2 self-stretch">
+              <motion.div key={m.id} data-debug="practice.message" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="bubble-coach px-3.5 py-2.5 text-[13.5px] leading-relaxed flex gap-2 self-stretch">
                 <Lightbulb size={15} className="mt-0.5 shrink-0 text-accent-deep" />
                 <span>{m.text}</span>
               </motion.div>
@@ -557,7 +557,7 @@ export function Chat({ session }: { session: Session }) {
           }
           if (m.role === "learner") {
             return (
-              <motion.div key={m.id} initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.25 }} className="self-end max-w-[82%] bubble-me px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">
+              <motion.div key={m.id} data-debug="practice.message" initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.25 }} className="self-end max-w-[82%] bubble-me px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">
                 {m.text}
               </motion.div>
             );
@@ -565,7 +565,7 @@ export function Chat({ session }: { session: Session }) {
           const c = sc.characters.find((x) => x.id === m.characterId) ?? npcs[0];
           const prevSame = displayMessages[i - 1]?.role === "npc" && displayMessages[i - 1]?.characterId === m.characterId;
           return (
-            <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="self-start max-w-[86%] flex gap-2 items-end">
+            <motion.div key={m.id} data-debug="practice.message" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="self-start max-w-[86%] flex gap-2 items-end">
               <span className={clsx("shrink-0", prevSame && "invisible")}><Avatar name={c?.name[lang] ?? "?"} hue={c?.hue ?? 40} size={32} /></span>
               <div className="flex flex-col gap-1">
                 {!prevSame && <span className="text-[11px] text-ink-3 pl-1">{c?.name[lang]}</span>}
@@ -640,11 +640,12 @@ export function Chat({ session }: { session: Session }) {
         {(busy || hintBusy) && <SlowModelNotice className="mb-2" />}
         {voiceNote && <p className="text-[12px] text-ink-3 px-1 pb-1.5">{voiceNote}</p>}
         <div className="flex items-end gap-2">
-          <button onClick={askHint} disabled={!canUseModel || busy || hintBusy || ending || needsRecovery} aria-label={t(lang, "pr_hint")} title={t(lang, "pr_hint")} className="press h-11 w-11 shrink-0 rounded-full border border-line-strong inline-flex items-center justify-center text-ink-2 disabled:opacity-40">
+          <button data-debug="practice.hint" onClick={askHint} disabled={!canUseModel || busy || hintBusy || ending || needsRecovery} aria-label={t(lang, "pr_hint")} title={t(lang, "pr_hint")} className="press h-11 w-11 shrink-0 rounded-full border border-line-strong inline-flex items-center justify-center text-ink-2 disabled:opacity-40">
             {hintBusy ? <Spinner /> : <Lightbulb size={19} />}
           </button>
           <div className={clsx("flex-1 min-w-0 flex items-end gap-1 writing-field border bg-card pl-3 pr-1 py-1", listening || attention >= 2 ? "border-accent" : "border-line focus-within:border-ink")}>
             <textarea
+              data-debug="practice.input"
               ref={taRef}
               value={input}
               onFocus={editVoiceDraft}
@@ -659,12 +660,12 @@ export function Chat({ session }: { session: Session }) {
               enterKeyHint="send"
             />
             {voiceSupported && (
-              <button onClick={toggleVoice} disabled={busy || ending || needsRecovery} aria-label={t(lang, "pr_voice")} className={clsx("press h-11 w-11 rounded-full inline-flex items-center justify-center shrink-0", listening ? "bg-accent text-accent-ink" : "text-ink-3")}>
+              <button data-debug="practice.mic" onClick={toggleVoice} disabled={busy || ending || needsRecovery} aria-label={t(lang, "pr_voice")} className={clsx("press h-11 w-11 rounded-full inline-flex items-center justify-center shrink-0", listening ? "bg-accent text-accent-ink" : "text-ink-3")}>
                 {listening ? <MicOff size={17} /> : <Mic size={17} />}
               </button>
             )}
           </div>
-          <button onClick={() => send(input)} disabled={!canUseModel || !input.trim() || busy || ending || needsRecovery} aria-label={t(lang, "rp_send")} className="press h-11 w-11 shrink-0 rounded-full bg-ink text-paper inline-flex items-center justify-center disabled:opacity-30">
+          <button data-debug="practice.send" onClick={() => send(input)} disabled={!canUseModel || !input.trim() || busy || ending || needsRecovery} aria-label={t(lang, "rp_send")} className="press h-11 w-11 shrink-0 rounded-full bg-ink text-paper inline-flex items-center justify-center disabled:opacity-30">
             <ArrowUp size={20} />
           </button>
         </div>

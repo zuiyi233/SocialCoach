@@ -776,7 +776,13 @@ export function ChatPanel({
         {windowEntries.map((entry, wi) => {
           const i = windowStart + wi;
           return (
-            <div key={entry.id} className="chat-msg-wrap">
+            <div
+              key={entry.id}
+              className="chat-msg-wrap"
+              // 调试断言只关心「最新一条回复」，锚在最后一条 assistant 上，
+              // 免得断言 body 时把整段历史（可能上千字）都读进来。
+              data-debug={i === entries.length - 1 && entry.role === 'assistant' ? 'studio.lastReply' : undefined}
+            >
               {lineInWindow && i === firstKept && budget.droppedCount > 0 && (
                 <div className="chat-truncate-line">
                   ↑ 以上 {budget.droppedCount} 条不进提示词 · 约{' '}
@@ -848,6 +854,7 @@ export function ChatPanel({
             {canGenerate && (
               <button
                 className="btn small"
+                data-debug="studio.regenerate"
                 onClick={onRegenerate}
                 disabled={sending || !ready}
                 title={
@@ -865,6 +872,7 @@ export function ChatPanel({
             {entries.length > 0 && (
               <button
                 className="btn small"
+                data-debug="studio.newChat"
                 onClick={onReset}
                 disabled={sending}
                 title="保留当前对话,另开一张新的"
@@ -882,6 +890,7 @@ export function ChatPanel({
             <textarea
               ref={taRef}
               className="composer-input"
+              data-debug="studio.composer"
               rows={1}
               value={draft}
               placeholder={
@@ -911,13 +920,14 @@ export function ChatPanel({
             />
             {/* 中断靠 AbortController,已经吐出来的字会留下 */}
             {sending ? (
-              <button className="btn danger" style={{ height: 40 }} onClick={onStop}>
+              <button className="btn danger" style={{ height: 40 }} data-debug="studio.stop" onClick={onStop}>
                 停止
               </button>
             ) : (
               <button
                 className="btn accent"
                 style={{ height: 40 }}
+                data-debug="studio.send"
                 onClick={submit}
                 disabled={!draft.trim() || !ready || loading}
               >

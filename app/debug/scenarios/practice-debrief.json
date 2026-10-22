@@ -1,0 +1,16 @@
+{
+  "name": "practice-debrief",
+  "description": "练习结算的确定性主路径：结束对话 → assess 流式夹具 → 看复盘 → 断言报告正文。",
+  "steps": [
+    { "cmd": "state.load", "fixture": "practice-active" },
+    { "cmd": "model.use", "fixtures": ["practice-flow", "assess-flow"] },
+    { "cmd": "nav", "path": "practice/debug-practice-active", "wait": "[data-debug=\"practice.input\"]" },
+    { "cmd": "ui.click", "target": "practice.end" },
+    { "cmd": "ui.click", "text": "结束并复盘", "role": "button" },
+    { "cmd": "ui.click", "text": "看复盘", "role": "button", "timeout": 30000 },
+    { "cmd": "assert.text", "target": "body", "contains": "这次回应提出了限制", "timeout": 20000 },
+    { "cmd": "assert.trace", "kind": "model.replay", "contains": "assess" },
+    { "cmd": "assert.api", "route": "assess", "method": "POST", "min": 1 },
+    { "cmd": "assert.noErrors" }
+  ]
+}

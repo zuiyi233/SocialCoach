@@ -1,0 +1,30 @@
+{
+  "name": "dinner-conflict",
+  "description": "3D 存档的真实冲突路径：另一个窗口改写了存档 → 本窗口停止保存、发送被禁用 → 下载并重新读取后恢复。需要多标签页，单窗口测不到。",
+  "steps": [
+    { "cmd": "state.load", "fixture": "love-start" },
+    { "cmd": "model.use", "fixtures": ["dinner-flow"] },
+    { "cmd": "nav", "path": "3d", "wait": "body" },
+    { "cmd": "ui.click", "text": "开始接话", "role": "button", "timeout": 30000 },
+    { "cmd": "ui.wait", "target": "dinner.input", "timeout": 30000 },
+    { "cmd": "ui.type", "target": "dinner.input", "text": "我先确认一下排期。" },
+    { "cmd": "tab.open", "url": "http://localhost:3000/" },
+    {
+      "cmd": "tab.eval",
+      "id": "last",
+      "expression": "(() => { if (location.origin !== 'http://localhost:3000') throw new Error('second tab not on app origin: ' + location.href); const raw = localStorage.getItem('socialcoach-dinner-v1'); if (!raw) throw new Error('no 3D save to rewrite'); localStorage.setItem('socialcoach-dinner-v1', JSON.stringify(JSON.parse(raw), null, 2)); return JSON.parse(raw).practiceId ?? null; })()"
+    },
+    { "cmd": "assert.text", "target": "body", "contains": "另一窗口修改了这场练习", "timeout": 15000 },
+    { "cmd": "ui.click", "text": "下载本窗口进度", "role": "button" },
+    { "cmd": "ui.click", "text": "已下载，重新读取", "role": "button", "timeout": 15000 },
+    { "cmd": "ui.wait", "target": "dinner.input", "timeout": 30000 },
+    { "cmd": "ui.type", "target": "dinner.input", "text": "我先确认一下排期，再给两位一个具体时间。" },
+    { "cmd": "ui.click", "target": "dinner.send" },
+    { "cmd": "assert.text", "target": "body", "contains": "下周的交付", "timeout": 30000 },
+    { "cmd": "tab.close", "id": "last" },
+    {
+      "cmd": "assert.noErrors",
+      "ignore": ["THREE.GLTFLoader: Couldn't load texture blob"]
+    }
+  ]
+}

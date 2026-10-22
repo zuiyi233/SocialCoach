@@ -1,0 +1,18 @@
+{
+  "name": "practice-feedback",
+  "description": "全局反馈面板：打开 → GET 可用性 → 选「功能建议」→ 发送 → 断言成功文案与 GET/POST 两条请求。",
+  "steps": [
+    { "cmd": "state.load", "fixture": "practice-active" },
+    { "cmd": "model.use", "fixtures": ["practice-flow", "practice-side"] },
+    { "cmd": "nav", "path": "learn", "wait": "body" },
+    { "cmd": "ui.click", "target": "feedback.entry" },
+    { "cmd": "ui.wait", "target": "feedback.option", "visible": true, "timeout": 10000 },
+    { "cmd": "assert.count", "target": "feedback.option", "equals": 5 },
+    { "cmd": "ui.click", "target": "feedback.option", "nth": 3 },
+    { "cmd": "ui.click", "target": "feedback.send" },
+    { "cmd": "assert.text", "target": "body", "contains": "收到，谢谢你", "timeout": 15000 },
+    { "cmd": "assert.api", "route": "feedback", "method": "GET", "min": 1 },
+    { "cmd": "assert.api", "route": "feedback", "method": "POST", "min": 1, "body": { "category": "idea" } },
+    { "cmd": "assert.noErrors" }
+  ]
+}

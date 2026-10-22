@@ -667,8 +667,8 @@ function ReflectItem({ session, question, idx, addReflection, updateReflection, 
       ) : (
         <>
           <div className="flex items-end gap-2">
-            <textarea aria-label={question} maxLength={4000} value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder={t(lang, "rp_reflect_ph")} className="flex-1 px-3.5 py-2.5 rounded-2xl bg-card border border-line text-[14px] leading-relaxed placeholder:text-ink-3 focus:border-ink transition-colors" disabled={busy} />
-            <button onClick={submit} disabled={!text.trim() || busy || !canUseModel} aria-label={t(lang, "rp_send")} className="press h-11 w-11 shrink-0 rounded-full bg-ink text-paper inline-flex items-center justify-center disabled:opacity-30">
+            <textarea data-debug="reflect.answer" aria-label={question} maxLength={4000} value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder={t(lang, "rp_reflect_ph")} className="flex-1 px-3.5 py-2.5 rounded-2xl bg-card border border-line text-[14px] leading-relaxed placeholder:text-ink-3 focus:border-ink transition-colors" disabled={busy} />
+            <button data-debug="reflect.send" onClick={submit} disabled={!text.trim() || busy || !canUseModel} aria-label={t(lang, "rp_send")} className="press h-11 w-11 shrink-0 rounded-full bg-ink text-paper inline-flex items-center justify-center disabled:opacity-30">
               {busy && !reply ? <Spinner /> : <Send size={16} />}
             </button>
           </div>

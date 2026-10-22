@@ -1,0 +1,13 @@
+{
+  "name": "practice-pattern",
+  "description": "成长页的行为模式卡：三条已复盘的历史 → pattern 夹具回放 → 断言结论与证据被渲染。",
+  "steps": [
+    { "cmd": "state.load", "fixture": "practice-history" },
+    { "cmd": "model.use", "fixtures": ["practice-flow", "practice-side"] },
+    { "cmd": "nav", "path": "progress", "wait": "body" },
+    { "cmd": "assert.text", "target": "body", "contains": "先答应再找补", "timeout": 20000 },
+    { "cmd": "assert.text", "target": "body", "contains": "行，那我今晚赶一赶" },
+    { "cmd": "assert.api", "route": "pattern", "method": "POST", "min": 1, "body": { "lang": "zh" } },
+    { "cmd": "assert.noErrors" }
+  ]
+}

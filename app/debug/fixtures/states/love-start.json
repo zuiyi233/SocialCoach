@@ -1,0 +1,23 @@
+{
+  "archive": {
+    "profile": {
+      "name": "调试者",
+      "bio": "AI 调试用的虚构档案，不对应任何真人。",
+      "goals": [
+        "communication"
+      ],
+      "contexts": [
+        "workplace"
+      ],
+      "lang": "zh",
+      "createdAt": 1790000000000
+    },
+    "settings": {
+      "tts": false,
+      "telemetry": false,
+      "theme": "light",
+      "voiceNoticeSeen": true
+    }
+  },
+  "keys": {}
+}

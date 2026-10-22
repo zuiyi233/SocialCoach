@@ -11,7 +11,11 @@
     "lint": "eslint",
     "test:dinner": "tsx --test tests/dinner/*.test.ts tests/dinner/*.test.tsx",
     "test:core": "tsx --test tests/core/*.test.ts && node scripts/check-core.mjs",
-    "check": "pnpm lint && next typegen && tsc --noEmit && tsx scripts/check-love-retrieval.ts && pnpm test:core && pnpm test:dinner"
+    "check": "pnpm lint && next typegen && tsc --noEmit && tsx scripts/check-love-retrieval.ts && pnpm test:core && pnpm test:dinner && pnpm test:debug",
+    "debug": "node scripts/debug.mjs",
+    "test:debug": "node --test tests/debug/*.test.mjs",
+    "debug:mcp": "node scripts/debug/mcp-server.mjs",
+    "debug:mcp:smoke": "node scripts/debug/mcp-smoke.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

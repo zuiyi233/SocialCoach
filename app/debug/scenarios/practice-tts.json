@@ -1,0 +1,70 @@
+{
+  "name": "practice-tts",
+  "description": "自然语音合成链路：开 tts（practice-active 默认关）→ 音频观测桩随 PAGE_HELPERS 注入 → speech 夹具回 audio/pcm → 客户端 WebAudio 出 buffer → 断言播放记录与无错误。",
+  "steps": [
+    {
+      "cmd": "state.load",
+      "fixture": "practice-active"
+    },
+    {
+      "cmd": "eval",
+      "expression": "(() => { const raw = JSON.parse(localStorage.getItem('socialcoach.v1')); if (!raw || !raw.state) return { patched: false }; raw.state.settings = Object.assign({}, raw.state.settings, { tts: true }); localStorage.setItem('socialcoach.v1', JSON.stringify(raw)); return { patched: true }; })()"
+    },
+    {
+      "cmd": "reload"
+    },
+    {
+      "cmd": "model.use",
+      "fixtures": [
+        "practice-flow",
+        "speech-flow"
+      ]
+    },
+    {
+      "cmd": "nav",
+      "path": "practice/debug-practice-active",
+      "wait": "[data-debug=\"practice.input\"]"
+    },
+    {
+      "cmd": "eval",
+      "expression": "(() => { window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); return new Promise((resolve) => setTimeout(() => resolve(true), 300)); })()"
+    },
+    {
+      "cmd": "audio.clear"
+    },
+    {
+      "cmd": "ui.type",
+      "target": "practice.input",
+      "text": "我今晚已经有安排了，可以先告诉我最急的是哪几页吗？"
+    },
+    {
+      "cmd": "ui.click",
+      "target": "practice.send"
+    },
+    {
+      "cmd": "assert.text",
+      "target": "practice.messages",
+      "contains": "明早九点前",
+      "timeout": 20000
+    },
+    {
+      "cmd": "assert.trace",
+      "kind": "model.replay",
+      "contains": "speech"
+    },
+    {
+      "cmd": "assert.audio",
+      "buffers": 1,
+      "sourcesStarted": 1
+    },
+    {
+      "cmd": "assert.api",
+      "route": "speech",
+      "method": "POST",
+      "min": 1
+    },
+    {
+      "cmd": "assert.noErrors"
+    }
+  ]
+}

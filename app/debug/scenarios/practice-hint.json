@@ -1,0 +1,16 @@
+{
+  "name": "practice-hint",
+  "description": "练习页提示按钮：点「提示」→ hint 夹具回放 → 教练气泡追加 → 断言请求体与文案。",
+  "steps": [
+    { "cmd": "state.load", "fixture": "practice-active" },
+    { "cmd": "model.use", "fixtures": ["practice-flow", "practice-side"] },
+    { "cmd": "nav", "path": "practice/debug-practice-active", "wait": "[data-debug=\"practice.input\"]" },
+    { "cmd": "assert.text", "target": "practice.messages", "contains": "今晚这份改稿" },
+    { "cmd": "assert.count", "target": "practice.message", "equals": 3 },
+    { "cmd": "ui.click", "target": "practice.hint" },
+    { "cmd": "assert.text", "target": "practice.messages", "contains": "守住你今晚的安排", "timeout": 15000 },
+    { "cmd": "assert.count", "target": "practice.message", "equals": 4 },
+    { "cmd": "assert.api", "route": "hint", "method": "POST", "min": 1, "body": { "lang": "zh" } },
+    { "cmd": "assert.noErrors" }
+  ]
+}

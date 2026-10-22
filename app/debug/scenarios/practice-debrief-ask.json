@@ -1,0 +1,23 @@
+{
+  "name": "practice-debrief-ask",
+  "description": "复盘页的追问与反思：结束练习 → assess 回放 → 向教练追问（debrief-chat）→ 回答反思题（reflect）→ 断言两条路由都被真调用。",
+  "steps": [
+    { "cmd": "state.load", "fixture": "practice-active" },
+    { "cmd": "model.use", "fixtures": ["practice-flow", "assess-flow", "practice-side"] },
+    { "cmd": "nav", "path": "practice/debug-practice-active", "wait": "[data-debug=\"practice.input\"]" },
+    { "cmd": "ui.click", "target": "practice.end" },
+    { "cmd": "ui.click", "text": "结束并复盘", "role": "button" },
+    { "cmd": "ui.click", "text": "看复盘", "role": "button", "timeout": 30000 },
+    { "cmd": "assert.text", "target": "body", "contains": "这次回应提出了限制", "timeout": 20000 },
+    { "cmd": "ui.wait", "target": "debrief.question", "timeout": 15000 },
+    { "cmd": "ui.type", "target": "debrief.question", "text": "为什么你觉得我这次算守住了边界？" },
+    { "cmd": "ui.click", "target": "debrief.send" },
+    { "cmd": "assert.text", "target": "body", "contains": "把拒绝和替代放在同一句里", "timeout": 20000 },
+    { "cmd": "assert.api", "route": "debrief-chat", "method": "POST", "min": 1, "body": { "lang": "zh" } },
+    { "cmd": "ui.type", "target": "reflect.answer", "text": "我担心她嘴上答应，明天还是把活推回来。" },
+    { "cmd": "ui.click", "target": "reflect.send" },
+    { "cmd": "assert.text", "target": "body", "contains": "先澄清范围", "timeout": 20000 },
+    { "cmd": "assert.api", "route": "reflect", "method": "POST", "min": 1, "body": { "lang": "zh" } },
+    { "cmd": "assert.noErrors" }
+  ]
+}

@@ -1,0 +1,54 @@
+# Debug harness regression gate: runs the AI debug CLI (app/scripts/debug.mjs)
+# against a cold next dev + headless Chrome, so the scenario suite and the
+# full-site smoke stay CI-verifiable instead of only working on a dev machine.
+#
+# 所有步骤都在 app/scripts/debug/ci-steps.sh 里，本地容器可以原样跑同一个脚本：
+#   docker run --rm -v "$PWD:/src:ro" node:22-bookworm bash -lc '…; bash scripts/debug/ci-steps.sh'
+# Studio scenarios (`pnpm debug studio ...`) need a Python backend + npm frontend build; not run in this job, separate job later.
+name: debug harness
+on:
+  pull_request:
+    paths: ['app/**', '.github/workflows/debug-harness.yml']
+  push:
+    branches: [main]
+    paths: ['app/**', '.github/workflows/debug-harness.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: debug-harness-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: app/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      # install → up --serve → doctor → suite → smoke → contracts，脚本内部带 trap 收尾。
+      - name: Harness
+        run: bash scripts/debug/ci-steps.sh
+        timeout-minutes: 18
+      - name: Tear down daemon
+        if: always()
+        run: pnpm debug down
+      - name: Upload failure bundles and logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-harness-failures
+          path: |
+            app/.debug/failures/**
+            app/.debug/*.log
+          if-no-files-found: ignore
+          retention-days: 7
